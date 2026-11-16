@@ -14,6 +14,12 @@ export const handle: Handle = async ({ event, resolve }) => {
 	event.locals.session = found?.session ?? null;
 
 	const path = event.url.pathname;
+
+	// API panelu (JSON): wymagamy nagłówka Origin z naszej domeny dla zapisów (CSRF poza formularzami).
+	if (path.startsWith('/panel/api/') && event.request.method !== 'GET') {
+		const origin = event.request.headers.get('origin');
+		if (origin !== event.url.origin) return new Response('Forbidden', { status: 403 });
+	}
 	if (path === '/panel' || path.startsWith('/panel/')) {
 		const { user, session } = event.locals;
 		if (!user || !session) {

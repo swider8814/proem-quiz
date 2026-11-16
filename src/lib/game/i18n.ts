@@ -1,0 +1,131 @@
+// Teksty ekranów gry (gracz + prowadzący) w języku quizu.
+export type Locale = 'pl' | 'en' | 'uk';
+
+const pl = {
+	enterPin: 'Wpisz PIN gry',
+	pinHint: 'PIN widać na ekranie prowadzącego',
+	go: 'Dalej',
+	join: 'Dołącz do gry',
+	yourNick: 'Twój nick',
+	teamName: 'Nazwa drużyny',
+	drawAgain: 'Wylosuj inny',
+	ownNick: 'albo wpisz własny',
+	youAreIn: 'Jesteś w grze!',
+	waitForStart: 'Patrz na ekran – zaraz zaczynamy.',
+	question: 'Pytanie',
+	of: 'z',
+	getReady: 'Przygotuj się…',
+	answerSent: 'Odpowiedź wysłana!',
+	waitOthers: 'Czekamy na pozostałych…',
+	correct: 'Dobrze!',
+	wrong: 'Niestety źle',
+	missed: 'Nie zdążyłeś',
+	points: 'pkt',
+	streak: 'Seria',
+	bonus: 'bonus',
+	place: 'miejsce',
+	youAre: 'Jesteś na',
+	behind: 'pkt za graczem przed Tobą',
+	leader: 'Prowadzisz!',
+	gameOver: 'Koniec gry!',
+	thanks: 'Dziękujemy za wspólną zabawę',
+	true: 'Prawda',
+	false: 'Fałsz',
+	typeAnswer: 'Wpisz odpowiedź',
+	send: 'Wyślij',
+	tapInOrder: 'Dotykaj w poprawnej kolejności',
+	reset: 'Od nowa',
+	lookAtScreen: 'Odpowiedzi widać na ekranie prowadzącego',
+	kicked: 'Prowadzący usunął Cię z gry.',
+	replaced: 'Gra została otwarta na innym urządzeniu.',
+	reconnecting: 'Łączenie…',
+	err: {
+		'no-game': 'Nie ma gry z takim PIN-em.',
+		'game-ended': 'Ta gra już się zakończyła.',
+		started: 'Gra już trwa – dołączanie jest zamknięte.',
+		removed: 'Zostałeś usunięty z tej gry.',
+		full: 'Gra jest pełna.',
+		'nick-short': 'Nick jest za krótki.',
+		'nick-blocked': 'Wybierz inny nick.',
+		'nick-taken': 'Ten nick jest już zajęty.',
+		'rate-limited': 'Za dużo prób. Odczekaj chwilę.',
+		closed: 'Czas minął.',
+		default: 'Coś poszło nie tak. Spróbuj ponownie.'
+	} as Record<string, string>,
+	// prowadzący
+	joinAt: 'Wejdź na',
+	andEnterPin: 'i wpisz PIN',
+	players: 'graczy',
+	teams: 'drużyn',
+	start: 'Zaczynamy',
+	soundTest: 'Test dźwięku',
+	waitingForPlayers: 'Czekamy na graczy…',
+	answers: 'odpowiedzi',
+	next: 'Dalej',
+	skip: 'Zakończ pytanie',
+	endGame: 'Zakończ grę',
+	leaderboard: 'Ranking',
+	podium: 'Zwycięzcy',
+	listen: 'Słuchaj uważnie…',
+	replay: 'Odtwórz ponownie',
+	fullscreen: 'Pełny ekran',
+	removePlayer: 'Usuń gracza',
+	randomNick: 'Losowy nick',
+	correctAnswer: 'Poprawna odpowiedź',
+	accepted: 'Akceptowane odpowiedzi',
+	correctOrder: 'Poprawna kolejność',
+	correctCount: 'poprawnie',
+	wrongCount: 'źle'
+};
+
+type Dict = typeof pl;
+
+const en: Dict = {
+	...pl,
+	enterPin: 'Enter game PIN', pinHint: 'The PIN is on the host’s screen', go: 'Next', join: 'Join game', yourNick: 'Your nickname',
+	teamName: 'Team name', drawAgain: 'Draw another', ownNick: 'or type your own', youAreIn: 'You’re in!', waitForStart: 'Watch the screen – we’re about to start.',
+	question: 'Question', of: 'of', getReady: 'Get ready…', answerSent: 'Answer sent!', waitOthers: 'Waiting for the others…', correct: 'Correct!',
+	wrong: 'Not quite', missed: 'Time’s up', points: 'pts', streak: 'Streak', bonus: 'bonus', place: 'place', youAre: 'You are in',
+	behind: 'pts behind the player ahead', leader: 'You’re in the lead!', gameOver: 'Game over!', thanks: 'Thanks for playing',
+	true: 'True', false: 'False', typeAnswer: 'Type your answer', send: 'Send', tapInOrder: 'Tap in the correct order', reset: 'Reset',
+	lookAtScreen: 'Answers are on the host’s screen', kicked: 'The host removed you from the game.', replaced: 'The game was opened on another device.',
+	reconnecting: 'Connecting…',
+	err: {
+		'no-game': 'No game with that PIN.', 'game-ended': 'This game has ended.', started: 'The game has started – joining is closed.',
+		removed: 'You were removed from this game.', full: 'The game is full.', 'nick-short': 'Nickname is too short.',
+		'nick-blocked': 'Please choose another nickname.', 'nick-taken': 'That nickname is taken.', 'rate-limited': 'Too many attempts. Please wait.',
+		closed: 'Time’s up.', default: 'Something went wrong. Please try again.'
+	},
+	joinAt: 'Go to', andEnterPin: 'and enter PIN', players: 'players', teams: 'teams', start: 'Start', soundTest: 'Sound test',
+	waitingForPlayers: 'Waiting for players…', answers: 'answers', next: 'Next', skip: 'End question', endGame: 'End game',
+	leaderboard: 'Leaderboard', podium: 'Winners', listen: 'Listen carefully…', replay: 'Play again', fullscreen: 'Full screen',
+	removePlayer: 'Remove player', randomNick: 'Random nickname', correctAnswer: 'Correct answer', accepted: 'Accepted answers',
+	correctOrder: 'Correct order', correctCount: 'correct', wrongCount: 'wrong'
+};
+
+const uk: Dict = {
+	...pl,
+	enterPin: 'Введіть PIN гри', pinHint: 'PIN видно на екрані ведучого', go: 'Далі', join: 'Приєднатися', yourNick: 'Ваш нік',
+	teamName: 'Назва команди', drawAgain: 'Інший нік', ownNick: 'або введіть свій', youAreIn: 'Ви в грі!', waitForStart: 'Дивіться на екран – зараз почнемо.',
+	question: 'Питання', of: 'з', getReady: 'Приготуйтеся…', answerSent: 'Відповідь надіслано!', waitOthers: 'Чекаємо на інших…', correct: 'Правильно!',
+	wrong: 'На жаль, ні', missed: 'Час минув', points: 'балів', streak: 'Серія', bonus: 'бонус', place: 'місце', youAre: 'Ви на',
+	behind: 'балів до гравця попереду', leader: 'Ви лідер!', gameOver: 'Кінець гри!', thanks: 'Дякуємо за гру',
+	true: 'Правда', false: 'Неправда', typeAnswer: 'Введіть відповідь', send: 'Надіслати', tapInOrder: 'Торкайтеся у правильному порядку', reset: 'Спочатку',
+	lookAtScreen: 'Відповіді на екрані ведучого', kicked: 'Ведучий видалив вас із гри.', replaced: 'Гру відкрито на іншому пристрої.',
+	reconnecting: 'З’єднання…',
+	err: {
+		'no-game': 'Немає гри з таким PIN.', 'game-ended': 'Ця гра вже завершилася.', started: 'Гра вже йде – приєднання закрито.',
+		removed: 'Вас видалено з цієї гри.', full: 'Гра заповнена.', 'nick-short': 'Нік закороткий.',
+		'nick-blocked': 'Оберіть інший нік.', 'nick-taken': 'Цей нік уже зайнятий.', 'rate-limited': 'Забагато спроб. Зачекайте.',
+		closed: 'Час минув.', default: 'Щось пішло не так. Спробуйте ще раз.'
+	},
+	joinAt: 'Зайдіть на', andEnterPin: 'і введіть PIN', players: 'гравців', teams: 'команд', start: 'Починаємо', soundTest: 'Тест звуку',
+	waitingForPlayers: 'Чекаємо на гравців…', answers: 'відповідей', next: 'Далі', skip: 'Завершити питання', endGame: 'Завершити гру',
+	leaderboard: 'Рейтинг', podium: 'Переможці', listen: 'Слухайте уважно…', replay: 'Відтворити знову', fullscreen: 'Повний екран',
+	removePlayer: 'Видалити гравця', randomNick: 'Випадковий нік', correctAnswer: 'Правильна відповідь', accepted: 'Прийняті відповіді',
+	correctOrder: 'Правильний порядок', correctCount: 'правильно', wrongCount: 'неправильно'
+};
+
+const dicts: Record<Locale, Dict> = { pl, en, uk };
+export const t = (locale: string | undefined) => dicts[(locale as Locale) ?? 'pl'] ?? pl;
+export const errText = (locale: string | undefined, code: string) => t(locale).err[code] ?? t(locale).err.default;

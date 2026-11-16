@@ -18,6 +18,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg curl \
 	&& rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production \
+	BODY_SIZE_LIMIT=36M \
 	PORT=3000 \
 	DATA_DIR=/data
 ARG APP_VERSION=dev

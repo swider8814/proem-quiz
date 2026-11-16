@@ -69,10 +69,15 @@ export type ThemeColors = {
 	answers: [string, string, string, string];
 };
 
+export const THEME_STYLES = ['poster', 'vivid', 'calm'] as const;
+export type ThemeStyle = (typeof THEME_STYLES)[number];
+
 export const themes = sqliteTable('themes', {
 	id: text('id').primaryKey(),
 	slug: text('slug').notNull().unique(),
 	name: text('name').notNull(),
+	// Styl = układ i charakter ekranów (C plakatowy / A kolorowy / B jasny). Kolory/logo nadpisują go.
+	style: text('style', { enum: THEME_STYLES }).notNull().default('poster'),
 	logoLight: text('logo_light'), // media id
 	logoDark: text('logo_dark'),
 	colors: text('colors', { mode: 'json' }).$type<ThemeColors>().notNull(),
@@ -91,6 +96,17 @@ export type QuizSettings = {
 	streakBonus: boolean;
 	nicknameMode: 'random-or-custom' | 'random-only';
 	teamMode: boolean;
+	lateJoin: boolean; // dołączanie po starcie gry
+	phoneAnswerText: boolean; // tekst odpowiedzi na telefonie (nie tylko kształty)
+};
+
+export const DEFAULT_QUIZ_SETTINGS: QuizSettings = {
+	defaultTimeLimit: 20,
+	streakBonus: true,
+	nicknameMode: 'random-or-custom',
+	teamMode: false,
+	lateJoin: true,
+	phoneAnswerText: true
 };
 
 export const quizzes = sqliteTable(
@@ -181,4 +197,11 @@ export const blockedWords = sqliteTable('blocked_words', {
 	word: text('word').primaryKey(),
 	addedBy: text('added_by').references(() => users.id),
 	createdAt: createdAt()
+});
+
+// ── Ustawienia aplikacji (klucz → wartość) ──────────────────────────────
+
+export const appSettings = sqliteTable('app_settings', {
+	key: text('key').primaryKey(), // np. 'org_name', 'org_logo_media_id'
+	value: text('value').notNull()
 });

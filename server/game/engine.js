@@ -38,7 +38,7 @@ function shuffle(arr) {
  * }} QuestionSnap
  * @typedef {{
  *   quizId: string, title: string, locale: 'pl'|'en'|'uk',
- *   settings: { streakBonus: boolean, nicknameMode: 'random-or-custom'|'random-only', teamMode: boolean },
+ *   settings: { streakBonus: boolean, nicknameMode: 'random-or-custom'|'random-only', teamMode: boolean, lateJoin: boolean, phoneAnswerText: boolean },
  *   theme: any, blockedWords: string[], questions: QuestionSnap[]
  * }} QuizSnapshot
  */
@@ -92,6 +92,7 @@ export class Game {
 	/** @returns {{ error: string } | { player: any, token: string }} */
 	addPlayer({ nick, random, deviceId }) {
 		if (this.state === 'ended') return { error: 'game-ended' };
+		if (this.state !== 'lobby' && !this.quiz.settings.lateJoin) return { error: 'started' };
 		if (deviceId && this.bannedDevices.has(deviceId)) return { error: 'removed' };
 		const active = [...this.players.values()].filter((p) => !p.kicked).length;
 		if (active >= MAX_PLAYERS) return { error: 'full' };
@@ -321,7 +322,9 @@ export class Game {
 			promptTranslation: q.promptTranslation ?? null
 		};
 		const d = q.data;
-		if (q.type === 'choice' || q.type === 'audio') base.answers = d.answers;
+		// Tekst odpowiedzi na telefonie – zależnie od ustawienia quizu (prowadzący zawsze widzi).
+		if ((q.type === 'choice' || q.type === 'audio') && (forHost || this.quiz.settings.phoneAnswerText)) base.answers = d.answers;
+		if ((q.type === 'choice' || q.type === 'audio') && !base.answers) base.answerCount = d.answers.length;
 		if (q.type === 'order') base.items = this.orderMaps.get(this.index).shuffled;
 		if (forHost) {
 			base.imageUrl = q.imageUrl ?? null;

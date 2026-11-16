@@ -20,7 +20,7 @@ const nextState = (s, pred = () => true) => new Promise((r) => {
 
 const quiz = {
 	quizId: 'q1', title: 'Test', locale: 'pl', theme: {}, blockedWords: ['zakazane'],
-	settings: { streakBonus: true, nicknameMode: 'random-or-custom', teamMode: false },
+	settings: { streakBonus: true, nicknameMode: 'random-or-custom', teamMode: false, lateJoin: true, phoneAnswerText: true },
 	questions: [
 		{ id: 'a', type: 'choice', prompt: '2+2?', timeLimit: 5, multiplier: 1, data: { answers: ['3', '4', '5', '22'], correct: [1] } },
 		{ id: 'b', type: 'audio', prompt: 'Jaka to kolęda?', timeLimit: 5, multiplier: 2, data: { answers: ['Cicha noc', 'Inna'], correct: [0], clipUrl: '/media/x.mp3', loop: false } },
