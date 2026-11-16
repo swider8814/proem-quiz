@@ -27,7 +27,7 @@ KEY="$SSH_DIR/id_ed25519"
 KH="$SSH_DIR/known_hosts"
 
 umask 077
-mkdir -p "$SSH_DIR" "$DEST/backup" "$DEST/media"
+mkdir -p "$SSH_DIR" "$DEST/backup"
 chmod 700 "$SSH_DIR"
 
 if [[ "$SERVER_FINGERPRINT" != SHA256:* || ${#SERVER_FINGERPRINT} -lt 40 ]]; then
@@ -65,15 +65,14 @@ fi
 [[ -f "$KEY" && -s "$KH" ]] || { echo "Najpierw uruchom: bash $0 init"; exit 1; }
 
 SSH="ssh -i $KEY -p $SERVER_PORT -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$KH -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=30"
-# Serwer udostępnia tylko odczyt katalogu danych quizu. Pobieramy kopie bazy i pliki (bez działającej bazy).
-RSYNC=(rsync -rt --delete --timeout=600 --chmod=Du=rwx,Dgo=,Fu=rw,Fgo= -e "$SSH")
+# Serwer udostępnia tylko odczyt katalogu danych quizu. Pobieramy wyłącznie katalog kopii: bazy i migawki
+# plików z tej samej chwili (twarde dowiązania – -H zachowuje je, więc pliki zajmują miejsce raz).
+RSYNC=(rsync -rtH --delete --timeout=600 --chmod=Du=rwx,Dgo=,Fu=rw,Fgo= -e "$SSH")
 
-echo "$(date -Iseconds) Pobieranie kopii bazy…"
+echo "$(date -Iseconds) Pobieranie kopii (baza + pliki)…"
 "${RSYNC[@]}" "$USER_ON_SERVER@$SERVER_HOST:backup/" "$DEST/backup/"
-echo "$(date -Iseconds) Pobieranie plików audio i obrazów…"
-"${RSYNC[@]}" "$USER_ON_SERVER@$SERVER_HOST:media/" "$DEST/media/"
 
-# Kontrola: najnowsza kopia bazy jest świeża i wygląda na bazę SQLite.
+# Kontrola: najnowsza kopia bazy jest świeża, wygląda na bazę SQLite i ma swoją migawkę plików.
 newest="$(ls -1t "$DEST"/backup/quiz-*.db 2>/dev/null | head -1 || true)"
 if [[ -z "$newest" ]]; then
 	echo "BŁĄD: brak kopii bazy na serwerze."
@@ -88,4 +87,9 @@ if [[ "$(head -c 15 "$newest")" != "SQLite format 3" ]]; then
 	echo "BŁĄD: $newest nie wygląda na bazę danych."
 	exit 1
 fi
-echo "$(date -Iseconds) OK: $(basename "$newest") (${age_h} h), plików: $(find "$DEST/media" -type f | wc -l)"
+snap="$DEST/backup/$(basename "$newest" .db | sed 's/^quiz-/media-/')"
+if [[ ! -d "$snap" ]]; then
+	echo "BŁĄD: brak migawki plików $snap dla $(basename "$newest")."
+	exit 1
+fi
+echo "$(date -Iseconds) OK: $(basename "$newest") (${age_h} h), plików w migawce: $(find "$snap" -type f | wc -l)"

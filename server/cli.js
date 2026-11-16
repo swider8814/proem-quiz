@@ -72,7 +72,8 @@ function demoMelody(ownerId) {
 	const file = `${mediaId}.mp3`;
 	fs.writeFileSync(tmp, wav);
 	try {
-		execFileSync('ffmpeg', ['-nostdin', '-hide_banner', '-loglevel', 'error', '-y', '-i', tmp, '-codec:a', 'libmp3lame', '-b:a', '96k', path.join(mediaDir, file)]);
+		execFileSync('ffmpeg', ['-nostdin', '-hide_banner', '-loglevel', 'error', '-y', '-i', tmp, '-codec:a', 'libmp3lame', '-b:a', '96k', '-f', 'mp3', path.join(mediaDir, `${file}.part`)]);
+		fs.renameSync(path.join(mediaDir, `${file}.part`), path.join(mediaDir, file));
 	} finally {
 		fs.rmSync(tmp, { force: true });
 	}
@@ -83,11 +84,15 @@ function demoMelody(ownerId) {
 	// Fragment 0–12 s jako osobny plik – tak jak robi to zapis w edytorze (prowadzący odtwarza tylko klip).
 	const clipId = id('med');
 	const clipFile = `${clipId}.mp3`;
-	execFileSync('ffmpeg', ['-nostdin', '-hide_banner', '-loglevel', 'error', '-y', '-ss', '0', '-t', String(DEMO_CLIP_MS / 1000), '-i', path.join(mediaDir, file), '-codec:a', 'libmp3lame', '-b:a', '96k', path.join(mediaDir, clipFile)]);
+	execFileSync('ffmpeg', ['-nostdin', '-hide_banner', '-loglevel', 'error', '-y', '-ss', '0', '-t', String(DEMO_CLIP_MS / 1000), '-i', path.join(mediaDir, file), '-codec:a', 'libmp3lame', '-b:a', '96k', '-f', 'mp3', path.join(mediaDir, `${clipFile}.part`)]);
+	fs.renameSync(path.join(mediaDir, `${clipFile}.part`), path.join(mediaDir, clipFile));
 	fs.chmodSync(path.join(mediaDir, clipFile), 0o640);
 	insert.run(clipId, ownerId, 'audio', 'Cicha noc – fragment.mp3', clipFile, DEMO_CLIP_MS, fs.statSync(path.join(mediaDir, clipFile)).size);
 	return { id: mediaId, clipId, durationMs };
 }
+
+const STAMPED = /^quiz-\d{4}-\d{2}-\d{2}_\d{4}\.db$/;
+const MEDIA_FILE = /^med_[A-Za-z0-9_-]{10,20}\.(mp3|png|jpe?g|webp|gif)$/;
 
 /** Katalog kopii: DATA_DIR/backup – zwykły katalog (nie dowiązanie). */
 function backupDir() {
@@ -180,36 +185,67 @@ switch (cmd) {
 		break;
 	}
 	case 'backup': {
-		// Spójna kopia działającej bazy (SQLite online backup) do DATA_DIR/backup, bez sesji logowania,
-		// plus usunięcie kopii starszych niż N dni. Wszystko jako użytkownik aplikacji – root na serwerze
-		// niczego nie zapisuje ani nie kasuje w katalogu danych (który kontroluje aplikacja).
+		// Spójna kopia: baza (SQLite online backup, bez sesji) + migawka plików z tej samej chwili
+		// (twarde dowiązania – bez dodatkowego miejsca), w DATA_DIR/backup. Plus usunięcie kopii starszych
+		// niż N dni. Wszystko jako użytkownik aplikacji – root na serwerze niczego tu nie zapisuje ani nie kasuje.
 		const name = emailArg;
-		if (!name || !/^quiz-\d{4}-\d{2}-\d{2}_\d{4}\.db$/.test(name)) throw new Error('Użycie: backup quiz-RRRR-MM-DD_GGMM.db [dni-przechowywania]');
+		if (!name || !STAMPED.test(name)) throw new Error('Użycie: backup quiz-RRRR-MM-DD_GGMM.db [dni-przechowywania]');
 		const keepDays = Math.min(Math.max(Number(rest[0] ?? 7) || 7, 1), 365);
 		const dir = backupDir();
 		const dest = path.join(dir, name);
+		const snapDir = path.join(dir, name.replace(/^quiz-/, 'media-').replace(/\.db$/, ''));
+		fs.mkdirSync(snapDir, { recursive: true, mode: 0o750 });
+		if (!fs.lstatSync(snapDir).isDirectory()) throw new Error('Katalog migawki plików nie jest katalogiem');
+		const mediaSrc = path.join(DATA_DIR, 'media');
+		// Pliki są niezmienne (publikowane atomowo pod unikalną nazwą), więc dowiązanie = stan pliku na zawsze.
+		// Dowiązujemy przed i po kopii bazy: każdy plik, na który wskazuje baza, trafi do migawki.
+		const linkAll = () => {
+			if (!fs.existsSync(mediaSrc)) return;
+			for (const f of fs.readdirSync(mediaSrc)) {
+				if (!MEDIA_FILE.test(f)) continue;
+				const src = path.join(mediaSrc, f);
+				const dst = path.join(snapDir, f);
+				if (!fs.lstatSync(src).isFile() || fs.existsSync(dst)) continue;
+				try {
+					fs.linkSync(src, dst);
+				} catch (e) {
+					if (e.code !== 'ENOENT') throw e; // plik usunięty w międzyczasie – nie był już potrzebny
+				}
+			}
+		};
+		linkAll();
 		const tmp = `${dest}.tmp`;
 		fs.rmSync(tmp, { force: true });
 		await db.backup(tmp);
+		linkAll();
 		const copy = new Database(tmp);
+		let missing = 0;
 		try {
 			copy.exec('DELETE FROM sessions;');
 			const check = copy.pragma('integrity_check', { simple: true });
 			if (check !== 'ok') throw new Error(`Kopia uszkodzona: ${check}`);
+			for (const r of copy.prepare('SELECT file FROM media').all()) {
+				if (!fs.existsSync(path.join(snapDir, path.basename(r.file)))) missing++;
+			}
 			copy.exec('VACUUM;');
 		} finally {
 			copy.close();
 		}
 		fs.chmodSync(tmp, 0o640);
 		fs.renameSync(tmp, dest);
-		// Rotacja: tylko zwykłe pliki kopii (dowiązania i inne pliki pomijane).
+		if (missing) console.error(`Uwaga: ${missing} plików z bazy nie ma na dysku (brakowało ich już przed kopią).`);
+		// Rotacja po dacie w nazwie: tylko zwykłe pliki kopii i katalogi migawek (dowiązania pomijane).
 		const cutoff = Date.now() - keepDays * 24 * 3600 * 1000;
 		for (const f of fs.readdirSync(dir)) {
-			if (!/^quiz-.*\.db$/.test(f) || f === name) continue;
+			const m = f.match(/^(?:quiz|media)-(\d{4})-(\d{2})-(\d{2})_(\d{2})(\d{2})(?:\.db)?$/);
+			if (!m || f === name || path.join(dir, f) === snapDir) continue;
+			const when = new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]).getTime();
+			if (!(when < cutoff)) continue;
 			const st = fs.lstatSync(path.join(dir, f));
-			if (st.isFile() && st.mtimeMs < cutoff) fs.rmSync(path.join(dir, f));
+			if (st.isFile() && f.endsWith('.db')) fs.rmSync(path.join(dir, f));
+			else if (st.isDirectory() && !f.endsWith('.db')) fs.rmSync(path.join(dir, f), { recursive: true });
 		}
-		console.log(JSON.stringify({ ok: true, file: name, bytes: fs.statSync(dest).size }));
+		console.log(JSON.stringify({ ok: true, file: name, media: path.basename(snapDir), bytes: fs.statSync(dest).size, missingMedia: missing }));
 		break;
 	}
 	case 'backup-status': {
@@ -219,7 +255,7 @@ switch (cmd) {
 		const dir = backupDir();
 		let bytes = 0;
 		let snapshotFile = '';
-		if (file && /^quiz-\d{4}-\d{2}-\d{2}_\d{4}\.db$/.test(file)) {
+		if (file && STAMPED.test(file)) {
 			const st = fs.lstatSync(path.join(dir, file), { throwIfNoEntry: false });
 			if (st?.isFile()) {
 				bytes = st.size;

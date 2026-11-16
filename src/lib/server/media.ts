@@ -126,6 +126,9 @@ export async function saveUpload(ownerId: string, originalName: string, data: Ui
 	const file = type.kind === 'audio' ? `${id}.mp3` : `${id}.${type.ext}`;
 	const out = path.join(mediaDir, file);
 	const tmp = path.join(mediaDir, `${id}.upload`);
+	// Plik wynikowy powstaje pod nazwą tymczasową i jest publikowany atomowo (rename) – kopie zapasowe
+	// i rclone nigdy nie zobaczą niedokończonego pliku pod docelową nazwą.
+	const part = `${out}.part`;
 	let durationMs: number | null = null;
 	let ok = false;
 	try {
@@ -137,17 +140,19 @@ export async function saveUpload(ownerId: string, originalName: string, data: Ui
 				if (inDur > MAX_AUDIO_MS) throw new MediaError('audioLong');
 				try {
 					await run('ffmpeg', ['-nostdin', '-hide_banner', '-loglevel', 'error', '-y', '-i', tmp, '-t', String(MAX_AUDIO_MS / 1000),
-						'-vn', '-map_metadata', '-1', '-ac', '2', '-ar', '44100', '-b:a', '160k', '-fs', String(MAX_OUTPUT_BYTES), '-f', 'mp3', out], 120_000);
+						'-vn', '-map_metadata', '-1', '-ac', '2', '-ar', '44100', '-b:a', '160k', '-fs', String(MAX_OUTPUT_BYTES), '-f', 'mp3', part], 120_000);
 				} catch {
 					throw new MediaError('audioProcess');
 				}
-				return probeDuration(out);
+				return probeDuration(part);
 			});
 		} else {
-			await fs.writeFile(out, data, { mode: 0o640 });
+			await fs.writeFile(part, data, { mode: 0o640 });
 		}
-		const size = await sizeOf(out);
+		const size = await sizeOf(part);
 		if (size === 0 || size >= MAX_OUTPUT_BYTES) throw new MediaError('outputBad');
+		await fs.chmod(part, 0o640);
+		await fs.rename(part, out);
 		const row = db
 			.insert(schema.media)
 			.values({
@@ -165,6 +170,7 @@ export async function saveUpload(ownerId: string, originalName: string, data: Ui
 		return row;
 	} finally {
 		await fs.rm(tmp, { force: true });
+		await fs.rm(part, { force: true });
 		if (!ok) await fs.rm(out, { force: true });
 	}
 }
@@ -180,14 +186,17 @@ export async function cutClip(ownerId: string, sourceId: string, startMs: number
 	const id = newId('med');
 	const file = `${id}.mp3`;
 	const out = path.join(mediaDir, file);
+	const part = `${out}.part`; // publikacja atomowa, jak w saveUpload
 	let ok = false;
 	try {
 		await inQueue(() =>
 			run('ffmpeg', ['-nostdin', '-hide_banner', '-loglevel', 'error', '-y', '-ss', String(start), '-t', String(dur), '-i', path.join(mediaDir, path.basename(src.file)),
-				'-af', `afade=t=in:st=0:d=${fade},afade=t=out:st=${(dur - fade).toFixed(3)}:d=${fade}`, '-b:a', '160k', '-fs', String(4 * 1024 * 1024), '-f', 'mp3', out], 60_000)
+				'-af', `afade=t=in:st=0:d=${fade},afade=t=out:st=${(dur - fade).toFixed(3)}:d=${fade}`, '-b:a', '160k', '-fs', String(4 * 1024 * 1024), '-f', 'mp3', part], 60_000)
 		);
-		const size = await sizeOf(out);
+		const size = await sizeOf(part);
 		if (size === 0) return null;
+		await fs.chmod(part, 0o640);
+		await fs.rename(part, out);
 		db.insert(schema.media)
 			.values({ id, ownerId, kind: 'audio', originalName: `${src.originalName} (fragment)`, file, durationMs: Math.round(dur * 1000), sizeBytes: size })
 			.run();
@@ -197,6 +206,7 @@ export async function cutClip(ownerId: string, sourceId: string, startMs: number
 		if (e instanceof MediaError) throw e;
 		return null;
 	} finally {
+		await fs.rm(part, { force: true });
 		if (!ok) await fs.rm(out, { force: true });
 	}
 }

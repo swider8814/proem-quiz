@@ -41,6 +41,7 @@ const runBackup = (env = {}) =>
 	});
 const status = () => JSON.parse(fs.readFileSync(path.join(data, 'backup', 'status.json'), 'utf8'));
 const snapshots = () => fs.readdirSync(path.join(data, 'backup')).filter((f) => /^quiz-.*\.db$/.test(f)).sort();
+const mediaSnap = (db) => path.join(data, 'backup', db.replace(/^quiz-/, 'media-').replace(/\.db$/, ''));
 
 const srv = await startServer({ DATA_DIR: data });
 let restored;
@@ -73,6 +74,10 @@ try {
 	const r1 = runBackup({ RCLONE: path.join(bin, 'rclone') });
 	ok(r1.status === 0, `backup.sh kończy się sukcesem (${r1.stderr.trim() || r1.stdout.trim().split('\n').pop()})`);
 	ok(snapshots().length === 1, 'jest kopia bazy');
+	// Migawka plików z tej samej chwili (twarde dowiązania) – review Codexa #5
+	const snapDir = mediaSnap(snapshots()[0]);
+	const liveFile = fs.readdirSync(path.join(data, 'media')).find((f) => f.startsWith(media.id));
+	ok(fs.existsSync(path.join(snapDir, liveFile)) && fs.statSync(path.join(snapDir, liveFile)).ino === fs.statSync(path.join(data, 'media', liveFile)).ino, 'plik w migawce to twarde dowiązanie (bez dodatkowego miejsca)');
 	const st1 = status();
 	ok(st1.snapshotOk === true && st1.drive === 'off' && st1.snapshotBytes > 0, 'status: kopia OK, Dysk wyłączony');
 	ok(!fs.existsSync(path.join(app, 'rclone.log')), 'bez konfiguracji Dysku rclone nie jest uruchamiany');
@@ -89,6 +94,10 @@ try {
 	fs.writeFileSync(path.join(app, 'backup-config', 'rclone.conf'), '# atrapa\n');
 	// stara kopia (10 dni) do rotacji + dowiązanie, którego rotacja nie może ruszyć
 	const old = path.join(data, 'backup', 'quiz-2000-01-01_0230.db');
+	const oldSnap = path.join(data, 'backup', 'media-2000-01-01_0230');
+	fs.mkdirSync(oldSnap);
+	fs.writeFileSync(path.join(oldSnap, 'med_staryplik12345.mp3'), 'x');
+	fs.writeFileSync(path.join(data, 'media', 'med_wtrakcie12345.mp3.part'), 'niedokończony');
 	fs.writeFileSync(old, 'x');
 	fs.utimesSync(old, new Date(Date.now() - 10 * 864e5), new Date(Date.now() - 10 * 864e5));
 	const outside = path.join(app, 'nie-usuwac.txt');
@@ -99,9 +108,11 @@ try {
 	const r2 = runBackup({ RCLONE: path.join(bin, 'rclone'), BACKUP_STAMP: '2026-12-16_0800' });
 	ok(r2.status === 0, 'backup.sh z Dyskiem: sukces');
 	ok(!fs.existsSync(old), 'kopie starsze niż 7 dni usunięte z serwera');
+	ok(!fs.existsSync(oldSnap), 'migawka plików starsza niż 7 dni usunięta');
+	ok(!fs.readdirSync(mediaSnap('quiz-2026-12-16_0800.db')).some((f) => f.endsWith('.part')), 'niedokończone pliki (.part) nie trafiają do migawki');
 	ok(fs.existsSync(outside) && fs.lstatSync(path.join(data, 'backup', 'quiz-1999-01-01_0000.db')).isSymbolicLink(), 'rotacja nie podąża za dowiązaniami');
 	const calls = fs.readFileSync(path.join(app, 'rclone.log'), 'utf8');
-	ok(/rclone copy \S+\/media gcrypt:media --immutable/.test(calls), 'pliki audio/obrazy: tylko nowe, bez nadpisywania (--immutable)');
+	ok(/rclone copy \S+\/backup\/media-2026-12-16_0800 gcrypt:media --immutable/.test(calls), 'pliki audio/obrazy z migawki tej samej chwili, tylko nowe (--immutable)');
 	ok(/rclone copy \S+\/backup\/quiz-[\d_-]+\.db gcrypt:db/.test(calls), 'kopia bazy wysłana');
 	ok(/rclone delete gcrypt:db --min-age 90d --include quiz-\*\.db/.test(calls), 'na Dysku kopie bazy trzymane 90 dni');
 	ok(!/gcrypt:media.*(delete|sync|purge)|(delete|sync|purge).*gcrypt:media/.test(calls), 'pliki na Dysku nigdy nie są kasowane ani synchronizowane z usuwaniem');
@@ -118,7 +129,11 @@ try {
 	// ── odtworzenie: nowy katalog danych z kopii bazy + pliki ──
 	const fresh = fs.mkdtempSync(path.join(os.tmpdir(), 'pq-restore-'));
 	fs.copyFileSync(path.join(data, 'backup', snapshots().at(-1)), path.join(fresh, 'quiz.db'));
-	fs.cpSync(path.join(data, 'media'), path.join(fresh, 'media'), { recursive: true });
+	// Pliki z migawki (nie z bieżącego katalogu) – nawet po usunięciu oryginału.
+	const lastSnap = mediaSnap(snapshots().at(-1));
+	fs.rmSync(path.join(data, 'media', liveFile)); // jak sprzątanie nieużywanych plików po usunięciu quizu
+	ok(fs.existsSync(path.join(lastSnap, liveFile)), 'plik zostaje w migawce po usunięciu z katalogu aplikacji');
+	fs.cpSync(lastSnap, path.join(fresh, 'media'), { recursive: true });
 	srv.stop();
 	restored = await startServer({ DATA_DIR: fresh });
 	const b = new Browser(restored.base);

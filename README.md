@@ -114,7 +114,8 @@ Na Mikrusie działają też inne usługi (np. app.proem.pl), dlatego quiz jest o
 
 ## Kopie zapasowe (NAS + Dysk współdzielony Google)
 
-Co noc o 02:30 serwer robi spójną kopię bazy (`/srv/proem-quiz/data/backup`, 7 dni na serwerze) i wysyła
+Co noc o 02:30 serwer robi spójną kopię bazy i migawkę plików z tej samej chwili (`/srv/proem-quiz/data/backup`,
+7 dni na serwerze; pliki jako twarde dowiązania, bez dodatkowego miejsca) i wysyła
 **zaszyfrowaną** kopię bazy oraz nowe pliki audio/obrazy na Dysk współdzielony Google (kopie bazy: 90 dni,
 potem kosz Dysku jeszcze 30 dni). Rano **NAS sam pobiera** kopię przez SSH (nic nie otwieracie u siebie),
 a migawki Btrfs na NAS-ie trzymają historię 90 dni. Stan ostatniej kopii: panel → Ustawienia.
@@ -164,7 +165,7 @@ cd /srv/proem-quiz && docker compose stop app
 cp data/quiz.db data/quiz.db.przed-odtworzeniem
 cp <kopia>/backup/quiz-RRRR-MM-DD_GGMM.db data/quiz.db   # plik z NAS-a (np. scp z komputera)
 rm -f data/quiz.db-wal data/quiz.db-shm
-rsync -a <kopia>/media/ data/media/                        # brakujące pliki audio/obrazy
+rsync -a <kopia>/backup/media-RRRR-MM-DD_GGMM/ data/media/  # pliki audio/obrazy z tej samej chwili
 chown -R 10471:10471 data && docker compose up -d
 ```
 Z Dysku Google (gdy NAS niedostępny): z `rclone.conf` i dwóch haseł –

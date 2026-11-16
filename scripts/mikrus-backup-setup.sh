@@ -37,7 +37,7 @@ write_backup() {
 	cat >"$1" <<'BACKUP_EOF'
 #!/usr/bin/env bash
 # Proem Quiz – kopia zapasowa. Cron co noc o 02:30; ręcznie przed wydarzeniem:  bash /srv/proem-quiz/backup.sh
-#  - spójna kopia bazy do data/backup/ (7 dni na serwerze; NAS pobiera ją rano przez rsync),
+#  - spójna kopia bazy + migawka plików z tej samej chwili do data/backup/ (7 dni; NAS pobiera rano),
 #  - jeśli skonfigurowano: szyfrowana kopia na Dysk współdzielony Google (90 dni).
 # Stan ostatniej kopii widać w panelu: Ustawienia → Kopie zapasowe.
 set -euo pipefail
@@ -85,8 +85,8 @@ drive=off
 if [[ -f backup-config/rclone.conf ]]; then
 	drive=ok
 	log "Wysyłanie na Dysk Google (szyfrowane)"
-	# Pliki audio/obrazy nie zmieniają się – kopiujemy tylko nowe (--immutable chroni przed nadpisaniem).
-	rc copy "$D/media" gcrypt:media --immutable --transfers 2 --log-level NOTICE || drive=failed
+	# Pliki z migawki tej samej chwili co baza; są niezmienne – kopiujemy tylko nowe (--immutable chroni przed nadpisaniem).
+	rc copy "$D/backup/media-$STAMP" gcrypt:media --immutable --transfers 2 --log-level NOTICE || drive=failed
 	rc copy "$D/$DB" gcrypt:db --log-level NOTICE || drive=failed
 	# Kopie bazy starsze niż 90 dni → kosz Dysku (tam jeszcze 30 dni na odzyskanie).
 	if [[ "$drive" == ok ]]; then
