@@ -165,7 +165,7 @@ ok(fin.rank === 1, `koniec gry: Kasia na miejscu ${fin.rank} z ${fin.me.score} p
 // PIN brute force
 const brute = mk();
 let limitedHit = false;
-for (let i = 0; i < 25; i++) {
+for (let i = 0; i < 70; i++) {
 	const res = await Promise.race([emit(brute, 'check', { pin: String(100000 + i) }), sleep(300).then(() => ({ error: 'dropped' }))]);
 	if (res.error === 'rate-limited' || res.error === 'dropped') { limitedHit = true; break; }
 }

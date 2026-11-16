@@ -1,9 +1,7 @@
 import { error, fail, redirect } from '@sveltejs/kit';
-import { eq } from 'drizzle-orm';
 import type { Actions, PageServerLoad } from './$types';
-import { db, schema } from '#lib/server/db/index.js';
-import { createSession, deleteUserSessions, hashPassword, passwordProblem, setSessionCookie } from '#lib/server/auth/index.js';
-import { findInvite } from '#lib/server/users.js';
+import { BusyError, createSession, fullAfterPassword, hashPassword, passwordProblem, setSessionCookie } from '#lib/server/auth/index.js';
+import { consumeInvite, findInvite } from '#lib/server/users.js';
 import { clientIp } from '#lib/server/net.js';
 
 export const load: PageServerLoad = ({ params }) => {
@@ -15,8 +13,7 @@ export const load: PageServerLoad = ({ params }) => {
 export const actions: Actions = {
 	default: async (event) => {
 		const { params, request, cookies } = event;
-		const found = findInvite(params.token);
-		if (!found) error(404, 'Ten link zaproszenia jest nieważny albo wygasł.');
+		if (!findInvite(params.token)) error(404, 'Ten link zaproszenia jest nieważny albo wygasł.');
 
 		const f = await request.formData();
 		const password = String(f.get('password') ?? '');
@@ -24,21 +21,25 @@ export const actions: Actions = {
 		const problem = passwordProblem(password) ?? (password !== repeat ? 'Hasła się różnią.' : null);
 		if (problem) return fail(400, { error: problem });
 
-		const passwordHash = await hashPassword(password);
-		db.transaction((tx) => {
-			tx.update(schema.users).set({ passwordHash }).where(eq(schema.users.id, found.user.id)).run();
-			tx.update(schema.invites).set({ usedAt: new Date() }).where(eq(schema.invites.id, found.invite.id)).run();
-		});
-		deleteUserSessions(found.user.id);
+		let passwordHash: string;
+		try {
+			passwordHash = await hashPassword(password);
+		} catch (e) {
+			if (e instanceof BusyError) return fail(503, { error: 'Serwer jest chwilowo zajęty. Spróbuj za moment.' });
+			throw e;
+		}
 
-		const user = { ...found.user, passwordHash };
-		// Po ustawieniu hasła od razu logujemy. Admin zostanie przekierowany do konfiguracji TOTP.
+		// Zaproszenie zużywane ATOMOWO; sesja według stanu konta odczytanego w tej samej transakcji.
+		const user = consumeInvite(params.token, passwordHash);
+		if (!user) error(404, 'Ten link zaproszenia jest nieważny albo został już użyty.');
+
+		const full = fullAfterPassword(user);
 		const { token, session } = createSession(user, {
-			mfaPassed: !user.totpEnabled,
+			mfaPassed: full,
 			ip: clientIp(event),
 			userAgent: request.headers.get('user-agent') ?? undefined
 		});
 		setSessionCookie(cookies, token, session.expiresAt);
-		redirect(303, user.totpEnabled ? '/login/2fa' : '/panel');
+		redirect(303, full ? '/panel' : user.totpEnabled ? '/login/2fa' : '/panel/2fa-setup');
 	}
 };

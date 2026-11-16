@@ -52,17 +52,25 @@
 		if (ro || saving) return;
 		saving = true;
 		saveError = '';
+		// Zapamiętujemy DOKŁADNIE to, co wysyłamy – zmiany zrobione w trakcie zapisu zostają niezapisane.
+		const sentQuiz = $state.snapshot(quiz);
+		const sentQuestions = $state.snapshot(questions);
+		const sentPayload = sentQuestions.map(toPayload);
 		try {
-			const body = { ...quiz, questions: questions.map(toPayload) };
 			const res = await fetch(`/panel/api/quizzes/${data.quiz.id}`, {
 				method: 'PUT',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify(body)
+				body: JSON.stringify({ ...sentQuiz, questions: sentPayload })
 			});
 			const out = await res.json().catch(() => ({}));
 			if (!res.ok) throw new Error(out.error ?? out.message ?? 'Nie udało się zapisać.');
-			out.questionIds.forEach((id: string, i: number) => (questions[i].id = id));
-			savedSnapshot = JSON.stringify({ quiz, questions: questions.map(toPayload) });
+			// ID z serwera przypisujemy po stabilnych kluczach (kolejność mogła się zmienić w trakcie).
+			const idByKey = new Map<string, string>(sentQuestions.map((q, i) => [q.key, out.questionIds[i] as string]));
+			for (const q of questions) {
+				const id = idByKey.get(q.key);
+				if (id) q.id = id;
+			}
+			savedSnapshot = JSON.stringify({ quiz: sentQuiz, questions: sentQuestions.map((q) => toPayload({ ...q, id: idByKey.get(q.key) ?? q.id })) });
 		} catch (e) {
 			saveError = (e as Error).message;
 		} finally {

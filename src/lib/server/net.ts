@@ -1,20 +1,14 @@
 import type { RequestEvent } from '@sveltejs/kit';
+// Wspólna logika z serwerem gry (server/net.js).
+import { resolveClientIp } from '../../../server/net.js';
 
-/**
- * Adres IP klienta. Nagłówek proxy brany pod uwagę tylko przy TRUST_PROXY=1.
- * Za Cytrusem (Nginx) prawdziwy adres jest w X-Forwarded-For.
- * Bierzemy OSTATNI wpis – dopisuje go nasze proxy, więc klient nie może go podrobić
- * (wcześniejsze wpisy mógł wysłać sam). Bez nagłówka – adres połączenia.
- */
+/** Adres IP klienta. X-Forwarded-For tylko od zaufanych proxy (TRUSTED_PROXIES). */
 export function clientIp(event: Pick<RequestEvent, 'request' | 'getClientAddress'>): string {
-	const xff = process.env.TRUST_PROXY === '1' ? event.request.headers.get('x-forwarded-for') : null;
-	if (xff) {
-		const last = xff.split(',').pop()?.trim();
-		if (last) return last;
-	}
+	let remote = '';
 	try {
-		return event.getClientAddress();
+		remote = event.getClientAddress();
 	} catch {
 		return 'unknown';
 	}
+	return resolveClientIp(remote, event.request.headers.get('x-forwarded-for')) || 'unknown';
 }

@@ -2,7 +2,8 @@ import { z } from 'zod';
 import { and, asc, eq, inArray, or } from 'drizzle-orm';
 import { db, schema } from './db/index.js';
 import { newId } from './auth/crypto.js';
-import { cutClip, mediaUrl } from './media.js';
+import { MediaError, cutClip, mediaUrl } from './media.js';
+import { canUseMedia } from './media-access.js';
 import type { User } from './auth/index.js';
 import { DEFAULT_QUIZ_SETTINGS, type QuestionData, type QuizSettings } from './db/schema.js';
 
@@ -157,6 +158,8 @@ export async function saveQuiz(user: User, quizId: string, input: QuizSave) {
 	}
 	const media = ids.size ? db.select().from(schema.media).where(inArray(schema.media.id, [...ids])).all() : [];
 	const byId = new Map(media.map((m) => [m.id, m]));
+	// Wolno używać tylko plików, do których ma się dostęp (własne, admin, albo z dostępnego quizu).
+	for (const m of media) if (!canUseMedia(user, m)) return { error: 'Brak dostępu do jednego z plików' };
 	for (const q of input.questions) {
 		if (q.imageMediaId && byId.get(q.imageMediaId)?.kind !== 'image') return { error: 'Nieprawidłowy obrazek w pytaniu' };
 		if (q.data.type === 'audio') {
@@ -173,7 +176,13 @@ export async function saveQuiz(user: User, quizId: string, input: QuizSave) {
 		if (data.type === 'audio') {
 			const prev = q.id ? old.get(q.id)?.data : undefined;
 			const reuse = prev?.type === 'audio' && prev.audioMediaId === data.audioMediaId && prev.startMs === data.startMs && prev.endMs === data.endMs && prev.clipMediaId;
-			const clipMediaId = reuse ? prev.clipMediaId : await cutClip(user.id, data.audioMediaId, data.startMs, data.endMs);
+			let clipMediaId: string | null | undefined;
+			try {
+				clipMediaId = reuse ? prev.clipMediaId : await cutClip(user.id, data.audioMediaId, data.startMs, data.endMs);
+			} catch (e) {
+				if (e instanceof MediaError) return { error: e.message };
+				throw e;
+			}
 			if (!clipMediaId) return { error: `Nie udało się wyciąć fragmentu audio (${q.prompt})` };
 			data = { ...data, clipMediaId };
 		}

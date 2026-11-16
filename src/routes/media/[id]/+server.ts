@@ -6,14 +6,16 @@ import { eq } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 import { db, mediaDir, schema } from '#lib/server/db/index.js';
 import { MIME } from '#lib/server/media.js';
+import { canUseMedia, fullyAuthenticated, isPublicImage } from '#lib/server/media-access.js';
 
-// Obrazy (logo, zdjęcia w pytaniach) są publiczne – id jest nie do odgadnięcia.
-// Audio tylko dla zalogowanych (prowadzący), żeby pliki z muzyką nie były dostępne publicznie.
+// Publiczne są tylko logotypy/tła motywów i logo organizacji.
+// Pozostałe pliki (audio, zdjęcia w pytaniach) – tylko dla osób z dostępem do quizu, który ich używa.
 export const GET: RequestHandler = async ({ params, locals, request }) => {
 	if (!/^med_[A-Za-z0-9_-]{10,20}$/.test(params.id)) error(404, 'Nie znaleziono');
 	const m = db.select().from(schema.media).where(eq(schema.media.id, params.id)).get();
 	if (!m) error(404, 'Nie znaleziono');
-	if (m.kind === 'audio' && !locals.session?.mfaPassed) error(404, 'Nie znaleziono');
+	const isPublic = isPublicImage(m);
+	if (!isPublic && !(fullyAuthenticated(locals) && canUseMedia(locals.user, m))) error(404, 'Nie znaleziono');
 
 	const file = path.join(mediaDir, path.basename(m.file));
 	let stat: fs.Stats;
@@ -28,16 +30,17 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
 		'Accept-Ranges': 'bytes',
 		'X-Content-Type-Options': 'nosniff',
 		'Content-Disposition': 'inline',
-		'Cache-Control': m.kind === 'audio' ? 'private, max-age=3600' : 'public, max-age=31536000, immutable',
+		// Prywatne pliki nie trafiają do wspólnych cache; publiczne logo – krótko, żeby zmiana logo była widoczna.
+		'Cache-Control': isPublic ? 'public, max-age=3600' : 'private, max-age=600',
 		'Content-Security-Policy': "default-src 'none'; sandbox"
 	};
 
 	// Zakresy bajtów – wymagane przez Safari na iOS przy odtwarzaniu audio.
 	const range = request.headers.get('range');
-	const m2 = range?.match(/^bytes=(\d*)-(\d*)$/);
-	if (m2 && (m2[1] || m2[2])) {
-		let start = m2[1] ? parseInt(m2[1]) : stat.size - parseInt(m2[2]);
-		let end = m2[1] && m2[2] ? parseInt(m2[2]) : stat.size - 1;
+	const r = range?.match(/^bytes=(\d*)-(\d*)$/);
+	if (r && (r[1] || r[2])) {
+		let start = r[1] ? parseInt(r[1]) : stat.size - parseInt(r[2]);
+		let end = r[1] && r[2] ? parseInt(r[2]) : stat.size - 1;
 		start = Math.max(0, start);
 		end = Math.min(end, stat.size - 1);
 		if (start > end) {
@@ -45,8 +48,7 @@ export const GET: RequestHandler = async ({ params, locals, request }) => {
 		}
 		headers['Content-Range'] = `bytes ${start}-${end}/${stat.size}`;
 		headers['Content-Length'] = String(end - start + 1);
-		const stream = Readable.toWeb(fs.createReadStream(file, { start, end })) as ReadableStream;
-		return new Response(stream, { status: 206, headers });
+		return new Response(Readable.toWeb(fs.createReadStream(file, { start, end })) as ReadableStream, { status: 206, headers });
 	}
 	headers['Content-Length'] = String(stat.size);
 	return new Response(Readable.toWeb(fs.createReadStream(file)) as ReadableStream, { headers });

@@ -49,6 +49,8 @@ export const actions: Actions = {
 		requireAdmin(locals);
 		const target = getTarget(String((await request.formData()).get('id')));
 		if (!target) return fail(404, { actionError: 'Nie znaleziono konta.' });
+		// Link aktywacyjny tylko dla kont bez hasła (inaczej działałby jak reset hasła z panelu).
+		if (target.passwordHash) return fail(400, { actionError: 'To konto jest już aktywne.' });
 		return { link: inviteUrl(url.origin, createInvite(target.id)), linkFor: target.name };
 	},
 
@@ -60,6 +62,8 @@ export const actions: Actions = {
 		if (target.id === me.id) return fail(400, { actionError: 'Nie możesz zmienić własnej roli.' });
 		const role = f.get('role') === 'admin' ? 'admin' : 'author';
 		db.update(schema.users).set({ role }).where(eq(schema.users.id, target.id)).run();
+		// Zmiana uprawnień = nowe logowanie (admin musi przejść 2FA / jego konfigurację).
+		deleteUserSessions(target.id);
 		// Nowy admin musi przy następnym wejściu skonfigurować TOTP (wymusza to hooks.server.ts).
 		return { message: `${target.name}: rola zmieniona na ${role === 'admin' ? 'administrator' : 'autor'}.` };
 	},

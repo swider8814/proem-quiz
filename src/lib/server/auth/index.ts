@@ -1,6 +1,6 @@
 import { hash, verify } from '@node-rs/argon2';
 import { generateSecret, generateURI, verify as verifyTotp } from 'otplib';
-import { and, eq, isNull, lt } from 'drizzle-orm';
+import { and, eq, isNull, lt, ne, or, sql } from 'drizzle-orm';
 import type { Cookies } from '@sveltejs/kit';
 import { db, schema } from '../db/index.js';
 import { decrypt, encrypt, newId, randomToken, sha256 } from './crypto.js';
@@ -10,13 +10,38 @@ export type Session = typeof schema.sessions.$inferSelect;
 
 export const SESSION_COOKIE = 'pq_session';
 const SESSION_DAYS = 30;
-const PENDING_MFA_MINUTES = 10;
+const PENDING_MINUTES = 10;
 const DAY = 24 * 60 * 60 * 1000;
+
+// ── Ograniczenie współbieżności kosztownych operacji (Argon2) ───────────────
+
+const MAX_HASH_CONCURRENCY = 2;
+const MAX_HASH_QUEUE = 50;
+let hashActive = 0;
+const hashQueue: (() => void)[] = [];
+
+export class BusyError extends Error {}
+
+/** Kolejka dla Argon2 – zalew żądań nie zablokuje procesu ani nie wyczerpie pamięci. */
+async function withHashSlot<T>(fn: () => Promise<T>): Promise<T> {
+	if (hashActive >= MAX_HASH_CONCURRENCY) {
+		if (hashQueue.length >= MAX_HASH_QUEUE) throw new BusyError('busy');
+		await new Promise<void>((r) => hashQueue.push(r));
+	}
+	hashActive++;
+	try {
+		return await fn();
+	} finally {
+		hashActive--;
+		hashQueue.shift()?.();
+	}
+}
 
 // ── Hasła ────────────────────────────────────────────────────────────────
 
-export const hashPassword = (pw: string) => hash(pw, { memoryCost: 19456, timeCost: 2 });
-export const verifyPassword = (hashStr: string, pw: string) => verify(hashStr, pw).catch(() => false);
+export const hashPassword = (pw: string) => withHashSlot(() => hash(pw, { memoryCost: 19456, timeCost: 2 }));
+export const verifyPassword = (hashStr: string, pw: string) =>
+	withHashSlot(() => verify(hashStr, pw).catch(() => false));
 
 export function passwordProblem(pw: string): string | null {
 	if (pw.length < 10) return 'Hasło musi mieć co najmniej 10 znaków.';
@@ -24,29 +49,42 @@ export function passwordProblem(pw: string): string | null {
 	return null;
 }
 
-// Zawsze liczymy hash, nawet gdy konta nie ma – żeby czas odpowiedzi nie zdradzał, czy e-mail istnieje.
-const DUMMY_HASH = hashPassword('dummy-password-for-timing');
+// Zawsze liczymy hash, nawet gdy konta nie ma – czas odpowiedzi nie zdradza, czy e-mail istnieje.
+let dummyHash: Promise<string> | null = null;
 
 export async function checkCredentials(email: string, password: string): Promise<User | null> {
+	if (password.length > 200) return null;
 	const user = db.select().from(schema.users).where(eq(schema.users.email, email.toLowerCase().trim())).get();
 	if (!user?.passwordHash || user.disabled) {
-		await verifyPassword(await DUMMY_HASH, password);
+		dummyHash ??= hashPassword('dummy-password-for-timing');
+		await verifyPassword(await dummyHash, password);
 		return null;
 	}
 	return (await verifyPassword(user.passwordHash, password)) ? user : null;
 }
 
-// ── Sesje ────────────────────────────────────────────────────────────────
+export const getUser = (id: string) => db.select().from(schema.users).where(eq(schema.users.id, id)).get() ?? null;
 
-/** Czy użytkownik musi podać kod TOTP przy logowaniu. */
-export const needsMfa = (user: User) => user.totpEnabled;
+// ── Sesje ────────────────────────────────────────────────────────────────
+//
+// mfaPassed = sesja w pełni uwierzytelniona. Sesja z mfaPassed=false to stan pośredni:
+//   – konto ma TOTP → trzeba podać kod (/login/2fa),
+//   – admin bez TOTP → wolno tylko skonfigurować TOTP (/panel/2fa-setup).
+// Pełną sesję adminowi daje dopiero ukończona konfiguracja (nowy token, pozostałe sesje usunięte).
+
+/** Czy po haśle sesja jest od razu pełna. */
+export function fullAfterPassword(user: User): boolean {
+	if (user.totpEnabled) return false;
+	if (user.role === 'admin') return false; // najpierw konfiguracja TOTP
+	return true;
+}
 
 export function createSession(
 	user: User,
 	opts: { mfaPassed: boolean; ip?: string; userAgent?: string }
 ): { token: string; session: Session } {
 	const token = randomToken();
-	const ttl = opts.mfaPassed ? SESSION_DAYS * DAY : PENDING_MFA_MINUTES * 60 * 1000;
+	const ttl = opts.mfaPassed ? SESSION_DAYS * DAY : PENDING_MINUTES * 60 * 1000;
 	const session = db
 		.insert(schema.sessions)
 		.values({
@@ -62,7 +100,9 @@ export function createSession(
 	return { token, session };
 }
 
-export function validateSession(token: string): { user: User; session: Session } | null {
+/** Zwraca też refreshed=true, gdy termin sesji został przedłużony (trzeba odświeżyć ciasteczko). */
+export function validateSession(token: string): { user: User; session: Session; refreshed: boolean } | null {
+	if (typeof token !== 'string' || token.length > 100) return null;
 	const row = db
 		.select({ user: schema.users, session: schema.sessions })
 		.from(schema.sessions)
@@ -74,20 +114,29 @@ export function validateSession(token: string): { user: User; session: Session }
 		db.delete(schema.sessions).where(eq(schema.sessions.id, row.session.id)).run();
 		return null;
 	}
-	// Przedłużanie aktywnej sesji (gdy zostało mniej niż połowa czasu).
+	let refreshed = false;
 	if (row.session.mfaPassed && row.session.expiresAt.getTime() - Date.now() < (SESSION_DAYS / 2) * DAY) {
 		const expiresAt = new Date(Date.now() + SESSION_DAYS * DAY);
 		db.update(schema.sessions).set({ expiresAt }).where(eq(schema.sessions.id, row.session.id)).run();
 		row.session.expiresAt = expiresAt;
+		refreshed = true;
 	}
-	return row;
+	return { ...row, refreshed };
 }
 
-export function markMfaPassed(sessionId: string) {
-	db.update(schema.sessions)
-		.set({ mfaPassed: true, expiresAt: new Date(Date.now() + SESSION_DAYS * DAY) })
-		.where(eq(schema.sessions.id, sessionId))
-		.run();
+/**
+ * Po udanym drugim składniku: stara (pośrednia) sesja jest usuwana i powstaje nowa, z nowym tokenem.
+ * Zwraca null, jeśli stara sesja już nie istnieje (np. zużyta równolegle).
+ */
+export function upgradeSession(old: Session, user: User, meta: { ip?: string; userAgent?: string }) {
+	return db.transaction(() => {
+		const del = db
+			.delete(schema.sessions)
+			.where(and(eq(schema.sessions.id, old.id), eq(schema.sessions.mfaPassed, false)))
+			.run();
+		if (del.changes !== 1) return null;
+		return createSession(user, { mfaPassed: true, ...meta });
+	});
 }
 
 export const deleteSession = (sessionId: string) =>
@@ -95,6 +144,9 @@ export const deleteSession = (sessionId: string) =>
 
 export const deleteUserSessions = (userId: string) =>
 	db.delete(schema.sessions).where(eq(schema.sessions.userId, userId)).run();
+
+export const deleteOtherSessions = (userId: string, keepSessionId: string) =>
+	db.delete(schema.sessions).where(and(eq(schema.sessions.userId, userId), ne(schema.sessions.id, keepSessionId))).run();
 
 export const purgeExpiredSessions = () =>
 	db.delete(schema.sessions).where(lt(schema.sessions.expiresAt, new Date())).run();
@@ -123,54 +175,66 @@ export function newTotpSecret(user: User) {
 	return { secret, uri: totpUri(user.email, secret) };
 }
 
-/** Sprawdza kod; tolerancja ±30 s; ten sam kod nie przejdzie dwa razy. */
-export async function checkTotp(secret: string, code: string, lastStep: number | null): Promise<number | null> {
+/** Sprawdza kod (tolerancja ±30 s). Zwraca krok czasu podany przez bibliotekę albo null. */
+export async function checkTotp(secret: string, code: string): Promise<number | null> {
 	const token = code.replace(/\s/g, '');
 	if (!/^\d{6}$/.test(token)) return null;
 	const res = await verifyTotp({ secret, token, epochTolerance: PERIOD });
-	if (!res.valid) return null;
-	const step = Math.floor(Date.now() / 1000 / PERIOD) + (res.delta ?? 0);
-	if (lastStep !== null && step <= lastStep) return null;
-	return step;
+	return res.valid && 'timeStep' in res && typeof res.timeStep === 'number' ? res.timeStep : null;
+}
+
+/** Atomowe zużycie kroku czasu: ten sam kod przechodzi dokładnie raz, także przy równoległych próbach. */
+function claimStep(userId: string, step: number): boolean {
+	const res = db
+		.update(schema.users)
+		.set({ totpLastStep: step })
+		.where(and(eq(schema.users.id, userId), or(isNull(schema.users.totpLastStep), lt(schema.users.totpLastStep, step))))
+		.run();
+	return res.changes === 1;
 }
 
 export async function verifyUserTotp(user: User, code: string): Promise<boolean> {
 	if (!user.totpSecret) return false;
-	const step = await checkTotp(decrypt(user.totpSecret), code, user.totpLastStep);
-	if (step === null) return false;
-	db.update(schema.users).set({ totpLastStep: step }).where(eq(schema.users.id, user.id)).run();
-	return true;
+	const step = await checkTotp(decrypt(user.totpSecret), code);
+	return step !== null && claimStep(user.id, step);
 }
 
-/** Włącza TOTP po poprawnym kodzie i zwraca nowe kody zapasowe (pokazywane raz). */
-export async function enableTotp(user: User, secret: string, code: string): Promise<string[] | null> {
-	const step = await checkTotp(secret, code, null);
+/**
+ * Włącza (lub zmienia) TOTP po poprawnym kodzie. Wszystkie sesje użytkownika są usuwane,
+ * a osoba kończąca konfigurację dostaje nową, pełną sesję. Zwraca kody zapasowe (pokazywane raz).
+ */
+export async function enableTotp(user: User, secret: string, code: string, meta: { ip?: string; userAgent?: string }) {
+	const step = await checkTotp(secret, code);
 	if (step === null) return null;
 	const codes = Array.from({ length: 10 }, () => {
-		const raw = randomToken(8).replace(/[^A-Za-z0-9]/g, '').toUpperCase().padEnd(10, 'X').slice(0, 10);
+		const raw = randomToken(12).replace(/[^A-Za-z0-9]/g, '').toUpperCase().padEnd(10, 'X').slice(0, 10);
 		return `${raw.slice(0, 5)}-${raw.slice(5)}`;
 	});
-	db.transaction((tx) => {
-		tx.update(schema.users)
+	return db.transaction(() => {
+		const fresh = getUser(user.id);
+		if (!fresh || fresh.disabled) return null;
+		db.update(schema.users)
 			.set({ totpSecret: encrypt(secret), totpEnabled: true, totpLastStep: step })
 			.where(eq(schema.users.id, user.id))
 			.run();
-		tx.delete(schema.recoveryCodes).where(eq(schema.recoveryCodes.userId, user.id)).run();
+		db.delete(schema.recoveryCodes).where(eq(schema.recoveryCodes.userId, user.id)).run();
 		for (const c of codes) {
-			tx.insert(schema.recoveryCodes)
-				.values({ id: newId('rc'), userId: user.id, codeHash: sha256(normalizeRecovery(c)) })
-				.run();
+			db.insert(schema.recoveryCodes).values({ id: newId('rc'), userId: user.id, codeHash: sha256(normalizeRecovery(c)) }).run();
 		}
+		db.delete(schema.sessions).where(eq(schema.sessions.userId, user.id)).run();
+		const session = createSession({ ...fresh, totpEnabled: true }, { mfaPassed: true, ...meta });
+		return { codes, ...session };
 	});
-	return codes;
 }
 
 const normalizeRecovery = (c: string) => c.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
 
+/** Atomowe zużycie kodu zapasowego. */
 export function useRecoveryCode(user: User, code: string): boolean {
-	const row = db
-		.select()
-		.from(schema.recoveryCodes)
+	if (code.length > 40) return false;
+	const res = db
+		.update(schema.recoveryCodes)
+		.set({ usedAt: new Date() })
 		.where(
 			and(
 				eq(schema.recoveryCodes.userId, user.id),
@@ -178,28 +242,23 @@ export function useRecoveryCode(user: User, code: string): boolean {
 				isNull(schema.recoveryCodes.usedAt)
 			)
 		)
-		.get();
-	if (!row) return false;
-	db.update(schema.recoveryCodes).set({ usedAt: new Date() }).where(eq(schema.recoveryCodes.id, row.id)).run();
-	return true;
+		.run();
+	return res.changes === 1;
 }
 
 export function remainingRecoveryCodes(userId: string): number {
 	return db
-		.select()
+		.select({ n: sql<number>`count(*)` })
 		.from(schema.recoveryCodes)
 		.where(and(eq(schema.recoveryCodes.userId, userId), isNull(schema.recoveryCodes.usedAt)))
-		.all().length;
+		.get()!.n;
 }
 
-/** Wyłączenie TOTP (reset przez innego admina). Admin będzie musiał skonfigurować je od nowa. */
+/** Reset TOTP (przez innego admina). Wszystkie sesje tej osoby wygasają. */
 export function resetTotp(userId: string) {
-	db.transaction((tx) => {
-		tx.update(schema.users)
-			.set({ totpSecret: null, totpEnabled: false, totpLastStep: null })
-			.where(eq(schema.users.id, userId))
-			.run();
-		tx.delete(schema.recoveryCodes).where(eq(schema.recoveryCodes.userId, userId)).run();
-		tx.delete(schema.sessions).where(eq(schema.sessions.userId, userId)).run();
+	db.transaction(() => {
+		db.update(schema.users).set({ totpSecret: null, totpEnabled: false, totpLastStep: null }).where(eq(schema.users.id, userId)).run();
+		db.delete(schema.recoveryCodes).where(eq(schema.recoveryCodes.userId, userId)).run();
+		db.delete(schema.sessions).where(eq(schema.sessions.userId, userId)).run();
 	});
 }

@@ -161,6 +161,15 @@ export class Game {
 
 	// ── Przebieg gry ────────────────────────────────────────────────────
 
+	/** Wywołanie z timera – wyjątek nie może zatrzymać procesu. */
+	safely(fn) {
+		try {
+			fn();
+		} catch (err) {
+			console.error(`[game ${this.pin}]`, err);
+		}
+	}
+
 	clearTimer() {
 		if (this.timer) clearTimeout(this.timer);
 		this.timer = null;
@@ -191,7 +200,7 @@ export class Game {
 		this.index = i;
 		this.state = 'intro';
 		this.broadcastAll();
-		this.timer = setTimeout(() => this.openQuestion(), INTRO_MS);
+		this.timer = setTimeout(() => this.safely(() => this.openQuestion()), INTRO_MS);
 		return null;
 	}
 
@@ -200,7 +209,7 @@ export class Game {
 		this.openedAt = Date.now();
 		this.deadline = this.openedAt + this.question.timeLimit * 1000;
 		this.broadcastAll();
-		this.timer = setTimeout(() => this.closeQuestion(), this.deadline - Date.now() + GRACE_MS);
+		this.timer = setTimeout(() => this.safely(() => this.closeQuestion()), this.deadline - Date.now() + GRACE_MS);
 	}
 
 	closeQuestion() {
@@ -226,7 +235,7 @@ export class Game {
 	/** @returns {{ ok: true } | { error: string }} */
 	submitAnswer(player, payload) {
 		if (this.state !== 'question') return { error: 'closed' };
-		if (!payload || payload.index !== this.index) return { error: 'stale' };
+		if (!payload || !Number.isInteger(payload.index) || payload.index !== this.index) return { error: 'stale' };
 		if (player.answers.has(this.index)) return { error: 'already' };
 		const now = Date.now();
 		if (now > this.deadline + GRACE_MS) return { error: 'closed' };
@@ -242,13 +251,14 @@ export class Game {
 			points = Math.round(1000 * speed * check.fraction) * q.multiplier;
 		}
 		const correct = check.fraction === 1;
+		const before = { score: player.score, streak: player.streak };
 		if (correct) player.streak += 1;
 		else player.streak = 0;
 		let bonus = 0;
 		if (correct && this.quiz.settings.streakBonus && player.streak >= 3 && q.multiplier > 0) {
 			bonus = Math.min(100 * (player.streak - 2), 500);
 		}
-		player.answers.set(this.index, { value: check.value, correct, points: points + bonus, bonus, elapsed });
+		player.answers.set(this.index, { value: check.value, correct, points: points + bonus, bonus, elapsed, before });
 		player.score += points + bonus;
 		player.totalTime += elapsed;
 		this.touch();
@@ -284,6 +294,7 @@ export class Game {
 				const map = this.orderMaps.get(this.index);
 				const order = payload.order;
 				if (!Array.isArray(order) || order.length !== map.correct.length) return null;
+				if (!order.every((id) => typeof id === 'string' && id.length <= 20)) return null;
 				if (new Set(order).size !== order.length || !order.every((id) => map.correct.includes(id))) return null;
 				const good = order.filter((id, i) => map.correct[i] === id).length;
 				const fraction = good === order.length ? 1 : d.partialCredit ? good / order.length : 0;
@@ -400,6 +411,10 @@ export class Game {
 			now: Date.now()
 		};
 		if (this.state === 'intro' || this.state === 'question') {
+			// Do końca pytania gracz widzi wynik sprzed odpowiedzi – inaczej punkty zdradzałyby poprawność
+			// (np. po ponownym połączeniu albo zmianie nicka).
+			const current = p.answers.get(this.index);
+			if (current) v.me = { ...v.me, score: current.before.score, streak: current.before.streak };
 			v.question = this.publicQuestion(false);
 			v.deadline = this.state === 'question' ? this.deadline : null;
 			v.answered = p.answers.has(this.index);

@@ -28,6 +28,8 @@ COPY --from=build /app/build ./build
 COPY --from=build /app/package.json ./
 COPY server ./server
 COPY drizzle ./drizzle
+RUN mkdir -p /data && chown node:node /data
+USER node
 VOLUME /data
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s CMD curl -fsS http://127.0.0.1:${PORT}/health || exit 1

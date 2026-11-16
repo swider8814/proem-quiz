@@ -1,9 +1,10 @@
 import { fail, redirect } from '@sveltejs/kit';
 import QRCode from 'qrcode';
 import type { Actions, PageServerLoad } from './$types';
-import { enableTotp, newTotpSecret, totpUri, verifyPassword } from '#lib/server/auth/index.js';
+import { BusyError, enableTotp, newTotpSecret, setSessionCookie, totpUri, verifyPassword } from '#lib/server/auth/index.js';
 import { decrypt, encrypt } from '#lib/server/auth/crypto.js';
-import { MFA_LIMIT, hit, isLimited } from '#lib/server/auth/rate-limit.js';
+import { MFA_LIMIT, consume } from '#lib/server/auth/rate-limit.js';
+import { clientIp } from '#lib/server/net.js';
 
 // Sekret w trakcie konfiguracji trzymamy w zaszyfrowanym ciasteczku, dopóki użytkownik nie potwierdzi kodem.
 const COOKIE = 'pq_totp_setup';
@@ -48,31 +49,40 @@ export const load: PageServerLoad = async ({ locals, cookies, url }) => {
 };
 
 export const actions: Actions = {
-	default: async ({ request, locals, cookies }) => {
+	default: async (event) => {
+		const { request, locals, cookies } = event;
 		const user = locals.user!;
-		const key = `mfa-setup:${user.id}`;
-		if (isLimited(key, MFA_LIMIT.max, MFA_LIMIT.windowMs)) {
+		const form = await request.formData();
+		const code = String(form.get('code') ?? '').slice(0, 20);
+		const pw = String(form.get('password') ?? '');
+
+		// Rezerwacja próby przed operacjami asynchronicznymi.
+		if (consume(`mfa-setup:${user.id}`, MFA_LIMIT.max, MFA_LIMIT.windowMs)) {
 			return fail(429, { error: 'Za dużo prób. Odczekaj kilka minut.' });
 		}
 		const pending = cookies.get(COOKIE);
-		if (!pending) return fail(400, { error: 'Sesja konfiguracji wygasła. Zeskanuj nowy kod QR.' });
-
-		const form = await request.formData();
-		const code = String(form.get('code') ?? '');
-		// Zmiana istniejącej weryfikacji wymaga potwierdzenia hasłem (ktoś mógł przejąć otwartą sesję).
-		if (user.totpEnabled) {
-			const pw = String(form.get('password') ?? '');
-			if (!user.passwordHash || !(await verifyPassword(user.passwordHash, pw))) {
-				hit(key, MFA_LIMIT.windowMs);
+		let secret: string;
+		try {
+			secret = decrypt(pending ?? '');
+		} catch {
+			return fail(400, { error: 'Sesja konfiguracji wygasła. Zeskanuj nowy kod QR.' });
+		}
+		try {
+			// Zmiana istniejącej weryfikacji wymaga potwierdzenia hasłem (ktoś mógł przejąć otwartą sesję).
+			if (user.totpEnabled && (!user.passwordHash || !(await verifyPassword(user.passwordHash, pw)))) {
 				return fail(400, { error: 'Nieprawidłowe hasło.' });
 			}
+		} catch (e) {
+			if (e instanceof BusyError) return fail(503, { error: 'Serwer jest chwilowo zajęty. Spróbuj za moment.' });
+			throw e;
 		}
-		const codes = await enableTotp(user, decrypt(pending), code);
-		if (!codes) {
-			hit(key, MFA_LIMIT.windowMs);
+		const res = await enableTotp(user, secret, code, { ip: clientIp(event), userAgent: request.headers.get('user-agent') ?? undefined });
+		if (!res) {
 			return fail(400, { error: 'Kod się nie zgadza. Sprawdź, czy czas w telefonie jest ustawiony automatycznie.' });
 		}
 		cookies.delete(COOKIE, { path: cookieOpts.path });
-		return { recoveryCodes: codes };
+		// Wszystkie dotychczasowe sesje wygasły – ta przeglądarka dostaje nową, pełną sesję.
+		setSessionCookie(cookies, res.token, res.session.expiresAt);
+		return { recoveryCodes: res.codes };
 	}
 };

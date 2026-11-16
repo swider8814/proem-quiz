@@ -51,6 +51,28 @@ export function findInvite(token: string) {
 	);
 }
 
+/**
+ * Atomowe użycie zaproszenia: oznaczenie jako użyte (tylko jeśli nadal ważne i nieużyte),
+ * ustawienie hasła i wylogowanie wszystkich sesji – w jednej transakcji.
+ * Zwraca AKTUALNY stan konta (np. totpEnabled włączone w międzyczasie) albo null.
+ */
+export function consumeInvite(token: string, passwordHash: string) {
+	return db.transaction(() => {
+		const used = db
+			.update(schema.invites)
+			.set({ usedAt: new Date() })
+			.where(and(eq(schema.invites.id, sha256(token)), isNull(schema.invites.usedAt), gt(schema.invites.expiresAt, new Date())))
+			.returning({ userId: schema.invites.userId })
+			.all();
+		if (used.length !== 1) return null;
+		const user = db.select().from(schema.users).where(eq(schema.users.id, used[0].userId)).get();
+		if (!user || user.disabled) return null;
+		db.update(schema.users).set({ passwordHash }).where(eq(schema.users.id, user.id)).run();
+		db.delete(schema.sessions).where(eq(schema.sessions.userId, user.id)).run();
+		return { ...user, passwordHash };
+	});
+}
+
 export const inviteUrl = (origin: string, token: string) => `${origin}/invite/${token}`;
 
 export const isValidEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) && e.length <= 200;

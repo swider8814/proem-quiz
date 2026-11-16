@@ -1,19 +1,37 @@
 import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { saveUpload } from '#lib/server/media.js';
-import { hit, isLimited } from '#lib/server/auth/rate-limit.js';
+import { LIMITS, MediaError, saveUpload } from '#lib/server/media.js';
+import { UPLOAD_LIMIT, consume } from '#lib/server/auth/rate-limit.js';
 
-// Upload pliku (audio / obraz). Dostęp tylko po zalogowaniu (pilnuje hooks.server.ts dla /panel).
+// Ochrona pamięci: ile uploadów naraz trzymamy w buforze (cały proces / jedna osoba).
+const MAX_CONCURRENT = 2;
+const MAX_BODY = LIMITS.audio + 512 * 1024; // plik + narzut multipart
+let inFlight = 0;
+const userInFlight = new Set<string>();
+
 export const POST: RequestHandler = async ({ request, locals }) => {
 	const user = locals.user!;
-	if (isLimited(`upload:${user.id}`, 60, 60 * 60 * 1000)) error(429, 'Za dużo plików w krótkim czasie.');
-	hit(`upload:${user.id}`, 60 * 60 * 1000);
+	const len = Number(request.headers.get('content-length'));
+	if (!Number.isFinite(len) || len <= 0) error(411, 'Brak rozmiaru pliku.');
+	if (len > MAX_BODY) error(413, 'Plik jest za duży.');
+	if (consume(`upload:${user.id}`, UPLOAD_LIMIT.max, UPLOAD_LIMIT.windowMs)) error(429, 'Za dużo plików w krótkim czasie.');
+	if (userInFlight.has(user.id)) error(429, 'Poczekaj, aż poprzedni plik się wyśle.');
+	if (inFlight >= MAX_CONCURRENT) error(503, 'Serwer odbiera teraz inne pliki. Spróbuj za chwilę.');
 
-	const form = await request.formData();
-	const file = form.get('file');
-	if (!(file instanceof File)) error(400, 'Brak pliku.');
-	const res = await saveUpload(user.id, file.name, new Uint8Array(await file.arrayBuffer()));
-	if ('error' in res) return json({ error: res.error }, { status: 400 });
-	const m = res.media;
-	return json({ id: m.id, kind: m.kind, name: m.originalName, durationMs: m.durationMs, url: `/media/${m.id}` });
+	inFlight++;
+	userInFlight.add(user.id);
+	try {
+		const form = await request.formData();
+		const file = form.get('file');
+		if (!(file instanceof File)) error(400, 'Brak pliku.');
+		if (file.size > MAX_BODY) error(413, 'Plik jest za duży.');
+		const m = await saveUpload(user.id, file.name, new Uint8Array(await file.arrayBuffer()));
+		return json({ id: m.id, kind: m.kind, name: m.originalName, durationMs: m.durationMs, url: `/media/${m.id}` });
+	} catch (e) {
+		if (e instanceof MediaError) return json({ error: e.message }, { status: e.status });
+		throw e;
+	} finally {
+		inFlight--;
+		userInFlight.delete(user.id);
+	}
 };

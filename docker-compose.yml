@@ -9,7 +9,8 @@ services:
     environment:
       DATA_DIR: /data
       PORT: 3000
-      TRUST_PROXY: "1"   # za Cytrusem (Nginx) – prawdziwe IP w X-Forwarded-For
+      # Adresy proxy (Cytrus), którym wolno podawać X-Forwarded-For – ustaw w .env (patrz README).
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
     ports:
       # Lewa strona = port Mikrusa, na który Cytrus kieruje ruch (z .env).
       - "${PORT:-3000}:3000"

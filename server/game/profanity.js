@@ -33,6 +33,7 @@ const CYR_TO_LAT = { а: 'a', е: 'e', о: 'o', р: 'p', с: 'c', у: 'y', х: '
 /** @param {string} s */
 function baseNormalize(s) {
 	return s
+		.normalize('NFKC') // ｋｕｒｗａ (pełna szerokość), ligatury, indeksy itp. -> zwykłe znaki
 		.toLowerCase()
 		.replace(/ł/g, 'l')
 		.normalize('NFD')
@@ -46,6 +47,20 @@ const collapse = (s) => s.replace(/(.)\1+/gu, '$1'); // kurrrwa -> kurwa
 const lettersOnly = (s) => s.replace(/[^\p{L}]/gu, '');
 const words = (s) => s.split(/[^\p{L}]+/u).filter(Boolean);
 
+/** "s.e.x", "c i p a" -> dokłada sklejone ciągi pojedynczych liter jako osobne słowa. */
+function withJoinedLetters(list) {
+	const out = [...list];
+	let run = '';
+	for (const w of [...list, '']) {
+		if (w.length === 1) run += w;
+		else {
+			if (run.length >= 2) out.push(run);
+			run = '';
+		}
+	}
+	return out;
+}
+
 /** @param {string} nick @param {string[]} [extra] dodatkowe słowa od admina */
 export function isProfane(nick, extra = []) {
 	const base = baseNormalize(nick);
@@ -55,7 +70,7 @@ export function isProfane(nick, extra = []) {
 		variants.add(lettersOnly(v));
 	}
 	const wordSets = [base, [...base].map((c) => CYR_TO_LAT[c] ?? c).join('')].flatMap((v) =>
-		words(v).flatMap((w) => [w, collapse(w)])
+		withJoinedLetters(words(v)).flatMap((w) => [w, collapse(w)])
 	);
 	const roots = [...ROOTS, ...extra.map((w) => collapse(lettersOnly(baseNormalize(w)))).filter((w) => w.length >= 3)];
 

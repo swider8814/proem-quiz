@@ -1,9 +1,10 @@
-// Uruchom: zbuduj, wystartuj serwer na 3123, utwórz admina (server/cli.js create-admin admin@proem.pl), potem:
-//   node tests/e2e-auth.mjs /invite/<token>
+// Pełny przebieg logowania (osobny proces serwera). Wymaga npm run build.   node tests/e2e-auth.mjs
 // E2E test logowania: zaproszenie → hasło → wymuszone TOTP → kody zapasowe → wyloguj → login + TOTP → recovery → rate limit
 import { generate } from 'otplib';
-const BASE = process.env.BASE ?? 'http://localhost:3123';
-const invite = process.argv[2];
+import { startServer } from './_helpers.mjs';
+const srv = await startServer();
+const BASE = srv.base;
+const invite = srv.cli('create-admin', 'admin@proem.pl', 'Daniel Test').match(/\/invite\/[A-Za-z0-9_-]+/)[0];
 let jar = {};
 const cookieHeader = () => Object.entries(jar).map(([k, v]) => `${k}=${v}`).join('; ');
 async function req(path, { method = 'GET', form } = {}) {
@@ -24,7 +25,7 @@ let r = await req('/panel'); ok(r.status === 303 && r.loc.startsWith('/login'), 
 r = await req(invite); ok(r.status === 200 && r.text.includes('Ustaw hasło'), 'strona zaproszenia');
 r = await req(invite, { method: 'POST', form: { password: 'short', repeat: 'short' } }); ok(r.status === 400, 'za krótkie hasło odrzucone');
 r = await req(invite, { method: 'POST', form: { password: 'BardzoTajne123!', repeat: 'BardzoTajne123!' } });
-ok(r.status === 303 && r.loc === '/panel', 'aktywacja → /panel');
+ok(r.status === 303 && r.loc === '/panel/2fa-setup', 'aktywacja admina → konfiguracja 2FA');
 r = await req('/panel'); ok(r.status === 303 && r.loc === '/panel/2fa-setup', 'admin bez TOTP → wymuszona konfiguracja');
 r = await req('/panel/users'); ok(r.status === 303 && r.loc === '/panel/2fa-setup', 'admin bez TOTP nie wejdzie do użytkowników');
 r = await req(invite); ok(r.status === 404, 'zaproszenie jednorazowe');
@@ -71,3 +72,6 @@ ok(csrf.status === 403, 'CSRF z obcej domeny zablokowany');
 for (let i = 0; i < 5; i++) await req('/login', { method: 'POST', form: { email: 'anna@proem.pl', password: 'x'.repeat(12) } });
 r = await req('/login', { method: 'POST', form: { email: 'anna@proem.pl', password: 'x'.repeat(12) } });
 ok(r.status === 429, 'limit prób logowania na konto');
+
+srv.stop();
+process.exit(process.exitCode ?? 0);

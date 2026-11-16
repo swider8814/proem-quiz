@@ -1,18 +1,58 @@
 import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { db, mediaDir, schema } from './db/index.js';
 import { newId } from './auth/crypto.js';
 
-const run = promisify(execFile);
+// ── Limity ───────────────────────────────────────────────────────────────
 
 export const LIMITS = { audio: 30 * 1024 * 1024, image: 5 * 1024 * 1024 };
+const MAX_AUDIO_MS = 15 * 60 * 1000; // dłuższe utwory odrzucamy
+const MAX_OUTPUT_BYTES = 25 * 1024 * 1024; // twardy limit pliku wynikowego ffmpeg
+const QUOTA_BYTES = Number(process.env.MEDIA_QUOTA_BYTES) || 4 * 1024 ** 3; // suma wszystkich mediów
+const MIN_FREE_BYTES = Number(process.env.MEDIA_MIN_FREE_BYTES) || 1024 ** 3; // zapas wolnego miejsca
+const FFMPEG_CONCURRENCY = 1;
+const FFMPEG_MAX_PENDING = 8;
+
+export class MediaError extends Error {
+	constructor(message: string, public status = 400) {
+		super(message);
+	}
+}
+
+// ── Kolejka zadań ffmpeg (ograniczona współbieżność i długość kolejki) ──────
+
+let active = 0;
+const waiting: (() => void)[] = [];
+
+async function inQueue<T>(fn: () => Promise<T>): Promise<T> {
+	if (active >= FFMPEG_CONCURRENCY) {
+		if (waiting.length >= FFMPEG_MAX_PENDING) throw new MediaError('Serwer przetwarza teraz inne pliki. Spróbuj za chwilę.', 503);
+		await new Promise<void>((r) => waiting.push(r));
+	}
+	active++;
+	try {
+		return await fn();
+	} finally {
+		active--;
+		waiting.shift()?.();
+	}
+}
+
+function run(cmd: string, args: string[], timeout: number): Promise<string> {
+	return new Promise((resolve, reject) => {
+		execFile(cmd, args, { timeout, killSignal: 'SIGKILL', maxBuffer: 1024 * 1024 }, (err, stdout) =>
+			err ? reject(err) : resolve(stdout)
+		);
+	});
+}
+
+// ── Rozpoznawanie typu po zawartości ─────────────────────────────────────
 
 type Sniffed = { kind: 'audio' | 'image'; ext: string; mime: string };
 
-/** Rozpoznanie typu po zawartości (nie po nazwie ani nagłówku przeglądarki). SVG celowo nieobsługiwane (XSS). */
+/** Rozpoznanie typu po zawartości (nie po nazwie ani nagłówku przeglądarki). SVG celowo nieobsługiwane. */
 export function sniff(buf: Uint8Array): Sniffed | null {
 	const b = (i: number) => buf[i];
 	const ascii = (start: number, len: number) => String.fromCharCode(...buf.subarray(start, start + len));
@@ -25,7 +65,7 @@ export function sniff(buf: Uint8Array): Sniffed | null {
 	if (ascii(0, 4) === 'RIFF' && ascii(8, 4) === 'WAVE') return { kind: 'audio', ext: 'wav', mime: 'audio/wav' };
 	if (ascii(0, 4) === 'OggS') return { kind: 'audio', ext: 'ogg', mime: 'audio/ogg' };
 	if (ascii(0, 4) === 'fLaC') return { kind: 'audio', ext: 'flac', mime: 'audio/flac' };
-	if (ascii(4, 4) === 'ftyp') return { kind: 'audio', ext: 'm4a', mime: 'audio/mp4' }; // m4a/aac
+	if (ascii(4, 4) === 'ftyp') return { kind: 'audio', ext: 'm4a', mime: 'audio/mp4' };
 	return null;
 }
 
@@ -33,62 +73,97 @@ export const MIME: Record<string, string> = {
 	png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif', mp3: 'audio/mpeg'
 };
 
+// ── Miejsce na dysku ─────────────────────────────────────────────────────
+
+const usedBytes = () =>
+	db.select({ n: sql<number>`coalesce(sum(${schema.media.sizeBytes}), 0)` }).from(schema.media).get()!.n;
+
+/** Czy zmieści się kolejne `bytes` (limit sumy mediów + wolne miejsce na dysku). */
+async function ensureSpace(bytes: number) {
+	if (usedBytes() + bytes > QUOTA_BYTES) {
+		throw new MediaError('Brak miejsca na pliki (limit mediów). Usuń nieużywane quizy albo poproś administratora.', 507);
+	}
+	try {
+		const st = await fs.statfs(mediaDir);
+		if (st.bavail * st.bsize - bytes < MIN_FREE_BYTES) throw new MediaError('Na serwerze kończy się miejsce na dysku.', 507);
+	} catch (e) {
+		if (e instanceof MediaError) throw e;
+	}
+}
+
 async function probeDuration(file: string): Promise<number | null> {
 	try {
-		const { stdout } = await run('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', file], { timeout: 20_000 });
-		const sec = parseFloat(stdout);
-		return Number.isFinite(sec) ? Math.round(sec * 1000) : null;
+		const out = await run('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', file], 20_000);
+		const sec = parseFloat(out);
+		return Number.isFinite(sec) && sec > 0 ? Math.round(sec * 1000) : null;
 	} catch {
 		return null;
 	}
 }
 
+async function sizeOf(file: string) {
+	return (await fs.stat(file)).size;
+}
+
+// ── Zapis uploadu ────────────────────────────────────────────────────────
+
 /**
- * Zapis pliku. Audio jest zawsze przekodowywane do MP3 (ujednolicenie + "oczyszczenie" pliku),
+ * Audio jest zawsze przekodowywane do MP3 (ujednolicenie + oczyszczenie pliku),
  * obraz zapisywany po sprawdzeniu sygnatury. Nazwy plików na dysku nie pochodzą od użytkownika.
+ * Pliki częściowe są usuwane po każdym błędzie.
  */
 export async function saveUpload(ownerId: string, originalName: string, data: Uint8Array) {
 	const type = sniff(data);
-	if (!type) return { error: 'Nieobsługiwany format pliku. Audio: MP3, M4A, WAV, OGG, FLAC. Obrazy: PNG, JPG, WEBP, GIF.' };
-	if (data.byteLength > LIMITS[type.kind]) {
-		return { error: `Plik jest za duży (max ${LIMITS[type.kind] / 1024 / 1024} MB).` };
-	}
-	const id = newId('med');
+	if (!type) throw new MediaError('Nieobsługiwany format pliku. Audio: MP3, M4A, WAV, OGG, FLAC. Obrazy: PNG, JPG, WEBP, GIF.');
+	if (data.byteLength > LIMITS[type.kind]) throw new MediaError(`Plik jest za duży (max ${LIMITS[type.kind] / 1024 / 1024} MB).`, 413);
 	await fs.mkdir(mediaDir, { recursive: true });
-	let file: string;
-	let durationMs: number | null = null;
+	await ensureSpace(type.kind === 'audio' ? MAX_OUTPUT_BYTES : data.byteLength);
 
-	if (type.kind === 'audio') {
-		const tmp = path.join(mediaDir, `${id}.upload.${type.ext}`);
-		file = `${id}.mp3`;
-		await fs.writeFile(tmp, data, { mode: 0o640 });
-		try {
-			await run('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-y', '-i', tmp, '-vn', '-map_metadata', '-1', '-ac', '2', '-ar', '44100', '-b:a', '160k', path.join(mediaDir, file)], { timeout: 120_000 });
-		} catch {
-			await fs.rm(tmp, { force: true });
-			return { error: 'Nie udało się odczytać pliku audio.' };
+	const id = newId('med');
+	const file = type.kind === 'audio' ? `${id}.mp3` : `${id}.${type.ext}`;
+	const out = path.join(mediaDir, file);
+	const tmp = path.join(mediaDir, `${id}.upload`);
+	let durationMs: number | null = null;
+	let ok = false;
+	try {
+		if (type.kind === 'audio') {
+			await fs.writeFile(tmp, data, { mode: 0o640 });
+			durationMs = await inQueue(async () => {
+				const inDur = await probeDuration(tmp);
+				if (!inDur) throw new MediaError('Nie udało się odczytać pliku audio.');
+				if (inDur > MAX_AUDIO_MS) throw new MediaError('Utwór jest za długi (max 15 minut).');
+				try {
+					await run('ffmpeg', ['-nostdin', '-hide_banner', '-loglevel', 'error', '-y', '-i', tmp, '-t', String(MAX_AUDIO_MS / 1000),
+						'-vn', '-map_metadata', '-1', '-ac', '2', '-ar', '44100', '-b:a', '160k', '-fs', String(MAX_OUTPUT_BYTES), '-f', 'mp3', out], 120_000);
+				} catch {
+					throw new MediaError('Nie udało się przetworzyć pliku audio.');
+				}
+				return probeDuration(out);
+			});
+		} else {
+			await fs.writeFile(out, data, { mode: 0o640 });
 		}
+		const size = await sizeOf(out);
+		if (size === 0 || size >= MAX_OUTPUT_BYTES) throw new MediaError('Plik wynikowy jest nieprawidłowy lub za duży.');
+		const row = db
+			.insert(schema.media)
+			.values({
+				id,
+				ownerId,
+				kind: type.kind,
+				originalName: originalName.replace(/[^\p{L}\p{N} ._()-]/gu, '').slice(0, 120) || 'plik',
+				file,
+				durationMs,
+				sizeBytes: size
+			})
+			.returning()
+			.get();
+		ok = true;
+		return row;
+	} finally {
 		await fs.rm(tmp, { force: true });
-		durationMs = await probeDuration(path.join(mediaDir, file));
-	} else {
-		file = `${id}.${type.ext}`;
-		await fs.writeFile(path.join(mediaDir, file), data, { mode: 0o640 });
+		if (!ok) await fs.rm(out, { force: true });
 	}
-	const stat = await fs.stat(path.join(mediaDir, file));
-	const row = db
-		.insert(schema.media)
-		.values({
-			id,
-			ownerId,
-			kind: type.kind,
-			originalName: originalName.replace(/[^\p{L}\p{N} ._()-]/gu, '').slice(0, 120) || 'plik',
-			file,
-			durationMs,
-			sizeBytes: stat.size
-		})
-		.returning()
-		.get();
-	return { media: row };
 }
 
 /** Wycina fragment [startMs, endMs] z łagodnym wejściem/wyjściem. Zwraca id nowego media. */
@@ -98,30 +173,36 @@ export async function cutClip(ownerId: string, sourceId: string, startMs: number
 	const start = Math.max(0, startMs) / 1000;
 	const dur = Math.max(1, Math.min(60_000, endMs - startMs)) / 1000;
 	const fade = Math.min(0.3, dur / 4);
+	await ensureSpace(2 * 1024 * 1024);
 	const id = newId('med');
 	const file = `${id}.mp3`;
+	const out = path.join(mediaDir, file);
+	let ok = false;
 	try {
-		await run(
-			'ffmpeg',
-			['-hide_banner', '-loglevel', 'error', '-y', '-ss', String(start), '-t', String(dur), '-i', path.join(mediaDir, src.file),
-				'-af', `afade=t=in:st=0:d=${fade},afade=t=out:st=${(dur - fade).toFixed(3)}:d=${fade}`, '-b:a', '160k', path.join(mediaDir, file)],
-			{ timeout: 60_000 }
+		await inQueue(() =>
+			run('ffmpeg', ['-nostdin', '-hide_banner', '-loglevel', 'error', '-y', '-ss', String(start), '-t', String(dur), '-i', path.join(mediaDir, path.basename(src.file)),
+				'-af', `afade=t=in:st=0:d=${fade},afade=t=out:st=${(dur - fade).toFixed(3)}:d=${fade}`, '-b:a', '160k', '-fs', String(4 * 1024 * 1024), '-f', 'mp3', out], 60_000)
 		);
-	} catch {
+		const size = await sizeOf(out);
+		if (size === 0) return null;
+		db.insert(schema.media)
+			.values({ id, ownerId, kind: 'audio', originalName: `${src.originalName} (fragment)`, file, durationMs: Math.round(dur * 1000), sizeBytes: size })
+			.run();
+		ok = true;
+		return id;
+	} catch (e) {
+		if (e instanceof MediaError) throw e;
 		return null;
+	} finally {
+		if (!ok) await fs.rm(out, { force: true });
 	}
-	const stat = await fs.stat(path.join(mediaDir, file));
-	db.insert(schema.media)
-		.values({ id, ownerId, kind: 'audio', originalName: `${src.originalName} (fragment)`, file, durationMs: Math.round(dur * 1000), sizeBytes: stat.size })
-		.run();
-	return id;
 }
 
 export async function deleteMedia(id: string) {
 	const m = db.select().from(schema.media).where(eq(schema.media.id, id)).get();
 	if (!m) return;
 	db.delete(schema.media).where(eq(schema.media.id, id)).run();
-	await fs.rm(path.join(mediaDir, m.file), { force: true });
+	await fs.rm(path.join(mediaDir, path.basename(m.file)), { force: true });
 }
 
 export const mediaUrl = (id: string | null | undefined) => (id ? `/media/${id}` : null);

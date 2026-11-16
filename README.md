@@ -49,6 +49,7 @@ leżą w `~/proem-quiz/data` i przetrwają każdą aktualizację.
 2. **Utwórz katalog i plik `.env`:**
    ```bash
    mkdir -p ~/proem-quiz/data && cd ~/proem-quiz
+   chown -R 1000:1000 data   # aplikacja w kontenerze działa jako zwykły użytkownik (uid 1000), nie root
    nano .env
    ```
    Wklej i uzupełnij:
@@ -56,6 +57,8 @@ leżą w `~/proem-quiz/data` i przetrwają każdą aktualizację.
    PORT=20123                       # jeden z portów przydzielonych Twojemu Mikrusowi
    ORIGIN=https://quiz.proem.pl
    TOTP_ENCRYPTION_KEY=...          # wygeneruj: openssl rand -base64 32
+   TRUSTED_PROXIES=                 # na razie puste – uzupełnisz w kroku 8
+   # opcjonalnie: MEDIA_QUOTA_BYTES=4294967296 (limit wszystkich plików), MEDIA_MIN_FREE_BYTES=1073741824
    ```
 3. **Klucz SSH dla GitHub Actions:**
    ```bash
@@ -72,6 +75,17 @@ leżą w `~/proem-quiz/data` i przetrwają każdą aktualizację.
    | `MIKRUS_SSH_PORT` | port SSH z panelu Mikrusa (np. `10123`) |
    | `MIKRUS_USER` | `root` |
    | `MIKRUS_SSH_KEY` | prywatny klucz z kroku 3 |
+   | `MIKRUS_SSH_FINGERPRINT` | odcisk klucza serwera – patrz niżej |
+
+   **Fingerprint serwera** (bez niego deploy się nie uruchomi – chroni przed podstawionym serwerem).
+   Odczytaj go **na samym serwerze** (konsola w panelu Mikrusa albo sesja SSH, której odcisk już
+   wcześniej potwierdziłeś), nie przez `ssh-keyscan` z zewnątrz:
+   ```bash
+   ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub | awk '{print $2}'
+   # wynik w postaci SHA256:AbCd... wklej w całości jako MIKRUS_SSH_FINGERPRINT
+   ```
+   Jeśli deploy zgłosi niezgodny odcisk, a serwer nie był zmieniany, sprawdź ten sam odcisk dla
+   `/etc/ssh/ssh_host_ecdsa_key.pub` lub `ssh_host_rsa_key.pub` (zależy, którego klucza użyje połączenie).
 
 5. **Uruchom deploy:** repo → Actions → „Build i deploy” → Run workflow (albo zrób dowolny push).
 6. **Domena przez Cytrus:** w panelu Mikrusa dodaj domenę (np. `quiz.proem.pl`) i jako cel wpisz
@@ -79,6 +93,20 @@ leżą w `~/proem-quiz/data` i przetrwają każdą aktualizację.
 7. **Test:** wejdź na `https://quiz.proem.pl/test-ws`.
    Zielony „WebSocket działa” = gotowe. Żółty („long-polling”) = Cytrus nie przepuszcza
    WebSocketów; aplikacja zadziała, ale daj znać.
+8. **Zaufane proxy (prawdziwe IP graczy):** zaloguj się jako admin i otwórz
+   `https://quiz.proem.pl/panel/api/diag`. Pole `remoteAddress` to adres, z którego łączy się Cytrus.
+   Wpisz go w `.env` (`TRUSTED_PROXIES=1.2.3.4`; kilka adresów lub sieci CIDR po przecinku),
+   potem `docker compose up -d`. Ponownie otwórz `/panel/api/diag` – `resolvedClientIp` powinien
+   pokazywać TWÓJ adres. Nie wpisuj adresów „na zapas”: każdy adres z tej listy może podać dowolne IP klienta.
+   Jeśli Mikrus/Cytrus używa kilku adresów albo zmieni adres, `remoteAddress` to pokaże – zaktualizuj listę.
+9. **(Zalecane) Zapora:** port aplikacji jest dostępny z internetu bezpośrednio, z pominięciem Cytrusa.
+   Bez wpisu w `TRUSTED_PROXIES` takie połączenie i tak nie podrobi adresu IP, ale lepiej je zablokować:
+   ```bash
+   # tylko jeśli Mikrus pozwala na iptables; Docker omija ufw, dlatego reguła w łańcuchu DOCKER-USER
+   iptables -I DOCKER-USER -p tcp --dport 3000 ! -s <ADRES_CYTRUSA> -j DROP
+   ```
+   Sprawdzenie z innego komputera: `curl -m 5 http://<adres serwera>:<PORT>/health` powinien
+   się nie połączyć, a `https://quiz.proem.pl/health` – działać.
 
 ## Przydatne komendy na serwerze
 
