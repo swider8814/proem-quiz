@@ -53,6 +53,16 @@ fi
 
 [[ $EUID -eq 0 ]] || { echo "Uruchom jako root (na Mikrusie domyślnie jesteś rootem)."; exit 1; }
 
+# Starsza wersja skryptu instalowała quiz w ~/proem-quiz – nie zakładamy po cichu drugiej, pustej instalacji.
+OLD_DIR="$HOME/proem-quiz"
+if [[ "$APP_DIR" != "$OLD_DIR" && -f "$OLD_DIR/.env" ]]; then
+	warn "Znaleziono wcześniejszą instalację w $OLD_DIR (baza, pliki, .env). Przenieś ją najpierw:"
+	info "  cd $OLD_DIR && docker compose down"
+	info "  mv $OLD_DIR $APP_DIR"
+	info "  bash $0        # zaktualizuje pliki i wygeneruje nowy klucz GitHuba (podmień sekret MIKRUS_SSH_KEY)"
+	exit 1
+fi
+
 # --- 0. Co już działa na serwerze ---
 bold "0/5 Stan serwera (inne usługi zostają nietknięte)"
 if command -v docker >/dev/null; then
@@ -255,11 +265,11 @@ mkdir -p ~/.ssh && chmod 700 ~/.ssh
 touch ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys
 SKIP_KEY=""
 if grep -q "$KEY_TAG" ~/.ssh/authorized_keys; then
-	if grep "$KEY_TAG" ~/.ssh/authorized_keys | grep -q '^command='; then
+	if grep "$KEY_TAG" ~/.ssh/authorized_keys | grep -q "^command=\"$DEPLOY\","; then
 		info "Klucz dla GitHub Actions jest już dodany (ograniczony do deploy.sh)."
 		yes_no "Wygenerować NOWY klucz (trzeba będzie podmienić sekret MIKRUS_SSH_KEY)?" || SKIP_KEY=1
 	else
-		warn "Znaleziono klucz GitHub Actions BEZ ograniczeń (pełny dostęp root). Zostanie zastąpiony."
+		warn "Znaleziono klucz GitHub Actions bez ograniczenia do $DEPLOY (np. stary katalog albo pełny dostęp root). Zostanie zastąpiony."
 	fi
 	if [[ -z "$SKIP_KEY" ]]; then sed -i "/$KEY_TAG/d" ~/.ssh/authorized_keys; fi
 fi

@@ -33,6 +33,8 @@ function inviteFor(userId) {
  * Melodia „Cicha noc” (F. X. Gruber, 1818 – domena publiczna) wygenerowana syntezatorem → MP3 w DATA_DIR/media.
  * Pozwala przetestować pytanie audio bez pobierania plików z internetu.
  */
+const DEMO_CLIP_MS = 12_000;
+
 function demoMelody(ownerId) {
 	const NOTE = { C4: 261.63, D4: 293.66, E4: 329.63, F4: 349.23, G4: 392, A4: 440, B4: 493.88, C5: 523.25, D5: 587.33, E5: 659.25, F5: 698.46 };
 	const tune = [
@@ -76,9 +78,15 @@ function demoMelody(ownerId) {
 	}
 	fs.chmodSync(path.join(mediaDir, file), 0o640);
 	const durationMs = Math.round((total / rate) * 1000);
-	db.prepare('INSERT INTO media (id, owner_id, kind, original_name, file, duration_ms, size_bytes) VALUES (?, ?, ?, ?, ?, ?, ?)')
-		.run(mediaId, ownerId, 'audio', 'Cicha noc (melodia, domena publiczna).mp3', file, durationMs, fs.statSync(path.join(mediaDir, file)).size);
-	return { id: mediaId, durationMs };
+	const insert = db.prepare('INSERT INTO media (id, owner_id, kind, original_name, file, duration_ms, size_bytes) VALUES (?, ?, ?, ?, ?, ?, ?)');
+	insert.run(mediaId, ownerId, 'audio', 'Cicha noc (melodia, domena publiczna).mp3', file, durationMs, fs.statSync(path.join(mediaDir, file)).size);
+	// Fragment 0–12 s jako osobny plik – tak jak robi to zapis w edytorze (prowadzący odtwarza tylko klip).
+	const clipId = id('med');
+	const clipFile = `${clipId}.mp3`;
+	execFileSync('ffmpeg', ['-nostdin', '-hide_banner', '-loglevel', 'error', '-y', '-ss', '0', '-t', String(DEMO_CLIP_MS / 1000), '-i', path.join(mediaDir, file), '-codec:a', 'libmp3lame', '-b:a', '96k', path.join(mediaDir, clipFile)]);
+	fs.chmodSync(path.join(mediaDir, clipFile), 0o640);
+	insert.run(clipId, ownerId, 'audio', 'Cicha noc – fragment.mp3', clipFile, DEMO_CLIP_MS, fs.statSync(path.join(mediaDir, clipFile)).size);
+	return { id: mediaId, clipId, durationMs };
 }
 
 /** Katalog kopii: DATA_DIR/backup – zwykły katalog (nie dowiązanie). */
@@ -138,7 +146,7 @@ switch (cmd) {
 		const theme = db.prepare('SELECT id FROM themes WHERE is_default = 1').get()?.id ?? null;
 		const settings = JSON.stringify({ defaultTimeLimit: 20, streakBonus: true, nicknameMode: 'random-or-custom', teamMode: false, lateJoin: true, phoneAnswerText: true });
 		const melody = demoMelody(user.id);
-		const audio = (answers) => ({ type: 'audio', answers, correct: [0], audioMediaId: melody.id, clipMediaId: melody.id, startMs: 0, endMs: 12_000, loop: false, revealEndMs: Math.min(melody.durationMs, 28_000) });
+		const audio = (answers) => ({ type: 'audio', answers, correct: [0], audioMediaId: melody.id, clipMediaId: melody.clipId, startMs: 0, endMs: DEMO_CLIP_MS, loop: false, revealEndMs: Math.min(melody.durationMs, 28_000) });
 		const make = (title, locale, questions) => {
 			const quizId = id('quiz');
 			db.transaction(() => {

@@ -180,6 +180,12 @@ try {
 	const head = Buffer.from(await mp3.res.arrayBuffer()).subarray(0, 3).toString('latin1');
 	ok(mp3.status === 200 && (head === 'ID3' || head.charCodeAt(0) === 0xff), 'melodia to poprawny plik MP3 dostępny dla właściciela');
 	ok((await B().req(`/media/${audioQ.audioMediaId}`, { raw: true })).status === 404, 'melodia niedostępna publicznie');
+	const { execFileSync: ex } = await import('node:child_process');
+	const mdb = new Database2(path.join(srv.dataDir, 'quiz.db'), { readonly: true });
+	const clipRow = mdb.prepare('SELECT file FROM media WHERE id = ?').get(audioQ.clipMediaId);
+	mdb.close();
+	const clipDur = Number(ex('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', path.join(srv.dataDir, 'media', clipRow.file)], { encoding: 'utf8' }));
+	ok(audioQ.clipMediaId !== audioQ.audioMediaId && Math.abs(clipDur - audioQ.endMs / 1000) < 0.5, `klip demonstracyjny ma naprawdę ${audioQ.endMs / 1000} s (${clipDur.toFixed(1)} s) – review Codexa #5`);
 
 	ok(srv.alive(), 'serwer działa do końca testu');
 } catch (e) {

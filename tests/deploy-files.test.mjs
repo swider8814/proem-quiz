@@ -30,6 +30,8 @@ ok(deploy?.includes('DOCKER_CONFIG='), 'deploy.sh używa osobnych danych logowan
 ok(!/docker (system|container|volume|network) prune|docker rm |docker stop /.test(deploy ?? ''), 'deploy.sh nie zatrzymuje ani nie usuwa cudzych kontenerów');
 ok(/prune -f --filter "label=org\.opencontainers\.image\.source=https:\/\/github\.com\/swider8814\/proem-quiz"/.test(deploy ?? ''), 'deploy.sh usuwa tylko obrazy quizu');
 ok(/command="%s",restrict/.test(setup), 'klucz GitHuba ograniczony do deploy.sh (restrict)');
+ok(/OLD_DIR="\$HOME\/proem-quiz"/.test(setup) && /exit 1/.test(setup.split('OLD_DIR=')[1] ?? ''), 'stara instalacja w ~/proem-quiz wykrywana – bez drugiej, pustej instalacji (review Codexa #5)');
+ok(/\^command=\\"\$DEPLOY\\",/.test(setup), 'klucz GitHuba wskazujący inny deploy.sh jest wymieniany');
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'pq-deploy-'));
 for (const [name, body] of [['setup.sh', setup], ['deploy.sh', deploy ?? '']]) {
@@ -64,6 +66,13 @@ for (const [name, body] of [['mikrus-backup-setup.sh', bsetup], ['backup.sh', ba
 	try { execFileSync('bash', ['-n', f], { stdio: 'pipe' }); } catch { good = false; }
 	fs.rmSync(f, { force: true });
 	ok(good, `${name}: poprawna składnia bash`);
+}
+
+// Pliki, do których odsyła README, są w repozytorium (nie ignorowane przez .gitignore) – review Codexa #5
+for (const f of ['.env.example', '.env.local.example', 'docker-compose.local.yml', 'scripts/nas-pull.sh', 'scripts/mikrus-backup-setup.sh']) {
+	let tracked = true;
+	try { execFileSync('git', ['ls-files', '--error-unmatch', f], { stdio: 'pipe' }); } catch { tracked = false; }
+	ok(tracked, `${f} jest w repozytorium`);
 }
 
 const wf = fs.readFileSync('.github/workflows/deploy.yml', 'utf8');
