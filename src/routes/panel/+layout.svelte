@@ -1,0 +1,50 @@
+<script lang="ts">
+	import '#lib/styles/panel.css';
+	import { page } from '$app/state';
+	let { data, children } = $props();
+
+	const setupOnly = $derived(data.user.role === 'admin' && !data.user.totpEnabled);
+	const links = $derived([
+		{ href: '/panel', label: 'Quizy' },
+		...(data.user.role === 'admin' ? [{ href: '/panel/users', label: 'Użytkownicy' }] : []),
+		{ href: '/panel/security', label: 'Bezpieczeństwo' }
+	]);
+</script>
+
+<header>
+	<strong class="brand">Proem Quiz</strong>
+	{#if !setupOnly}
+		<nav>
+			{#each links as l}
+				<a href={l.href} aria-current={page.url.pathname === l.href ? 'page' : undefined}>{l.label}</a>
+			{/each}
+		</nav>
+	{/if}
+	<div class="who">
+		<span>{data.user.name}{data.user.role === 'admin' ? ' · admin' : ''}</span>
+		<form method="POST" action="/logout"><button class="secondary">Wyloguj</button></form>
+	</div>
+</header>
+
+<main>
+	{@render children()}
+</main>
+
+<style>
+	header {
+		display: flex;
+		align-items: center;
+		gap: 1.5rem;
+		padding: 0.75rem 1.5rem;
+		background: var(--accent);
+		color: var(--accent-text);
+		flex-wrap: wrap;
+	}
+	.brand { font-size: 1.1rem; }
+	nav { display: flex; gap: 1rem; flex: 1; }
+	nav a { color: #cfd3f5; text-decoration: none; padding: 0.3rem 0; }
+	nav a[aria-current='page'] { color: #fff; border-bottom: 2px solid #f5b700; }
+	.who { display: flex; align-items: center; gap: 0.8rem; margin-left: auto; font-size: 0.9rem; }
+	.who button { padding: 0.4rem 0.8rem; font-size: 0.85rem; }
+	main { max-width: 64rem; margin: 2rem auto; padding: 0 1.5rem; }
+</style>

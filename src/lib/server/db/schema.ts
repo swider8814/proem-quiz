@@ -15,6 +15,7 @@ export const users = sqliteTable('users', {
 	locale: text('locale', { enum: ['pl', 'en', 'uk'] }).notNull().default('pl'),
 	totpSecret: text('totp_secret'), // szyfrowany AES-GCM kluczem z env
 	totpEnabled: integer('totp_enabled', { mode: 'boolean' }).notNull().default(false),
+	totpLastStep: integer('totp_last_step'), // ochrona przed ponownym użyciem tego samego kodu
 	disabled: integer('disabled', { mode: 'boolean' }).notNull().default(false),
 	createdAt: createdAt()
 });
