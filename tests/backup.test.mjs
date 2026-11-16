@@ -26,8 +26,6 @@ fs.writeFileSync(path.join(bin, 'docker'), [
 	'echo "docker $*" >> "$STUB_APP/docker.log"',
 	'if [[ "$1 $2 $3 $4" == "compose exec -T app" ]]; then',
 	'  shift 4',
-	'  last="${@: -1}"',
-	'  set -- "${@:1:$(($#-1))}" "$STUB_DATA${last#/data}"',
 	'  cd "$STUB_REPO" && DATA_DIR="$STUB_DATA" exec "$@"',
 	'fi',
 	'exit 0',
@@ -54,8 +52,22 @@ try {
 	ok(!!media.id, 'plik audio wgrany');
 
 	// ── cli.js backup: tylko do katalogu danych ──
-	const bad = spawnSync(process.execPath, ['server/cli.js', 'backup', '/tmp/poza.db'], { env: { ...process.env, DATA_DIR: data }, encoding: 'utf8' });
-	ok(bad.status !== 0 && !fs.existsSync('/tmp/poza.db'), 'kopia poza katalogiem danych odrzucona');
+	for (const evil of ['/tmp/poza.db', '../poza.db', 'quiz-2026-01-01_0000.db/../../x.db']) {
+		const bad = spawnSync(process.execPath, ['server/cli.js', 'backup', evil], { env: { ...process.env, DATA_DIR: data }, encoding: 'utf8' });
+		ok(bad.status !== 0 && !fs.existsSync('/tmp/poza.db'), `nazwa kopii spoza wzorca odrzucona (${evil})`);
+	}
+	// Dowiązanie zamiast katalogu kopii (kontener mógłby je podłożyć) → kopia odmawia zapisu
+	{
+		const alt = fs.mkdtempSync(path.join(os.tmpdir(), 'pq-alt-'));
+		fs.mkdirSync(path.join(alt, 'data'));
+		const target = fs.mkdtempSync(path.join(os.tmpdir(), 'pq-target-'));
+		fs.symlinkSync(target, path.join(alt, 'data', 'backup'));
+		fs.copyFileSync(path.join(data, 'quiz.db'), path.join(alt, 'data', 'quiz.db'));
+		const r = spawnSync(process.execPath, ['server/cli.js', 'backup-status', 'ok', '-', 'off'], { env: { ...process.env, DATA_DIR: path.join(alt, 'data') }, encoding: 'utf8' });
+		ok(r.status !== 0 && fs.readdirSync(target).length === 0, 'data/backup jako dowiązanie → brak zapisu poza katalogiem danych');
+		fs.rmSync(alt, { recursive: true, force: true });
+		fs.rmSync(target, { recursive: true, force: true });
+	}
 
 	// ── backup.sh bez Dysku Google ──
 	const r1 = runBackup({ RCLONE: path.join(bin, 'rclone') });

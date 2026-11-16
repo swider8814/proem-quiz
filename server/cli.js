@@ -28,6 +28,14 @@ function inviteFor(userId) {
 	return `${ORIGIN}/invite/${t}`;
 }
 
+/** Katalog kopii: DATA_DIR/backup – zwykły katalog (nie dowiązanie). */
+function backupDir() {
+	const dir = path.join(DATA_DIR, 'backup');
+	fs.mkdirSync(dir, { recursive: true, mode: 0o750 });
+	if (!fs.lstatSync(dir).isDirectory()) throw new Error('data/backup nie jest katalogiem');
+	return dir;
+}
+
 const findUser = (email) => db.prepare('SELECT * FROM users WHERE email = ?').get(email.toLowerCase().trim());
 
 const [cmd, emailArg, ...rest] = process.argv.slice(2);
@@ -71,12 +79,14 @@ switch (cmd) {
 		break;
 	}
 	case 'backup': {
-		// Spójna kopia działającej bazy (SQLite online backup), bez sesji logowania.
-		const dest = emailArg;
-		if (!dest || !dest.endsWith('.db')) throw new Error('Użycie: backup <plik.db>');
-		const destDir = path.resolve(path.dirname(dest));
-		if (!destDir.startsWith(path.resolve(DATA_DIR) + path.sep)) throw new Error('Kopia musi trafić do katalogu danych (np. /data/backup).');
-		fs.mkdirSync(destDir, { recursive: true, mode: 0o750 });
+		// Spójna kopia działającej bazy (SQLite online backup) do DATA_DIR/backup, bez sesji logowania,
+		// plus usunięcie kopii starszych niż N dni. Wszystko jako użytkownik aplikacji – root na serwerze
+		// niczego nie zapisuje ani nie kasuje w katalogu danych (który kontroluje aplikacja).
+		const name = emailArg;
+		if (!name || !/^quiz-\d{4}-\d{2}-\d{2}_\d{4}\.db$/.test(name)) throw new Error('Użycie: backup quiz-RRRR-MM-DD_GGMM.db [dni-przechowywania]');
+		const keepDays = Math.min(Math.max(Number(rest[0] ?? 7) || 7, 1), 365);
+		const dir = backupDir();
+		const dest = path.join(dir, name);
 		const tmp = `${dest}.tmp`;
 		fs.rmSync(tmp, { force: true });
 		await db.backup(tmp);
@@ -91,11 +101,38 @@ switch (cmd) {
 		}
 		fs.chmodSync(tmp, 0o640);
 		fs.renameSync(tmp, dest);
-		const stat = fs.statSync(dest);
-		console.log(JSON.stringify({ ok: true, file: dest, bytes: stat.size }));
+		// Rotacja: tylko zwykłe pliki kopii (dowiązania i inne pliki pomijane).
+		const cutoff = Date.now() - keepDays * 24 * 3600 * 1000;
+		for (const f of fs.readdirSync(dir)) {
+			if (!/^quiz-.*\.db$/.test(f) || f === name) continue;
+			const st = fs.lstatSync(path.join(dir, f));
+			if (st.isFile() && st.mtimeMs < cutoff) fs.rmSync(path.join(dir, f));
+		}
+		console.log(JSON.stringify({ ok: true, file: name, bytes: fs.statSync(dest).size }));
+		break;
+	}
+	case 'backup-status': {
+		// Stan ostatniej kopii dla panelu: backup-status <ok|failed> <plik|-> <ok|failed|off>
+		const [snapshot, file, drive] = [emailArg, rest[0], rest[1]];
+		if (!['ok', 'failed'].includes(snapshot) || !['ok', 'failed', 'off'].includes(drive)) throw new Error('Użycie: backup-status <ok|failed> <plik|-> <ok|failed|off>');
+		const dir = backupDir();
+		let bytes = 0;
+		let snapshotFile = '';
+		if (file && /^quiz-\d{4}-\d{2}-\d{2}_\d{4}\.db$/.test(file)) {
+			const st = fs.lstatSync(path.join(dir, file), { throwIfNoEntry: false });
+			if (st?.isFile()) {
+				bytes = st.size;
+				snapshotFile = file;
+			}
+		}
+		const status = { at: new Date().toISOString(), snapshotOk: snapshot === 'ok', snapshotFile, snapshotBytes: bytes, drive };
+		const tmp = path.join(dir, `.status-${process.pid}.json`);
+		fs.writeFileSync(tmp, JSON.stringify(status) + '\n', { mode: 0o640, flag: 'wx' });
+		fs.renameSync(tmp, path.join(dir, 'status.json'));
+		console.log(JSON.stringify(status));
 		break;
 	}
 	default:
-		console.log('Komendy: create-admin <email> "<Imię>", invite-link <email>, reset-2fa <email>, backup <plik.db>');
+		console.log('Komendy: create-admin <email> "<Imię>", invite-link <email>, reset-2fa <email>, backup <plik.db> [dni], backup-status <ok|failed> <plik|-> <ok|failed|off>');
 }
 db.close();

@@ -49,20 +49,14 @@ STAMP="${BACKUP_STAMP:-$(date +%Y-%m-%d_%H%M)}"
 [[ "$STAMP" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{4}$ ]] || { echo "Zły znacznik czasu."; exit 2; }
 DB="backup/quiz-$STAMP.db"
 
-exec 9>/tmp/proem-quiz-backup.lock
+exec 9>.backup.lock # w katalogu aplikacji (należy do roota), nie w /tmp
 flock -n 9 || { echo "Kopia już trwa."; exit 0; }
 log() { echo "$(date -Is) $*"; }
 
-# Stan dla panelu: tylko stałe wartości (bez tekstu z zewnątrz), zapis atomowy, bez podążania za dowiązaniami.
-status() { # status <snapshotOk> <driveState: ok|failed|off>
-	local tmp bytes=0
-	[[ -f "data/$DB" ]] && bytes="$(stat -c %s "data/$DB")"
-	tmp="$(mktemp data/backup/.status.XXXXXX)"
-	printf '{"at":"%s","snapshotOk":%s,"snapshotFile":"%s","snapshotBytes":%s,"drive":"%s"}\n' \
-		"$(date -Is)" "$1" "$(basename "$DB")" "$bytes" "$2" >"$tmp"
-	chmod 644 "$tmp"
-	mv -f "$tmp" data/backup/status.json
-}
+# Kopię, rotację i stan dla panelu wykonuje aplikacja (jako swój użytkownik) – root nie zapisuje
+# ani nie kasuje niczego w katalogu danych, który kontroluje kontener.
+app_cli() { docker compose exec -T app node server/cli.js "$@"; }
+status() { app_cli backup-status "$1" "$(basename "$DB")" "$2" >/dev/null || log "Nie udało się zapisać stanu kopii."; }
 
 # rclone w osobnym, zamkniętym kontenerze: dane tylko do odczytu, bez uprawnień poza czytaniem plików.
 # (W testach: RCLONE=ścieżka-do-rclone, wtedy działa lokalnie.)
@@ -80,18 +74,12 @@ else
 	}
 fi
 
-# Katalog kopii należy do użytkownika aplikacji (to on zapisuje kopię bazy).
-APP_UID="$(stat -c %u data)"
-[[ -d data/backup ]] || install -d -m 750 -o "$APP_UID" -g "$APP_UID" data/backup
 log "Kopia bazy → data/$DB"
-if ! docker compose exec -T app node server/cli.js backup "/data/$DB"; then
+if ! app_cli backup "$(basename "$DB")" "$KEEP_LOCAL_DAYS"; then
 	log "BŁĄD: nie udało się zrobić kopii bazy (czy aplikacja działa?)."
-	status false off
+	status failed off
 	exit 1
 fi
-
-# Rotacja lokalna: tylko zwykłe pliki kopii (dowiązania są pomijane przez -type f).
-find data/backup -maxdepth 1 -type f -name 'quiz-*.db' -mtime +"$KEEP_LOCAL_DAYS" -delete
 
 drive=off
 if [[ -f backup-config/rclone.conf ]]; then
@@ -107,7 +95,7 @@ if [[ -f backup-config/rclone.conf ]]; then
 	[[ "$drive" == ok ]] || log "BŁĄD: wysyłanie na Dysk Google nie powiodło się."
 fi
 
-status true "$drive"
+status ok "$drive"
 log "Gotowe (Dysk Google: $drive)."
 [[ "$drive" != failed ]]
 BACKUP_EOF

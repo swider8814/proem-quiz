@@ -53,6 +53,8 @@ ok(!/passwd -l/.test(bsetup) && /usermod -p '\*'/.test(bsetup), 'konto kopii bez
 ok(/--read-only/.test(backupSh) && /--cap-drop ALL --cap-add DAC_READ_SEARCH/.test(backupSh) && /data:\/data:ro/.test(backupSh), 'rclone w zamkniętym kontenerze, dane tylko do odczytu');
 ok(/install -d -m 700 -o root -g root "\$CFG"/.test(bsetup), 'konfiguracja Dysku (klucze, hasła) dostępna tylko dla roota');
 ok(/use_trash = true/.test(bsetup), 'kasowanie na Dysku przez kosz');
+const backupCode = backupSh.split('\n').filter((l) => !/^\s*#/.test(l)).join('\n');
+ok(!/\b(find|rm|mv|mktemp|chmod|chown|install|touch|ln)\b[^\n]*data/.test(backupCode) && !/>\s*"?data\//.test(backupCode), 'backup.sh (root) nie zapisuje ani nie kasuje niczego w katalogu danych');
 const nas = fs.readFileSync('scripts/nas-pull.sh', 'utf8');
 ok(/StrictHostKeyChecking=yes/.test(nas) && /SERVER_FINGERPRINT/.test(nas), 'NAS weryfikuje odcisk klucza serwera');
 for (const [name, body] of [['mikrus-backup-setup.sh', bsetup], ['backup.sh', backupSh], ['nas-pull.sh', nas]]) {
