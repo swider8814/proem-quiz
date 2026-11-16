@@ -15,7 +15,8 @@
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"db:generate": "drizzle-kit generate",
-		"start": "node server/index.js"
+		"start": "node server/index.js",
+		"test": "node tests/profanity.test.mjs && node tests/engine.test.mjs"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-auto": "^8.0.0",
