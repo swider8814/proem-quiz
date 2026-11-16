@@ -78,6 +78,42 @@ switch (cmd) {
 		console.log(`Zresetowano 2FA dla ${user.email}. Przy następnym logowaniu skonfiguruje je od nowa.`);
 		break;
 	}
+	case 'demo-quiz': {
+		// Dwa przykładowe quizy (PL i EN z polskim drugim wierszem) do próby – bez plików audio.
+		const user = emailArg && findUser(emailArg);
+		if (!user) throw new Error('Użycie: demo-quiz <email istniejącego konta>');
+		const theme = db.prepare('SELECT id FROM themes WHERE is_default = 1').get()?.id ?? null;
+		const settings = JSON.stringify({ defaultTimeLimit: 20, streakBonus: true, nicknameMode: 'random-or-custom', teamMode: false, lateJoin: true, phoneAnswerText: true });
+		const make = (title, locale, questions) => {
+			const quizId = id('quiz');
+			db.transaction(() => {
+				db.prepare('INSERT INTO quizzes (id, owner_id, title, theme_id, locale, settings) VALUES (?, ?, ?, ?, ?, ?)').run(quizId, user.id, title, theme, locale, settings);
+				questions.forEach((q, i) =>
+					db.prepare('INSERT INTO questions (id, quiz_id, position, type, prompt, prompt_translation, time_limit, points_multiplier, data) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)')
+						.run(id('qst'), quizId, i, q.data.type, q.prompt, q.tr ?? null, q.time ?? 20, JSON.stringify(q.data))
+				);
+			})();
+			console.log(`Utworzono: ${title} → ${ORIGIN}/panel/quizzes/${quizId}`);
+		};
+		make('Przykład – Boże Narodzenie', 'pl', [
+			{ prompt: 'W jakim mieście urodził się Jezus?', data: { type: 'choice', answers: ['Betlejem', 'Nazaret', 'Jerozolima', 'Kafarnaum'], correct: [0] } },
+			{ prompt: 'Wigilia to wieczór 24 grudnia.', data: { type: 'truefalse', correct: true } },
+			{ prompt: 'Który z tych darów NIE był darem Mędrców?', data: { type: 'choice', answers: ['Złoto', 'Kadzidło', 'Mirra', 'Srebro'], correct: [3] } },
+			{ prompt: 'Co dzielimy przy wigilijnym stole?', time: 30, data: { type: 'text', accepted: ['opłatek', 'opłatkiem'], typoTolerance: 1 } },
+			{ prompt: 'Ułóż od najwcześniejszego', time: 30, data: { type: 'order', items: ['Adwent', 'Wigilia', 'Boże Narodzenie', 'Trzech Króli'], partialCredit: true } },
+			{ prompt: 'Ile potraw tradycyjnie jest na wigilijnym stole?', data: { type: 'choice', answers: ['7', '10', '12', '24'], correct: [2] } }
+		]);
+		make('Example – Christmas (English)', 'en', [
+			{ prompt: 'Where was Jesus born?', tr: 'Gdzie urodził się Jezus?', data: { type: 'choice', answers: ['Bethlehem', 'Nazareth', 'Jerusalem', 'Rome'], correct: [0] } },
+			{ prompt: 'Christmas Eve is on 24 December.', tr: 'Wigilia jest 24 grudnia.', data: { type: 'truefalse', correct: true } },
+			{ prompt: 'Which gift did the Wise Men NOT bring?', tr: 'Którego daru Mędrcy NIE przynieśli?', data: { type: 'choice', answers: ['Gold', 'Frankincense', 'Myrrh', 'Silver'], correct: [3] } },
+			{ prompt: 'What animals did the shepherds look after?', tr: 'Jakimi zwierzętami opiekowali się pasterze?', time: 30, data: { type: 'text', accepted: ['sheep', 'lambs'], typoTolerance: 1 } },
+			{ prompt: 'Put in order, from the earliest', tr: 'Ułóż od najwcześniejszego', time: 30, data: { type: 'order', items: ['Advent', 'Christmas Eve', 'Christmas Day', 'Epiphany'], partialCredit: true } },
+			{ prompt: 'Which colour is NOT usually used for Christmas decorations?', tr: 'Który kolor zwykle NIE jest kolorem świątecznych ozdób?', data: { type: 'choice', answers: ['Red', 'Green', 'Gold', 'Brown'], correct: [3] } }
+		]);
+		console.log('Pytania audio dodaj w edytorze (własne pliki MP3).');
+		break;
+	}
 	case 'backup': {
 		// Spójna kopia działającej bazy (SQLite online backup) do DATA_DIR/backup, bez sesji logowania,
 		// plus usunięcie kopii starszych niż N dni. Wszystko jako użytkownik aplikacji – root na serwerze
@@ -133,6 +169,6 @@ switch (cmd) {
 		break;
 	}
 	default:
-		console.log('Komendy: create-admin <email> "<Imię>", invite-link <email>, reset-2fa <email>, backup <plik.db> [dni], backup-status <ok|failed> <plik|-> <ok|failed|off>');
+		console.log('Komendy: create-admin <email> "<Imię>", demo-quiz <email>, invite-link <email>, reset-2fa <email>, backup <plik.db> [dni], backup-status <ok|failed> <plik|-> <ok|failed|off>');
 }
 db.close();

@@ -152,6 +152,29 @@ try {
 	if (adminId) await setShare(author, { userId: adminId, permission: 'host' });
 	ok(!!adminId && (await adm2.req(`/panel/api/quizzes/${sq}`, { method: 'PUT', body: quizBody('Poprawione przez admina'), headers: json })).status === 200, 'admin z wpisem „prowadzenie” nadal może edytować');
 
+	// ── Przykładowe quizy do próby (cli demo-quiz) ──
+	const demoOut = srv.cli('demo-quiz', 'admin2@proem.pl');
+	const demoIds = [...demoOut.matchAll(/\/panel\/quizzes\/(quiz_[A-Za-z0-9_-]+)/g)].map((m) => m[1]);
+	ok(demoIds.length === 2, 'demo-quiz tworzy dwa quizy');
+	for (const qid of demoIds) {
+		const ed = await adm2.req(`/panel/quizzes/${qid}`);
+		ok(ed.status === 200, `przykładowy quiz otwiera się w edytorze (${qid})`);
+		const start = await adm2.req(`/panel/quizzes/${qid}/host?/start`, { method: 'POST', form: {} });
+		ok(start.status === 200 && /"pin"|pin/.test(start.text), 'przykładowy quiz da się uruchomić');
+	}
+	// Zapis z edytora tego samego quizu przechodzi walidację (dane w poprawnym formacie)
+	const { default: Database2 } = await import('better-sqlite3');
+	const ddb = new Database2(path.join(srv.dataDir, 'quiz.db'), { readonly: true });
+	const dq = ddb.prepare('SELECT type, prompt, prompt_translation, time_limit, points_multiplier, data FROM questions WHERE quiz_id = ? ORDER BY position').all(demoIds[1]);
+	ddb.close();
+	const demoSave = {
+		title: 'Example – Christmas (English)', description: null, themeId: null, locale: 'en',
+		settings: { defaultTimeLimit: 20, streakBonus: true, nicknameMode: 'random-or-custom', teamMode: false, lateJoin: true, phoneAnswerText: true },
+		questions: dq.map((q) => ({ type: q.type, prompt: q.prompt, promptTranslation: q.prompt_translation, imageMediaId: null, timeLimit: q.time_limit, pointsMultiplier: q.points_multiplier, data: JSON.parse(q.data) }))
+	};
+	const ds = await adm2.req(`/panel/api/quizzes/${demoIds[1]}`, { method: 'PUT', body: JSON.stringify(demoSave), headers: { 'content-type': 'application/json', accept: 'application/json' } });
+	ok(ds.status === 200, `przykładowe pytania przechodzą walidację edytora (${ds.text.slice(0, 120)})`);
+
 	ok(srv.alive(), 'serwer działa do końca testu');
 } catch (e) {
 	ok(false, `wyjątek: ${e.stack}`);

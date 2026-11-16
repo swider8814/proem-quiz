@@ -198,6 +198,11 @@ Działa na Windows, macOS i Linuksie z **Docker Desktop**. Komputer i telefony m
    ```
 5. Otwórz wypisany link **przez adres IP** (nie `localhost` – tak samo jak w `ORIGIN`), ustaw hasło i 2FA.
    Telefony dołączają przez kod QR na ekranie prowadzącego.
+6. (Opcjonalnie) dwa gotowe quizy do próby – polski i angielski z polskim drugim wierszem, wszystkie typy pytań oprócz audio:
+   ```bash
+   docker compose -f docker-compose.local.yml --env-file .env.local exec app node server/cli.js demo-quiz twoj@email.pl
+   ```
+   Pytanie audio dodaj w edytorze z własnym plikiem MP3.
 
 Zatrzymanie: Ctrl+C. Dane zostają w wolumenie Dockera (`proem-quiz-local_data`); usunięcie wszystkiego:
 `docker compose -f docker-compose.local.yml down -v`.
