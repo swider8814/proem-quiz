@@ -257,7 +257,7 @@
 								{#each hs.distribution.counts as c, i}
 									<div class="col">
 										<span class="num">{c}</span>
-										<div class="barv a{i}" class:dim={hs.solution && !(q.type === 'truefalse' ? (i === 0) === hs.solution.correct : isCorrect(i))} style:height="{(c / maxCount) * 100}%"></div>
+										<div class="barv a{q.type === 'truefalse' ? 1 - i : i}" class:dim={hs.solution && !(q.type === 'truefalse' ? (i === 0) === hs.solution.correct : isCorrect(i))} style:height="{(c / maxCount) * 100}%"></div>
 									</div>
 								{/each}
 							</div>

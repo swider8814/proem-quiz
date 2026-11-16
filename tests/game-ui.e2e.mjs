@@ -119,6 +119,10 @@ try {
 	for (const p of phones) await p.click('button:has-text("Prawda")');
 	await phones[0].waitForSelector('text=Dobrze!');
 	ok(true, 'prawda/fałsz działa');
+	await host.waitForSelector('.dist .barv');
+	const tfBars = await host.$$eval('.dist .barv', (els) => els.map((e) => ({ cls: e.className, h: parseFloat(e.style.height), dim: e.classList.contains('dim') })));
+	const tallest = tfBars.reduce((a, b) => (b.h > a.h ? b : a));
+	ok(/\ba1\b/.test(tallest.cls) && !tallest.dim, `słupek „Prawda” ma kolor kafla „Prawda” (a1) i jest wyróżniony: ${JSON.stringify(tfBars)}`);
 
 	// ── Pytanie 3: tekst ──────────────────────────────────────────────────
 	await nextQ();
