@@ -71,7 +71,9 @@ export function setShare(actor: User, quizId: string, targetId: string, permissi
 }
 
 export function listQuizzes(user: User) {
-	const shared = db.select({ quizId: schema.quizShares.quizId }).from(schema.quizShares).where(eq(schema.quizShares.userId, user.id)).all().map((s) => s.quizId);
+	const shares = db.select({ quizId: schema.quizShares.quizId, permission: schema.quizShares.permission }).from(schema.quizShares).where(eq(schema.quizShares.userId, user.id)).all();
+	const shared = shares.map((s) => s.quizId);
+	const editShared = new Set(shares.filter((s) => s.permission === 'edit').map((s) => s.quizId));
 	const where = user.role === 'admin' ? undefined : or(eq(schema.quizzes.ownerId, user.id), shared.length ? inArray(schema.quizzes.id, shared) : undefined);
 	const rows = db
 		.select({
@@ -92,7 +94,12 @@ export function listQuizzes(user: User) {
 	for (const q of db.select({ quizId: schema.questions.quizId }).from(schema.questions).all()) {
 		counts.set(q.quizId, (counts.get(q.quizId) ?? 0) + 1);
 	}
-	return rows.map((r) => ({ ...r, questionCount: counts.get(r.id) ?? 0, mine: r.ownerId === user.id }));
+	return rows.map((r) => ({
+		...r,
+		questionCount: counts.get(r.id) ?? 0,
+		mine: r.ownerId === user.id,
+		canEdit: r.ownerId === user.id || user.role === 'admin' || editShared.has(r.id)
+	}));
 }
 
 export function defaultThemeId() {
