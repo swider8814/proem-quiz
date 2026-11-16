@@ -124,16 +124,20 @@ try {
 	ok((await setShare(kasia, { userId: kasiaId, permission: 'edit' })).status === 403, 'nie można samemu podnieść sobie uprawnień');
 	const delShared = await kasia.req('/panel?/delete', { method: 'POST', form: { id: sq } });
 	ok(delShared.status === 403, 'osoba z dostępem nie usunie cudzego quizu');
+	ok((await kasia.req('/panel?/duplicate', { method: 'POST', form: { id: sq } })).status === 403, 'dostęp „prowadzenie” nie pozwala zrobić kopii quizu (review Codexa #4)');
+	ok(!/action="\?\/duplicate"/.test((await kasia.req('/panel')).text), 'przy „prowadzeniu” brak przycisku Duplikuj');
 
 	ok((await setShare(author, { userId: kasiaId, permission: 'edit' })).status === 200, 'zmiana na edycję');
 	ok((await kasia.req(`/panel/api/quizzes/${sq}`, { method: 'PUT', body: quizBody('Quiz autora v2'), headers: json })).status === 200, 'dostęp „edycja” pozwala zapisać');
+	const dupEdit = await kasia.req('/panel?/duplicate', { method: 'POST', form: { id: sq } });
+	ok(dupEdit.status === 303, 'dostęp „edycja” pozwala zrobić kopię');
 
 	ok((await setShare(author, { userId: kasiaId, permission: 'owner' })).status === 400, 'nieznane uprawnienie odrzucone');
 	ok((await setShare(author, { userId: 'usr_nieistnieje', permission: 'host' })).status === 400, 'nieistniejące konto odrzucone');
 
 	ok((await setShare(author, { userId: kasiaId, permission: 'host', remove: '1' })).status === 200, 'odebranie dostępu');
 	ok((await kasia.req(`/panel/quizzes/${sq}`)).status === 404, 'po odebraniu dostępu quiz znika');
-	ok(!(await kasia.req('/panel')).text.includes('Quiz autora'), 'po odebraniu dostępu quizu nie ma na liście');
+	ok(!(await kasia.req('/panel')).text.includes(`/panel/quizzes/${sq}"`), 'po odebraniu dostępu quizu nie ma na liście');
 
 	// Admin zarządza udostępnianiem cudzego quizu
 	ok((await adm2.req(`/panel/quizzes/${sq}/share`)).status === 200, 'admin otwiera udostępnianie cudzego quizu');

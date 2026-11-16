@@ -2,7 +2,7 @@ import { error, fail, redirect } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import type { Actions, PageServerLoad } from './$types';
 import { db, schema } from '#lib/server/db/index.js';
-import { createQuiz, duplicateQuiz, listQuizzes, quizAccess } from '#lib/server/quizzes.js';
+import { canEdit, createQuiz, duplicateQuiz, listQuizzes, quizAccess } from '#lib/server/quizzes.js';
 import { sweepOrphanMedia } from '#lib/server/media-access.js';
 
 export const load: PageServerLoad = ({ locals }) => ({ quizzes: listQuizzes(locals.user!) });
@@ -15,7 +15,10 @@ export const actions: Actions = {
 	},
 	duplicate: async ({ request, locals }) => {
 		const id = String((await request.formData()).get('id') ?? '');
-		if (!quizAccess(locals.user!, id)) error(404);
+		const access = quizAccess(locals.user!, id);
+		if (!access) error(404);
+		// Kopia = pełna, edytowalna treść quizu – tylko dla osób, które mogą go edytować (nie „prowadzenie”).
+		if (!canEdit(access)) error(403);
 		const copy = duplicateQuiz(locals.user!, id);
 		if (!copy) error(404);
 		redirect(303, `/panel/quizzes/${copy}`);
