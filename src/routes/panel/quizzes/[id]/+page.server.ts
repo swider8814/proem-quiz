@@ -4,10 +4,11 @@ import type { PageServerLoad } from './$types';
 import { db, schema } from '#lib/server/db/index.js';
 import { canEdit, canManageShares, loadQuiz, quizAccess } from '#lib/server/quizzes.js';
 import { DEFAULT_QUIZ_SETTINGS } from '#lib/server/db/schema.js';
+import { panelDict } from '#lib/i18n/panel.js';
 
 export const load: PageServerLoad = ({ params, locals }) => {
 	const access = quizAccess(locals.user!, params.id);
-	if (!access) error(404, 'Nie znaleziono quizu.');
+	if (!access) error(404, panelDict(locals.lang).err.quizNotFound);
 	const loaded = loadQuiz(params.id)!;
 	const mediaIds = new Set<string>();
 	for (const q of loaded.questions) {

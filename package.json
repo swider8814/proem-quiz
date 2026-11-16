@@ -17,7 +17,7 @@
 		"db:generate": "drizzle-kit generate",
 		"start": "node server/index.js",
 		"test": "node tests/profanity.test.mjs && node tests/net.test.mjs && node tests/engine.test.mjs && node tests/realtime-security.test.mjs && tsx tests/media-sweep.test.ts",
-		"test:e2e": "node tests/e2e-auth.test.mjs && node tests/http-security.test.mjs && node tests/panel.test.mjs",
+		"test:e2e": "node tests/e2e-auth.test.mjs && node tests/http-security.test.mjs && node tests/panel.test.mjs && node tests/i18n.test.mjs",
 		"test:load": "node tests/load/run.mjs 300 10",
 		"test:ui": "node tests/game-ui.e2e.mjs && node tests/editor-ui.e2e.mjs"
 	},

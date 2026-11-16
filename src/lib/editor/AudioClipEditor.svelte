@@ -2,7 +2,11 @@
 	import { onMount } from 'svelte';
 	import type WaveSurfer from 'wavesurfer.js';
 	type RegionsPlugin = ReturnType<(typeof import('wavesurfer.js/dist/plugins/regions.esm.js'))['default']['create']>;
+	import { page } from '$app/state';
 	import { fmtTime, parseTime, uploadFile } from './model';
+	import { panelDict } from '#lib/i18n/panel.js';
+	const A = $derived(panelDict(page.data.lang).audio);
+	const uploadFailed = $derived(panelDict(page.data.lang).editor.uploadFailed);
 
 	type Props = {
 		mediaId: string;
@@ -87,7 +91,7 @@
 		});
 		ws.on('error', () => {
 			loading = false;
-			err = 'Nie udało się wczytać pliku audio.';
+			err = A.loadFailed;
 		});
 		ws.on('finish', () => (playing = false));
 		ws.on('pause', () => (playing = false));
@@ -136,8 +140,8 @@
 		err = '';
 		uploading = true;
 		try {
-			const m = await uploadFile(file);
-			if (m.kind !== 'audio') throw new Error('To nie jest plik audio.');
+			const m = await uploadFile(file, uploadFailed);
+			if (m.kind !== 'audio') throw new Error(A.notAudio);
 			startMs = 0;
 			endMs = Math.min(10_000, m.durationMs ?? 10_000);
 			revealEndMs = null;
@@ -156,13 +160,13 @@
 <div class="audio card">
 	<div class="row top">
 		{#if mediaId}
-			<span><strong>{mediaName ?? 'Plik audio'}</strong>{#if durationMs}<span class="muted"> · {fmtTime(durationMs)}</span>{/if}</span>
+			<span><strong>{mediaName ?? A.file}</strong>{#if durationMs}<span class="muted"> · {fmtTime(durationMs)}</span>{/if}</span>
 		{:else}
-			<span class="muted">Wgraj utwór (MP3, M4A, WAV, OGG, FLAC – do 30 MB)</span>
+			<span class="muted">{A.uploadHint}</span>
 		{/if}
 		{#if !disabled}
 			<label class="btn secondary file">
-				{uploading ? 'Wysyłanie…' : mediaId ? 'Zmień plik' : 'Wybierz plik'}
+				{uploading ? panelDict(page.data.lang).common.uploading : mediaId ? A.change : A.choose}
 				<input type="file" accept="audio/*,.mp3,.m4a,.wav,.ogg,.flac" onchange={pick} disabled={uploading} />
 			</label>
 		{/if}
@@ -171,28 +175,28 @@
 	{#if err}<p class="error">{err}</p>{/if}
 
 	<div class="wave" class:hidden={!mediaId} bind:this={container}>
-		{#if loading}<span class="muted loading">Wczytywanie fali dźwięku…</span>{/if}
+		{#if loading}<span class="muted loading">{A.loadingWave}</span>{/if}
 	</div>
 
 	{#if mediaId}
 		<div class="row controls">
-			<button type="button" class="play" onclick={play} aria-label={playing ? 'Zatrzymaj' : 'Odsłuchaj fragment'}>
+			<button type="button" class="play" onclick={play} aria-label={playing ? A.stop : A.listen}>
 				{#if playing}
 					<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" /><rect x="14" y="5" width="4" height="14" /></svg>
 				{:else}
 					<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4l13 8-13 8z" /></svg>
 				{/if}
 			</button>
-			<label>Początek
+			<label>{A.start}
 				<input type="text" inputmode="decimal" bind:value={startText} onchange={() => applyText('start')} {disabled} />
 			</label>
-			<label>Koniec
+			<label>{A.end}
 				<input type="text" inputmode="decimal" bind:value={endText} onchange={() => applyText('end')} {disabled} />
 			</label>
-			<span class="muted len">Fragment: {clipLen} s · przeciągnij niebieskie pole na fali</span>
+			<span class="muted len">{A.clip(clipLen)}</span>
 		</div>
 		<div class="row opts">
-			<label class="check"><input type="checkbox" bind:checked={loop} {disabled} /> Odtwarzaj w pętli do końca czasu</label>
+			<label class="check"><input type="checkbox" bind:checked={loop} {disabled} /> {A.loop}</label>
 			<label class="check">
 				<input
 					type="checkbox"
@@ -200,10 +204,10 @@
 					onchange={(e) => (revealEndMs = (e.currentTarget as HTMLInputElement).checked ? Math.min(endMs + 20_000, durationMs ?? endMs + 20_000) : null)}
 					{disabled}
 				/>
-				Po odpowiedzi zagraj dłużej
+				{A.revealLonger}
 			</label>
 			{#if revealEndMs != null}
-				<span class="muted">do {fmtTime(revealEndMs)}</span>
+				<span class="muted">{A.until(fmtTime(revealEndMs))}</span>
 			{/if}
 		</div>
 	{/if}

@@ -1,19 +1,21 @@
 <script lang="ts">
+	import { panelDict } from '#lib/i18n/panel.js';
 	let { data, form } = $props();
+	const t = $derived(panelDict(data.lang));
 	let query = $state('');
 	const shown = $derived(
 		data.quizzes.filter((q) => q.title.toLowerCase().includes(query.toLowerCase().trim()))
 	);
-	const fmt = (d: Date | string) => new Date(d).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' });
+	const fmt = (d: Date | string) => new Date(d).toLocaleDateString(t.list.dateLocale, { day: 'numeric', month: 'short', year: 'numeric' });
 </script>
 
-<svelte:head><title>Quizy · Proem Quiz</title></svelte:head>
+<svelte:head><title>{t.list.title} · Proem Quiz</title></svelte:head>
 
 <div class="head">
-	<h1>Quizy</h1>
+	<h1>{t.list.title}</h1>
 	<form method="POST" action="?/create" class="new">
-		<input name="title" type="text" placeholder="Tytuł nowego quizu" aria-label="Tytuł nowego quizu" required maxlength="120" />
-		<button>Utwórz quiz</button>
+		<input name="title" type="text" placeholder={t.list.newTitle} aria-label={t.list.newTitle} required maxlength="120" />
+		<button>{t.list.create}</button>
 	</form>
 </div>
 
@@ -22,12 +24,12 @@
 
 {#if data.quizzes.length === 0}
 	<div class="card empty">
-		<p><strong>Nie masz jeszcze żadnego quizu.</strong></p>
-		<p class="muted">Wpisz tytuł powyżej i kliknij „Utwórz quiz”.</p>
+		<p><strong>{t.list.empty}</strong></p>
+		<p class="muted">{t.list.emptyHint}</p>
 	</div>
 {:else}
 	{#if data.quizzes.length > 6}
-		<input class="search" type="search" bind:value={query} placeholder="Szukaj quizu…" aria-label="Szukaj quizu" />
+		<input class="search" type="search" bind:value={query} placeholder={t.list.search} aria-label={t.list.search} />
 	{/if}
 	<ul class="list">
 		{#each shown as q (q.id)}
@@ -35,18 +37,18 @@
 				<div class="info">
 					<a class="title" href="/panel/quizzes/{q.id}">{q.title}</a>
 					<span class="muted">
-						{q.questionCount} {q.questionCount === 1 ? 'pytanie' : q.questionCount >= 2 && q.questionCount <= 4 ? 'pytania' : 'pytań'}
-						· {q.themeName ?? 'motyw domyślny'} · zmieniono {fmt(q.updatedAt)}
-						{#if !q.mine}· autor: {q.ownerName}{/if}
+						{t.list.questions(q.questionCount)}
+						· {q.themeName ?? t.list.defaultTheme} · {t.list.changed(fmt(q.updatedAt))}
+						{#if !q.mine}· {t.list.author(q.ownerName)}{/if}
 					</span>
 				</div>
 				<div class="actions">
-					<a class="btn" href="/panel/quizzes/{q.id}/host" aria-disabled={q.questionCount === 0} class:disabled={q.questionCount === 0}>Uruchom</a>
-					<a class="btn secondary" href="/panel/quizzes/{q.id}">Edytuj</a>
-					<form method="POST" action="?/duplicate"><input type="hidden" name="id" value={q.id} /><button class="secondary">Duplikuj</button></form>
+					<a class="btn" href="/panel/quizzes/{q.id}/host" aria-disabled={q.questionCount === 0} class:disabled={q.questionCount === 0}>{t.list.run}</a>
+					<a class="btn secondary" href="/panel/quizzes/{q.id}">{t.list.edit}</a>
+					<form method="POST" action="?/duplicate"><input type="hidden" name="id" value={q.id} /><button class="secondary">{t.list.duplicate}</button></form>
 					{#if q.mine || data.user.role === 'admin'}
-						<form method="POST" action="?/delete" onsubmit={(e) => { if (!confirm(`Usunąć quiz „${q.title}”? Tego nie da się cofnąć.`)) e.preventDefault(); }}>
-							<input type="hidden" name="id" value={q.id} /><button class="link danger-link">Usuń</button>
+						<form method="POST" action="?/delete" onsubmit={(e) => { if (!confirm(t.list.confirmDelete(q.title))) e.preventDefault(); }}>
+							<input type="hidden" name="id" value={q.id} /><button class="link danger-link">{t.common.remove}</button>
 						</form>
 					{/if}
 				</div>

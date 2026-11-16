@@ -3,24 +3,22 @@
 	import Shape from '#lib/game/Shape.svelte';
 	import { shapeColor, themeVars } from '#lib/game/theme.js';
 	import { uploadFile } from '#lib/editor/model.js';
+	import { panelDict } from '#lib/i18n/panel.js';
 
 	let { data, form } = $props();
+	const D = $derived(panelDict(data.lang));
+	const T = $derived(D.themes);
 	let t = $state(structuredClone(data.theme));
 	let uploadError = $state('');
 	let uploading = $state(false);
 
 	const preview = $derived({ name: t.name, style: t.style, colors: t.colors, headingFont: t.headingFont, logoUrl: t.logoLight ? `/media/${t.logoLight}` : null });
 	const payload = $derived(JSON.stringify({ name: t.name, style: t.style, headingFont: t.headingFont, colors: t.colors, logoLight: t.logoLight, logoDark: t.logoDark }));
-	const colorFields = [
-		['background', 'Tło'],
-		['surface', 'Karty / pola'],
-		['text', 'Tekst na tle'],
-		['accent', 'Akcent (przyciski, czas)']
-	] as const;
+	const colorFields = ['background', 'surface', 'text', 'accent'] as const;
 
 	function applyPreset() {
 		const p = data.presets[t.style];
-		if (!confirm('Zastąpić kolory i czcionkę domyślnymi dla tego stylu?')) return;
+		if (!confirm(T.presetConfirm)) return;
 		t.colors = structuredClone(p.colors);
 		t.headingFont = p.font;
 	}
@@ -33,8 +31,8 @@
 		uploadError = '';
 		uploading = true;
 		try {
-			const m = await uploadFile(file);
-			if (m.kind !== 'image') throw new Error('Logo musi być obrazkiem (PNG, JPG, WEBP).');
+			const m = await uploadFile(file, D.editor.uploadFailed);
+			if (m.kind !== 'image') throw new Error(D.err.logoImage);
 			t[which] = m.id;
 		} catch (x) {
 			uploadError = (x as Error).message;
@@ -44,68 +42,68 @@
 	}
 </script>
 
-<svelte:head><title>{t.name} · Motywy · Proem Quiz</title></svelte:head>
+<svelte:head><title>{t.name} · {T.title} · Proem Quiz</title></svelte:head>
 
-<p><a href="/panel/themes">← Motywy</a></p>
-<h1>{t.name} {#if data.theme.isDefault}<span class="tag ok">Domyślny</span>{/if}</h1>
+<p><a href="/panel/themes">{T.back}</a></p>
+<h1>{t.name} {#if data.theme.isDefault}<span class="tag ok">{T.default}</span>{/if}</h1>
 {#if form?.error}<p class="error">{form.error}</p>{/if}
-{#if form?.saved}<p class="success">Zapisano.</p>{/if}
+{#if form?.saved}<p class="success">{D.common.saved}</p>{/if}
 
 <div class="layout">
 	<form method="POST" action="?/save" class="card fields">
 		<input type="hidden" name="theme" value={payload} />
-		<label for="name">Nazwa</label>
+		<label for="name">{T.name}</label>
 		<input id="name" type="text" bind:value={t.name} maxlength="60" />
 
-		<label for="style">Styl ekranów</label>
+		<label for="style">{T.screenStyle}</label>
 		<select id="style" bind:value={t.style}>
 			{#each Object.entries(data.styles) as [k, label]}<option value={k}>{label}</option>{/each}
 		</select>
-		<button type="button" class="link" onclick={applyPreset}>Wczytaj domyślne kolory tego stylu</button>
+		<button type="button" class="link" onclick={applyPreset}>{T.loadPreset}</button>
 
-		<label for="font">Czcionka</label>
+		<label for="font">{T.font}</label>
 		<select id="font" bind:value={t.headingFont}>
 			{#each data.fonts as f}<option value={f}>{f}</option>{/each}
 		</select>
 
 		<fieldset>
-			<legend>Kolory</legend>
-			{#each colorFields as [key, label]}
-				<label class="color"><input type="color" bind:value={t.colors[key]} /> {label} <code>{t.colors[key]}</code></label>
+			<legend>{T.colors}</legend>
+			{#each colorFields as key}
+				<label class="color"><input type="color" bind:value={t.colors[key]} /> {T[key]} <code>{t.colors[key]}</code></label>
 			{/each}
 			{#each t.colors.answers as _, i}
-				<label class="color"><input type="color" bind:value={t.colors.answers[i]} /> Odpowiedź {String.fromCharCode(65 + i)} <code>{t.colors.answers[i]}</code></label>
+				<label class="color"><input type="color" bind:value={t.colors.answers[i]} /> {T.answer(String.fromCharCode(65 + i))} <code>{t.colors.answers[i]}</code></label>
 			{/each}
 		</fieldset>
 
 		<fieldset>
-			<legend>Logo (PNG, JPG lub WEBP)</legend>
-			{#each [['logoLight', 'Na jasne tło'], ['logoDark', 'Na ciemne tło (opcjonalnie)']] as [key, label]}
+			<legend>{T.logo}</legend>
+			{#each [['logoLight', T.logoLight], ['logoDark', T.logoDark]] as [key, label]}
 				{@const k = key as 'logoLight' | 'logoDark'}
 				<div class="logo-row">
 					<span>{label}</span>
-					{#if t[k]}<img src="/media/{t[k]}" alt="" /><button type="button" class="link" onclick={() => (t[k] = null)}>Usuń</button>{/if}
-					<label class="btn secondary file">{uploading ? 'Wysyłanie…' : 'Wybierz plik'}
+					{#if t[k]}<img src="/media/{t[k]}" alt="" /><button type="button" class="link" onclick={() => (t[k] = null)}>{D.common.remove}</button>{/if}
+					<label class="btn secondary file">{uploading ? D.common.uploading : D.common.chooseFile}
 						<input type="file" accept="image/png,image/jpeg,image/webp" onchange={(e) => pickLogo(e, k)} disabled={uploading} />
 					</label>
 				</div>
 			{/each}
 			{#if uploadError}<p class="error">{uploadError}</p>{/if}
-			<p class="muted small">Logo motywu jest publiczne (widzą je gracze na telefonach).</p>
+			<p class="muted small">{T.logoPublic}</p>
 		</fieldset>
 
-		<button class="save">Zapisz motyw</button>
+		<button class="save">{T.saveTheme}</button>
 	</form>
 
-	<section class="previews" aria-label="Podgląd">
+	<section class="previews" aria-label={T.preview}>
 		<div class="game pv host" data-style={t.style} style={themeVars(preview)}>
 			<div class="pv-top">
 				{#if preview.logoUrl}<img src={preview.logoUrl} alt="" />{:else}<b>{t.name.split(' – ')[0]}</b>{/if}
 				<span class="g-chip">PIN 482 913</span>
 			</div>
-			<div class="g-box pv-q">Jaka to kolęda?</div>
+			<div class="g-box pv-q">{T.pvQuestion}</div>
 			<div class="pv-tiles">
-				{#each ['Cicha noc', 'Wśród nocnej ciszy', 'Lulajże, Jezuniu', 'Dzisiaj w Betlejem'] as a, i}
+				{#each T.pvAnswers as a, i}
 					<div class="g-tile a{i}">
 						{#if t.style === 'calm'}<span class="badge">{String.fromCharCode(65 + i)}</span>{:else}<Shape {i} size={18} color={shapeColor(t.style)} />{/if}
 						{a}
@@ -114,23 +112,23 @@
 			</div>
 		</div>
 		<div class="game pv phone" data-style={t.style} style={themeVars(preview)}>
-			<span class="g-chip">Szybki Bóbr</span>
+			<span class="g-chip">{T.pvNick}</span>
 			<div class="pv-ptiles">
 				{#each [0, 1, 2, 3] as i}<div class="g-tile a{i}"><Shape {i} size={26} color={shapeColor(t.style)} /></div>{/each}
 			</div>
-			<button class="g-btn" type="button">Dołącz do gry</button>
+			<button class="g-btn" type="button">{T.pvJoin}</button>
 		</div>
 	</section>
 </div>
 
 <div class="card danger-zone">
 	{#if !data.theme.isDefault}
-		<form method="POST" action="?/makeDefault"><button class="secondary">Ustaw jako domyślny</button></form>
-		<form method="POST" action="?/delete" onsubmit={(e) => { if (!confirm(`Usunąć motyw? Quizy (${data.quizzes}) przejdą na motyw domyślny.`)) e.preventDefault(); }}>
-			<button class="danger">Usuń motyw</button>
+		<form method="POST" action="?/makeDefault"><button class="secondary">{T.makeDefault}</button></form>
+		<form method="POST" action="?/delete" onsubmit={(e) => { if (!confirm(T.deleteConfirm(data.quizzes))) e.preventDefault(); }}>
+			<button class="danger">{T.delete}</button>
 		</form>
 	{:else}
-		<p class="muted">To motyw domyślny – dostają go nowe quizy. Aby go usunąć, ustaw najpierw inny jako domyślny.</p>
+		<p class="muted">{T.isDefaultNote}</p>
 	{/if}
 </div>
 

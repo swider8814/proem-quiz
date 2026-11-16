@@ -6,12 +6,6 @@ import type { ThemeColors, ThemeStyle } from './db/schema.js';
 
 export const FONTS = ['Archivo', 'Montserrat', 'Plus Jakarta Sans', 'Inter'] as const;
 
-export const STYLE_LABELS: Record<ThemeStyle, string> = {
-	poster: 'C · Plakatowy (gruba kreska)',
-	vivid: 'A · Kolorowy (jak Kahoot)',
-	calm: 'B · Jasny i spokojny'
-};
-
 /** Kolory startowe dla każdego stylu (te same co w motywach Proem). */
 export const STYLE_PRESETS: Record<ThemeStyle, { colors: ThemeColors; font: (typeof FONTS)[number] }> = {
 	poster: { font: 'Archivo', colors: { background: '#dff1ff', surface: '#ffffff', text: '#111111', accent: '#ffc93c', answers: ['#ff5d8f', '#3d7bff', '#ffc93c', '#2ec27e'] } },
@@ -19,11 +13,11 @@ export const STYLE_PRESETS: Record<ThemeStyle, { colors: ThemeColors; font: (typ
 	calm: { font: 'Plus Jakarta Sans', colors: { background: '#f3f5fa', surface: '#ffffff', text: '#17203a', accent: '#1f4fd1', answers: ['#d7263d', '#1f4fd1', '#b26b00', '#1b7a3a'] } }
 };
 
-const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Kolor w formacie #RRGGBB');
+const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'hexColor');
 const mediaId = z.string().regex(/^med_[A-Za-z0-9_-]{10,20}$/).nullable();
 
 export const themeSchema = z.object({
-	name: z.string().trim().min(2, 'Podaj nazwę motywu').max(60),
+	name: z.string().trim().min(2, 'themeName').max(60),
 	style: z.enum(['poster', 'vivid', 'calm']),
 	headingFont: z.enum(FONTS),
 	colors: z.object({ background: hex, surface: hex, text: hex, accent: hex, answers: z.tuple([hex, hex, hex, hex]) }),
@@ -56,7 +50,7 @@ function validImage(id: string | null) {
 
 export function updateTheme(id: string, input: z.infer<typeof themeSchema>) {
 	if (!getTheme(id)) return { error: 'Nie znaleziono motywu.' };
-	if (!validImage(input.logoLight) || !validImage(input.logoDark)) return { error: 'Logo musi być obrazkiem (PNG, JPG, WEBP).' };
+	if (!validImage(input.logoLight) || !validImage(input.logoDark)) return { error: 'logoImage' as const };
 	db.update(schema.themes)
 		.set({ name: input.name, style: input.style, headingFont: input.headingFont, colors: input.colors, logoLight: input.logoLight, logoDark: input.logoDark })
 		.where(eq(schema.themes.id, id))
@@ -77,7 +71,7 @@ export function setDefaultTheme(id: string) {
 export function deleteTheme(id: string) {
 	const t = getTheme(id);
 	if (!t) return { error: 'Nie znaleziono motywu.' };
-	if (t.isDefault) return { error: 'Nie można usunąć motywu domyślnego. Najpierw ustaw inny jako domyślny.' };
+	if (t.isDefault) return { error: 'deleteDefaultTheme' as const };
 	const def = db.select().from(schema.themes).where(eq(schema.themes.isDefault, true)).get();
 	db.transaction(() => {
 		db.update(schema.quizzes).set({ themeId: def?.id ?? null }).where(eq(schema.quizzes.themeId, id)).run();
@@ -101,7 +95,7 @@ export function getSettings() {
 }
 
 export function saveSettings(orgName: string, orgLogo: string | null) {
-	if (orgLogo && !validImage(orgLogo)) return { error: 'Logo musi być obrazkiem (PNG, JPG, WEBP).' };
+	if (orgLogo && !validImage(orgLogo)) return { error: 'logoImage' as const };
 	db.transaction(() => {
 		db.insert(schema.appSettings).values({ key: 'org_name', value: orgName }).onConflictDoUpdate({ target: schema.appSettings.key, set: { value: orgName } }).run();
 		if (orgLogo) {

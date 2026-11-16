@@ -1,38 +1,40 @@
 <script lang="ts">
+	import { panelDict } from '#lib/i18n/panel.js';
 	let { data, form } = $props();
+	const T = $derived(panelDict(data.lang).themes);
 </script>
 
-<svelte:head><title>Motywy · Proem Quiz</title></svelte:head>
+<svelte:head><title>{T.title} · Proem Quiz</title></svelte:head>
 
-<h1>Motywy</h1>
-<p class="muted">Motyw = styl ekranów (C plakatowy / A kolorowy / B jasny) + kolory, czcionka i logo. Autor wybiera motyw w ustawieniach quizu.</p>
+<h1>{T.title}</h1>
+<p class="muted">{T.intro}</p>
 
 <div class="card">
-	<h2>Nowy motyw</h2>
+	<h2>{T.new}</h2>
 	{#if form?.error}<p class="error">{form.error}</p>{/if}
 	<form method="POST" action="?/create" class="new">
-		<div><label for="name">Nazwa</label><input id="name" name="name" type="text" maxlength="60" placeholder="np. Proem Zako – obozy" required /></div>
+		<div><label for="name">{T.name}</label><input id="name" name="name" type="text" maxlength="60" placeholder={T.namePlaceholder} required /></div>
 		<div>
-			<label for="style">Styl</label>
+			<label for="style">{T.style}</label>
 			<select id="style" name="style">
 				{#each Object.entries(data.styles) as [k, label]}<option value={k}>{label}</option>{/each}
 			</select>
 		</div>
-		<button>Utwórz</button>
+		<button>{T.create}</button>
 	</form>
 </div>
 
 <ul class="grid">
 	{#each data.themes as t (t.id)}
 		<li class="card theme">
-			<a href="/panel/themes/{t.id}" class="swatch" style:background={t.colors.background} aria-label="Edytuj motyw {t.name}">
+			<a href="/panel/themes/{t.id}" class="swatch" style:background={t.colors.background} aria-label={T.editTheme(t.name)}>
 				{#if t.logoUrl}<img src={t.logoUrl} alt="" />{/if}
 				<span class="tiles">{#each t.colors.answers as c}<span style:background={c}></span>{/each}</span>
 			</a>
 			<div class="meta">
 				<a href="/panel/themes/{t.id}" class="nm">{t.name}</a>
-				<span class="muted">{data.styles[t.style]} · quizów: {t.quizzes}</span>
-				{#if t.isDefault}<span class="tag ok">Domyślny</span>{/if}
+				<span class="muted">{data.styles[t.style]} · {T.usage(t.quizzes)}</span>
+				{#if t.isDefault}<span class="tag ok">{T.default}</span>{/if}
 			</div>
 		</li>
 	{/each}

@@ -1,23 +1,22 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { panelDict } from '#lib/i18n/panel.js';
 	let { data, form } = $props();
-
-	const LABEL = { host: 'może prowadzić grę', edit: 'może edytować i prowadzić' } as const;
+	const S = $derived(panelDict(data.lang).share);
 </script>
 
-<svelte:head><title>Udostępnianie – {data.quiz.title}</title></svelte:head>
+<svelte:head><title>{S.title} – {data.quiz.title}</title></svelte:head>
 
-<p><a href="/panel/quizzes/{data.quiz.id}">← Wróć do quizu</a></p>
-<h1>Udostępnij „{data.quiz.title}”</h1>
-<p class="muted">Właściciel: {data.quiz.ownerName}. Osoby z dostępem widzą ten quiz na swojej liście.
-	„Prowadzenie” pozwala uruchomić grę bez zmieniania pytań.</p>
+<p><a href="/panel/quizzes/{data.quiz.id}">{S.backToQuiz}</a></p>
+<h1>{S.heading(data.quiz.title)}</h1>
+<p class="muted">{S.intro(data.quiz.ownerName)}</p>
 
 {#if form?.error}<p class="error" role="alert">{form.error}</p>{/if}
 
 <section class="card">
-	<h2>Mają dostęp</h2>
+	<h2>{S.haveAccess}</h2>
 	{#if data.shares.length === 0}
-		<p class="muted">Na razie tylko właściciel.</p>
+		<p class="muted">{S.onlyOwner}</p>
 	{:else}
 		<ul class="rows">
 			{#each data.shares as s (s.userId)}
@@ -25,12 +24,12 @@
 					<div class="who"><strong>{s.name}</strong> <span class="muted">{s.email}</span></div>
 					<form method="POST" action="?/set" use:enhance class="row">
 						<input type="hidden" name="userId" value={s.userId} />
-						<select name="permission" aria-label="Uprawnienia: {s.name}" value={s.permission}
+						<select name="permission" aria-label={S.permissionFor(s.name)} value={s.permission}
 							onchange={(e) => e.currentTarget.form?.requestSubmit()}>
-							<option value="host">{LABEL.host}</option>
-							<option value="edit">{LABEL.edit}</option>
+							<option value="host">{S.host}</option>
+							<option value="edit">{S.edit}</option>
 						</select>
-						<button type="submit" name="remove" value="1" class="secondary">Usuń dostęp</button>
+						<button type="submit" name="remove" value="1" class="secondary">{S.removeAccess}</button>
 					</form>
 				</li>
 			{/each}
@@ -39,23 +38,23 @@
 </section>
 
 <section class="card">
-	<h2>Dodaj osobę</h2>
+	<h2>{S.add}</h2>
 	{#if data.candidates.length === 0}
-		<p class="muted">Wszystkie aktywne konta mają już dostęp. Nowe osoby zaprasza administrator w zakładce Użytkownicy.</p>
+		<p class="muted">{S.allHaveAccess}</p>
 	{:else}
 		<form method="POST" action="?/set" use:enhance class="row add">
-			<label>Osoba
+			<label>{S.person}
 				<select name="userId" required>
 					{#each data.candidates as u (u.id)}<option value={u.id}>{u.name} ({u.email})</option>{/each}
 				</select>
 			</label>
-			<label>Uprawnienia
+			<label>{S.permission}
 				<select name="permission">
-					<option value="host">{LABEL.host}</option>
-					<option value="edit">{LABEL.edit}</option>
+					<option value="host">{S.host}</option>
+					<option value="edit">{S.edit}</option>
 				</select>
 			</label>
-			<button type="submit">Udostępnij</button>
+			<button type="submit">{S.submit}</button>
 		</form>
 	{/if}
 </section>

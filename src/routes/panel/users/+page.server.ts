@@ -5,9 +5,10 @@ import { db, schema } from '#lib/server/db/index.js';
 import { deleteUserSessions, resetTotp } from '#lib/server/auth/index.js';
 import { createInvite, inviteUrl, inviteUser, isValidEmail } from '#lib/server/users.js';
 import { inviteMail, mailConfigured, sendMail } from '#lib/server/mail.js';
+import { isPanelLang, panelDict } from '#lib/i18n/panel.js';
 
 function requireAdmin(locals: App.Locals) {
-	if (locals.user?.role !== 'admin') error(403, 'Tylko dla administratorów');
+	if (locals.user?.role !== 'admin') error(403, panelDict(locals.lang).err.adminsOnly);
 	return locals.user;
 }
 
@@ -22,7 +23,8 @@ export const load: PageServerLoad = ({ locals }) => {
 			role: schema.users.role,
 			totpEnabled: schema.users.totpEnabled,
 			disabled: schema.users.disabled,
-			activated: schema.users.passwordHash
+			activated: schema.users.passwordHash,
+			locale: schema.users.locale
 		})
 		.from(schema.users)
 		.orderBy(asc(schema.users.name))
@@ -40,23 +42,26 @@ export const actions: Actions = {
 		const email = String(f.get('email') ?? '').trim();
 		const name = String(f.get('name') ?? '').trim();
 		const role = f.get('role') === 'admin' ? 'admin' : 'author';
-		if (!isValidEmail(email)) return fail(400, { inviteError: 'Podaj poprawny e-mail.', email, name, role });
-		if (name.length < 2) return fail(400, { inviteError: 'Podaj imię i nazwisko.', email, name, role });
-		const res = inviteUser({ email, name, role });
-		if ('error' in res) return fail(400, { inviteError: res.error, email, name, role });
+		const locale = f.get('locale') === 'en' ? 'en' : 'pl';
+		const t = panelDict(locals.lang).err;
+		if (!isValidEmail(email)) return fail(400, { inviteError: t.badEmail, email, name, role, locale });
+		if (name.length < 2) return fail(400, { inviteError: t.giveName, email, name, role, locale });
+		const res = inviteUser({ email, name, role, locale });
+		if ('error' in res) return fail(400, { inviteError: t.accountExists, email, name, role, locale });
 		const link = inviteUrl(url.origin, res.token);
-		const mailed = await sendMail(inviteMail(res.user.email, res.user.name, locals.user!.name, link));
+		const mailed = await sendMail(inviteMail(res.user.email, res.user.name, locals.user!.name, link, res.user.locale));
 		return { link, linkFor: res.user.name, mailed };
 	},
 
 	reinvite: async ({ request, locals, url }) => {
 		requireAdmin(locals);
 		const target = getTarget(String((await request.formData()).get('id')));
-		if (!target) return fail(404, { actionError: 'Nie znaleziono konta.' });
+		const t = panelDict(locals.lang).err;
+		if (!target) return fail(404, { actionError: t.accountNotFound });
 		// Link aktywacyjny tylko dla kont bez hasła (inaczej działałby jak reset hasła z panelu).
-		if (target.passwordHash) return fail(400, { actionError: 'To konto jest już aktywne.' });
+		if (target.passwordHash) return fail(400, { actionError: t.alreadyActive });
 		const link = inviteUrl(url.origin, createInvite(target.id));
-		const mailed = await sendMail(inviteMail(target.email, target.name, locals.user!.name, link));
+		const mailed = await sendMail(inviteMail(target.email, target.name, locals.user!.name, link, target.locale));
 		return { link, linkFor: target.name, mailed };
 	},
 
@@ -64,32 +69,46 @@ export const actions: Actions = {
 		const me = requireAdmin(locals);
 		const f = await request.formData();
 		const target = getTarget(String(f.get('id')));
-		if (!target) return fail(404, { actionError: 'Nie znaleziono konta.' });
-		if (target.id === me.id) return fail(400, { actionError: 'Nie możesz zmienić własnej roli.' });
+		const t = panelDict(locals.lang);
+		if (!target) return fail(404, { actionError: t.err.accountNotFound });
+		if (target.id === me.id) return fail(400, { actionError: t.err.ownRole });
 		const role = f.get('role') === 'admin' ? 'admin' : 'author';
 		db.update(schema.users).set({ role }).where(eq(schema.users.id, target.id)).run();
 		// Zmiana uprawnień = nowe logowanie (admin musi przejść 2FA / jego konfigurację).
 		deleteUserSessions(target.id);
 		// Nowy admin musi przy następnym wejściu skonfigurować TOTP (wymusza to hooks.server.ts).
-		return { message: `${target.name}: rola zmieniona na ${role === 'admin' ? 'administrator' : 'autor'}.` };
+		return { message: t.users.roleChanged(target.name, role === 'admin') };
 	},
 
 	toggle: async ({ request, locals }) => {
 		const me = requireAdmin(locals);
 		const target = getTarget(String((await request.formData()).get('id')));
-		if (!target) return fail(404, { actionError: 'Nie znaleziono konta.' });
-		if (target.id === me.id) return fail(400, { actionError: 'Nie możesz zablokować własnego konta.' });
+		const t = panelDict(locals.lang);
+		if (!target) return fail(404, { actionError: t.err.accountNotFound });
+		if (target.id === me.id) return fail(400, { actionError: t.err.ownBlock });
 		db.update(schema.users).set({ disabled: !target.disabled }).where(eq(schema.users.id, target.id)).run();
 		if (!target.disabled) deleteUserSessions(target.id);
-		return { message: `${target.name}: konto ${target.disabled ? 'odblokowane' : 'zablokowane'}.` };
+		return { message: t.users.toggled(target.name, !target.disabled) };
 	},
 
 	reset2fa: async ({ request, locals }) => {
 		const me = requireAdmin(locals);
 		const target = getTarget(String((await request.formData()).get('id')));
-		if (!target) return fail(404, { actionError: 'Nie znaleziono konta.' });
-		if (target.id === me.id) return fail(400, { actionError: 'Własnej weryfikacji nie resetujesz tutaj – użyj „Bezpieczeństwo”.' });
+		const t = panelDict(locals.lang);
+		if (!target) return fail(404, { actionError: t.err.accountNotFound });
+		if (target.id === me.id) return fail(400, { actionError: t.err.own2fa });
 		resetTotp(target.id);
-		return { message: `${target.name}: weryfikacja dwuetapowa zresetowana, sesje wylogowane.` };
+		return { message: t.users.reset2faDone(target.name) };
+	},
+
+	locale: async ({ request, locals }) => {
+		requireAdmin(locals);
+		const f = await request.formData();
+		const target = getTarget(String(f.get('id')));
+		const locale = f.get('locale');
+		if (!target) return fail(404, { actionError: panelDict(locals.lang).err.accountNotFound });
+		if (!isPanelLang(locale)) return fail(400, { actionError: panelDict(locals.lang).err.invalid });
+		db.update(schema.users).set({ locale }).where(eq(schema.users.id, target.id)).run();
+		return {};
 	}
 };

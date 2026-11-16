@@ -9,6 +9,7 @@ import {
 } from '#lib/server/auth/index.js';
 
 import { sweepOrphanMedia } from '#lib/server/media-access.js';
+import { LANG_COOKIE, resolveLang } from '#lib/server/lang.js';
 
 setInterval(() => {
 	purgeExpiredSessions();
@@ -32,6 +33,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	if (token && found?.refreshed) setSessionCookie(event.cookies, token, found.session.expiresAt);
 	event.locals.user = found?.user ?? null;
 	event.locals.session = found?.session ?? null;
+	event.locals.lang = resolveLang(event.locals.user, event.cookies.get(LANG_COOKIE), event.request.headers.get('accept-language'));
 
 	const routeId = event.route.id;
 
@@ -60,7 +62,11 @@ export const handle: Handle = async ({ event, resolve }) => {
 		}
 	}
 
-	const response = await resolve(event);
+	const response = await resolve(event, {
+		// Strony panelu i logowania: <html lang> w języku panelu (gra ustawia swój język sama).
+		// Czytane przy renderowaniu – strona zaproszenia/resetu ustawia język konta w load().
+		transformPageChunk: isPrivateRoute(routeId) ? ({ html }) => html.replace('<html lang="pl">', `<html lang="${event.locals.lang}">`) : undefined
+	});
 	response.headers.set('X-Frame-Options', 'DENY');
 	response.headers.set('Referrer-Policy', 'same-origin');
 	response.headers.set('X-Content-Type-Options', 'nosniff');

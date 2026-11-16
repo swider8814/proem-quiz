@@ -10,6 +10,7 @@ import {
 } from '#lib/server/auth/index.js';
 import { MFA_LIMIT, consume } from '#lib/server/auth/rate-limit.js';
 import { clientIp } from '#lib/server/net.js';
+import { panelDict } from '#lib/i18n/panel.js';
 
 export const load: PageServerLoad = ({ locals }) => {
 	if (!locals.session || !locals.user) redirect(303, '/login');
@@ -22,6 +23,7 @@ export const actions: Actions = {
 	default: async (event) => {
 		const { request, locals, cookies } = event;
 		const { user, session } = locals;
+		const t = panelDict(locals.lang);
 		if (!user || !session || session.mfaPassed || !user.totpEnabled) redirect(303, '/login');
 
 		const form = await request.formData();
@@ -33,12 +35,12 @@ export const actions: Actions = {
 		if (wait) {
 			deleteSession(session.id);
 			clearSessionCookie(cookies);
-			return fail(429, { error: `Za dużo błędnych kodów. Zaloguj się ponownie za ${Math.ceil(wait / 60)} min.`, recovery: false });
+			return fail(429, { error: t.err.tooManyCodes(Math.ceil(wait / 60)), recovery: false });
 		}
 
 		const ok = recovery ? useRecoveryCode(user, code) : await verifyUserTotp(user, code);
 		if (!ok) {
-			return fail(400, { error: recovery ? 'Nieprawidłowy lub zużyty kod zapasowy.' : 'Nieprawidłowy kod.', recovery });
+			return fail(400, { error: recovery ? t.err.badRecovery : t.err.badCode, recovery });
 		}
 		// Nowy token po drugim składniku (ochrona przed przejęciem sesji pośredniej).
 		const upgraded = upgradeSession(session, user, { ip: clientIp(event), userAgent: request.headers.get('user-agent') ?? undefined });

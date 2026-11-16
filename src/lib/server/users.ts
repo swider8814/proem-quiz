@@ -22,13 +22,13 @@ export function createInvite(userId: string, purpose: TokenPurpose = 'invite'): 
 	return token;
 }
 
-export function inviteUser(input: { email: string; name: string; role: 'admin' | 'author' }) {
+export function inviteUser(input: { email: string; name: string; role: 'admin' | 'author'; locale?: 'pl' | 'en' }) {
 	const email = input.email.toLowerCase().trim();
 	const existing = db.select().from(schema.users).where(eq(schema.users.email, email)).get();
-	if (existing) return { error: 'Konto z tym adresem już istnieje.' as const };
+	if (existing) return { error: 'accountExists' as const };
 	const user = db
 		.insert(schema.users)
-		.values({ id: newId('usr'), email, name: input.name.trim(), role: input.role })
+		.values({ id: newId('usr'), email, name: input.name.trim(), role: input.role, locale: input.locale ?? 'pl' })
 		.returning()
 		.get();
 	return { user, token: createInvite(user.id) };

@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { page } from '$app/state';
+	import { panelDict } from '#lib/i18n/panel.js';
+	const PH = $derived(panelDict(page.data.lang).host);
 	import { onMount } from 'svelte';
 	import type { Socket } from 'socket.io-client';
 	import './game.css';
@@ -70,7 +73,7 @@
 		try {
 			await audio.play();
 		} catch {
-			error = 'Przeglądarka zablokowała dźwięk – kliknij „Odtwórz ponownie”.';
+			error = PH.audioBlocked(L.replay);
 		}
 	}
 
@@ -118,7 +121,7 @@
 		socket.on('answers', (a: { count: number; total: number }) => (answered = a));
 		socket.on('connect_error', (e) => {
 			if (e.message === 'unauthorized') onClosed();
-			else error = 'Brak połączenia z serwerem…';
+			else error = PH.noConnection;
 		});
 		socket.on('connect', () => (error = ''));
 		const tick = setInterval(() => (now = Date.now()), 200);
@@ -146,7 +149,7 @@
 	}
 
 	async function closeGame() {
-		if (!confirm('Zamknąć grę? Gracze zostaną rozłączeni.')) return;
+		if (!confirm(PH.closeConfirm)) return;
 		await cmd('host:close');
 		onClosed();
 	}
@@ -196,7 +199,7 @@
 
 <div class="game host" data-style={style} style={themeVars(theme)}>
 	{#if !hs}
-		<p class="center big">Łączenie…</p>
+		<p class="center big">{PH.connecting}</p>
 	{:else}
 		<header class="bar">
 			<span class="brand">{#if theme?.logoUrl}<img src={theme.logoUrl} alt="" />{:else}{(theme?.name ?? 'Proem').split(' – ')[0]}{/if}</span>
@@ -211,7 +214,7 @@
 						<p class="lead">{L.joinAt} <strong>{joinHost}</strong> {L.andEnterPin}:</p>
 						<p class="pin">{pinFmt(hs.pin)}</p>
 					</div>
-					<img class="qr" src={qr} alt="Kod QR do dołączenia" />
+					<img class="qr" src={qr} alt={PH.qrAlt} />
 				</div>
 				<div class="count g-box">
 					<span class="n">{hs.playerCount}</span>

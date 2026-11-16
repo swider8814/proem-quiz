@@ -3,12 +3,14 @@ import { and, asc, eq, ne } from 'drizzle-orm';
 import type { Actions, PageServerLoad } from './$types';
 import { db, schema } from '#lib/server/db/index.js';
 import { canManageShares, listShares, quizAccess, setShare } from '#lib/server/quizzes.js';
+import { panelDict } from '#lib/i18n/panel.js';
 
 function guard(locals: App.Locals, quizId: string) {
 	const user = locals.user!;
 	const access = quizAccess(user, quizId);
-	if (!access) error(404, 'Nie znaleziono quizu.');
-	if (!canManageShares(user, access)) error(403, 'Udostępniać może tylko właściciel quizu albo administrator.');
+	const t = panelDict(locals.lang).err;
+	if (!access) error(404, t.quizNotFound);
+	if (!canManageShares(user, access)) error(403, t.shareForbidden);
 	return user;
 }
 
@@ -39,9 +41,9 @@ export const actions: Actions = {
 		const f = await request.formData();
 		const userId = f.get('userId');
 		const permission = f.get('remove') === '1' ? null : permissionOf(f.get('permission'));
-		if (typeof userId !== 'string' || userId.length > 64 || permission === undefined) return fail(400, { error: 'Niepoprawne dane.' });
+		if (typeof userId !== 'string' || userId.length > 64 || permission === undefined) return fail(400, { error: panelDict(locals.lang).err.invalid });
 		const err = setShare(user, params.id, userId, permission);
-		if (err) return fail(400, { error: err });
+		if (err) return fail(400, { error: panelDict(locals.lang).err[err] });
 		return { ok: true };
 	}
 };

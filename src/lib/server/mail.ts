@@ -5,6 +5,8 @@
 //   MAIL_FROM=quiz@proem.pl          (adres zweryfikowany w SendGrid: Sender Identity / domena)
 //   MAIL_FROM_NAME=Proem Quiz
 
+import { panelDict } from '#lib/i18n/panel.js';
+
 export type Mail = { to: string; subject: string; text: string; html: string };
 type Sender = (mail: Mail) => Promise<void>;
 
@@ -57,32 +59,38 @@ export async function sendMail(mail: Mail): Promise<boolean> {
 	}
 }
 
-function layout(title: string, bodyHtml: string) {
-	return `<!doctype html><html lang="pl"><body style="margin:0;background:#f6f6f8;font-family:Arial,sans-serif;color:#1d1d27">
+type Lang = string | null | undefined; // język konta odbiorcy (pl / en / uk → en)
+const dictFor = (lang: Lang) => panelDict(lang === 'pl' || lang == null ? 'pl' : 'en');
+
+function layout(lang: Lang, title: string, bodyHtml: string) {
+	const t = dictFor(lang);
+	return `<!doctype html><html lang="${lang === 'pl' || lang == null ? 'pl' : 'en'}"><body style="margin:0;background:#f6f6f8;font-family:Arial,sans-serif;color:#1d1d27">
 <div style="max-width:520px;margin:24px auto;background:#fff;border:1px solid #e3e4ea;border-radius:12px;padding:28px">
 <h1 style="font-size:20px;margin:0 0 16px">${esc(title)}</h1>${bodyHtml}
-<p style="font-size:12px;color:#666a7a;margin-top:28px">Proem Quiz · wiadomość wysłana automatycznie, nie odpowiadaj na nią.</p>
+<p style="font-size:12px;color:#666a7a;margin-top:28px">${esc(t.mail.footer)}</p>
 </div></body></html>`;
 }
 
-const button = (url: string, label: string) =>
+const button = (lang: Lang, url: string, label: string) =>
 	`<p><a href="${esc(url)}" style="display:inline-block;background:#1b1f3b;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:bold">${esc(label)}</a></p>
-<p style="font-size:12px;color:#666a7a;word-break:break-all">Jeśli przycisk nie działa, skopiuj adres: ${esc(url)}</p>`;
+<p style="font-size:12px;color:#666a7a;word-break:break-all">${esc(dictFor(lang).mail.fallback)} ${esc(url)}</p>`;
 
-export function inviteMail(to: string, name: string, inviter: string, url: string): Mail {
+export function inviteMail(to: string, name: string, inviter: string, url: string, lang: Lang = 'pl'): Mail {
+	const m = dictFor(lang).mail;
 	return {
 		to,
-		subject: 'Zaproszenie do Proem Quiz',
-		text: `Cześć ${name}!\n\n${inviter} zaprasza Cię do Proem Quiz. Ustaw hasło, otwierając link (ważny 7 dni, działa raz):\n${url}\n`,
-		html: layout('Zaproszenie do Proem Quiz', `<p>Cześć ${esc(name)}!</p><p>${esc(inviter)} zaprasza Cię do Proem Quiz. Ustaw hasło – link jest ważny 7 dni i działa raz.</p>${button(url, 'Ustaw hasło')}`)
+		subject: m.inviteSubject,
+		text: `${m.hi(name)}\n\n${m.inviteText(inviter)}\n${url}\n`,
+		html: layout(lang, m.inviteSubject, `<p>${esc(m.hi(name))}</p><p>${esc(m.inviteText(inviter))}</p>${button(lang, url, m.inviteButton)}`)
 	};
 }
 
-export function resetMail(to: string, name: string, url: string): Mail {
+export function resetMail(to: string, name: string, url: string, lang: Lang = 'pl'): Mail {
+	const m = dictFor(lang).mail;
 	return {
 		to,
-		subject: 'Reset hasła – Proem Quiz',
-		text: `Cześć ${name}!\n\nKtoś (pewnie Ty) poprosił o reset hasła. Link jest ważny 1 godzinę i działa raz:\n${url}\n\nJeśli to nie Ty – zignoruj tę wiadomość, hasło się nie zmieni.\n`,
-		html: layout('Reset hasła', `<p>Cześć ${esc(name)}!</p><p>Ktoś (pewnie Ty) poprosił o reset hasła do Proem Quiz. Link jest ważny 1 godzinę i działa raz.</p>${button(url, 'Ustaw nowe hasło')}<p>Jeśli to nie Ty – zignoruj tę wiadomość, hasło się nie zmieni. Weryfikacja dwuetapowa (jeśli ją masz) nadal będzie wymagana.</p>`)
+		subject: m.resetSubject,
+		text: `${m.hi(name)}\n\n${m.resetText}\n${url}\n\n${m.resetIgnore}\n`,
+		html: layout(lang, m.resetTitle, `<p>${esc(m.hi(name))}</p><p>${esc(m.resetText)}</p>${button(lang, url, m.resetButton)}<p>${esc(m.resetIgnore)}</p>`)
 	};
 }
