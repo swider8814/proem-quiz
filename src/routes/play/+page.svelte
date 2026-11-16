@@ -320,7 +320,8 @@
 			<main class="center result" class:good={gs.result.correct} class:bad={!gs.result.correct}>
 				<div class="g-box card msg">
 					<p class="huge">{gs.result.missed ? L.missed : gs.result.correct ? L.correct : L.wrong}</p>
-					{#if gs.result.points > 0}<p class="g-chip plus">+{pts(gs.result.points)}</p>{/if}
+					<!-- result.points zawiera bonus – tu pokazujemy osobno punkty za odpowiedź i bonus za serię -->
+					{#if gs.result.points - gs.result.bonus > 0}<p class="g-chip plus">+{pts(gs.result.points - gs.result.bonus)}</p>{/if}
 					{#if gs.result.bonus > 0}<p>{L.streak} {gs.me.streak} · +{gs.result.bonus} {L.bonus}</p>{/if}
 					{#if gs.rank}<p class="rank">{L.atPlace(gs.rank)}</p>{/if}
 				</div>
