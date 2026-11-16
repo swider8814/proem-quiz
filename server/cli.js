@@ -6,6 +6,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash, randomBytes } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import Database from 'better-sqlite3';
 
 const DATA_DIR = process.env.DATA_DIR ?? path.resolve('data');
@@ -26,6 +27,58 @@ function inviteFor(userId) {
 		Date.now() + 7 * 24 * 60 * 60 * 1000
 	);
 	return `${ORIGIN}/invite/${t}`;
+}
+
+/**
+ * Melodia „Cicha noc” (F. X. Gruber, 1818 – domena publiczna) wygenerowana syntezatorem → MP3 w DATA_DIR/media.
+ * Pozwala przetestować pytanie audio bez pobierania plików z internetu.
+ */
+function demoMelody(ownerId) {
+	const NOTE = { C4: 261.63, D4: 293.66, E4: 329.63, F4: 349.23, G4: 392, A4: 440, B4: 493.88, C5: 523.25, D5: 587.33, E5: 659.25, F5: 698.46 };
+	const tune = [
+		['G4', 1.5], ['A4', 0.5], ['G4', 1], ['E4', 3], ['G4', 1.5], ['A4', 0.5], ['G4', 1], ['E4', 3],
+		['D5', 2], ['D5', 1], ['B4', 3], ['C5', 2], ['C5', 1], ['G4', 3],
+		['A4', 2], ['A4', 1], ['C5', 1.5], ['B4', 0.5], ['A4', 1], ['G4', 1.5], ['A4', 0.5], ['G4', 1], ['E4', 3],
+		['A4', 2], ['A4', 1], ['C5', 1.5], ['B4', 0.5], ['A4', 1], ['G4', 1.5], ['A4', 0.5], ['G4', 1], ['E4', 3],
+		['D5', 2], ['D5', 1], ['F5', 1.5], ['D5', 0.5], ['B4', 1], ['C5', 3], ['E5', 3],
+		['C5', 1], ['G4', 1], ['E4', 1], ['G4', 1.5], ['F4', 0.5], ['D4', 1], ['C4', 6]
+	];
+	const rate = 22050;
+	const beat = 0.42;
+	const total = Math.ceil(tune.reduce((t, [, b]) => t + b, 0) * beat * rate) + rate;
+	const pcm = new Float32Array(total);
+	let pos = 0;
+	for (const [n, b] of tune) {
+		const len = Math.round(b * beat * rate);
+		const f = NOTE[n];
+		for (let i = 0; i < len + rate * 0.3 && pos + i < total; i++) {
+			const t = i / rate;
+			const env = Math.min(1, t / 0.01) * Math.exp(-t * 2.2) * (i < len ? 1 : Math.exp(-(i - len) / (rate * 0.05)));
+			pcm[pos + i] += env * (0.6 * Math.sin(2 * Math.PI * f * t) + 0.25 * Math.sin(4 * Math.PI * f * t) + 0.1 * Math.sin(6 * Math.PI * f * t));
+		}
+		pos += len;
+	}
+	const wav = Buffer.alloc(44 + total * 2);
+	wav.write('RIFF', 0); wav.writeUInt32LE(36 + total * 2, 4); wav.write('WAVE', 8); wav.write('fmt ', 12);
+	wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22); wav.writeUInt32LE(rate, 24);
+	wav.writeUInt32LE(rate * 2, 28); wav.writeUInt16LE(2, 32); wav.writeUInt16LE(16, 34); wav.write('data', 36); wav.writeUInt32LE(total * 2, 40);
+	for (let i = 0; i < total; i++) wav.writeInt16LE(Math.round(Math.max(-1, Math.min(1, pcm[i] * 0.5)) * 32767), 44 + i * 2);
+	const mediaId = id('med');
+	const mediaDir = path.join(DATA_DIR, 'media');
+	fs.mkdirSync(mediaDir, { recursive: true });
+	const tmp = path.join(mediaDir, `${mediaId}.wav`);
+	const file = `${mediaId}.mp3`;
+	fs.writeFileSync(tmp, wav);
+	try {
+		execFileSync('ffmpeg', ['-nostdin', '-hide_banner', '-loglevel', 'error', '-y', '-i', tmp, '-codec:a', 'libmp3lame', '-b:a', '96k', path.join(mediaDir, file)]);
+	} finally {
+		fs.rmSync(tmp, { force: true });
+	}
+	fs.chmodSync(path.join(mediaDir, file), 0o640);
+	const durationMs = Math.round((total / rate) * 1000);
+	db.prepare('INSERT INTO media (id, owner_id, kind, original_name, file, duration_ms, size_bytes) VALUES (?, ?, ?, ?, ?, ?, ?)')
+		.run(mediaId, ownerId, 'audio', 'Cicha noc (melodia, domena publiczna).mp3', file, durationMs, fs.statSync(path.join(mediaDir, file)).size);
+	return { id: mediaId, durationMs };
 }
 
 /** Katalog kopii: DATA_DIR/backup – zwykły katalog (nie dowiązanie). */
@@ -84,6 +137,8 @@ switch (cmd) {
 		if (!user) throw new Error('Użycie: demo-quiz <email istniejącego konta>');
 		const theme = db.prepare('SELECT id FROM themes WHERE is_default = 1').get()?.id ?? null;
 		const settings = JSON.stringify({ defaultTimeLimit: 20, streakBonus: true, nicknameMode: 'random-or-custom', teamMode: false, lateJoin: true, phoneAnswerText: true });
+		const melody = demoMelody(user.id);
+		const audio = (answers) => ({ type: 'audio', answers, correct: [0], audioMediaId: melody.id, clipMediaId: melody.id, startMs: 0, endMs: 12_000, loop: false, revealEndMs: Math.min(melody.durationMs, 28_000) });
 		const make = (title, locale, questions) => {
 			const quizId = id('quiz');
 			db.transaction(() => {
@@ -96,6 +151,7 @@ switch (cmd) {
 			console.log(`Utworzono: ${title} → ${ORIGIN}/panel/quizzes/${quizId}`);
 		};
 		make('Przykład – Boże Narodzenie', 'pl', [
+			{ prompt: 'Jaka to kolęda?', data: audio(['Cicha noc', 'Wśród nocnej ciszy', 'Lulajże, Jezuniu', 'Bóg się rodzi']) },
 			{ prompt: 'W jakim mieście urodził się Jezus?', data: { type: 'choice', answers: ['Betlejem', 'Nazaret', 'Jerozolima', 'Kafarnaum'], correct: [0] } },
 			{ prompt: 'Wigilia to wieczór 24 grudnia.', data: { type: 'truefalse', correct: true } },
 			{ prompt: 'Który z tych darów NIE był darem Mędrców?', data: { type: 'choice', answers: ['Złoto', 'Kadzidło', 'Mirra', 'Srebro'], correct: [3] } },
@@ -104,6 +160,7 @@ switch (cmd) {
 			{ prompt: 'Ile potraw tradycyjnie jest na wigilijnym stole?', data: { type: 'choice', answers: ['7', '10', '12', '24'], correct: [2] } }
 		]);
 		make('Example – Christmas (English)', 'en', [
+			{ prompt: 'Name that carol!', tr: 'Jaka to kolęda?', data: audio(['Silent Night', 'O Holy Night', 'Joy to the World', 'Away in a Manger']) },
 			{ prompt: 'Where was Jesus born?', tr: 'Gdzie urodził się Jezus?', data: { type: 'choice', answers: ['Bethlehem', 'Nazareth', 'Jerusalem', 'Rome'], correct: [0] } },
 			{ prompt: 'Christmas Eve is on 24 December.', tr: 'Wigilia jest 24 grudnia.', data: { type: 'truefalse', correct: true } },
 			{ prompt: 'Which gift did the Wise Men NOT bring?', tr: 'Którego daru Mędrcy NIE przynieśli?', data: { type: 'choice', answers: ['Gold', 'Frankincense', 'Myrrh', 'Silver'], correct: [3] } },
@@ -111,7 +168,7 @@ switch (cmd) {
 			{ prompt: 'Put in order, from the earliest', tr: 'Ułóż od najwcześniejszego', time: 30, data: { type: 'order', items: ['Advent', 'Christmas Eve', 'Christmas Day', 'Epiphany'], partialCredit: true } },
 			{ prompt: 'Which colour is NOT usually used for Christmas decorations?', tr: 'Który kolor zwykle NIE jest kolorem świątecznych ozdób?', data: { type: 'choice', answers: ['Red', 'Green', 'Gold', 'Brown'], correct: [3] } }
 		]);
-		console.log('Pytania audio dodaj w edytorze (własne pliki MP3).');
+		console.log('Pytanie audio: melodia „Cicha noc” (F. X. Gruber, 1818 – domena publiczna), wygenerowana syntezatorem.');
 		break;
 	}
 	case 'backup': {

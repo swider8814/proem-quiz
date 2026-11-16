@@ -170,10 +170,16 @@ try {
 	const demoSave = {
 		title: 'Example – Christmas (English)', description: null, themeId: null, locale: 'en',
 		settings: { defaultTimeLimit: 20, streakBonus: true, nicknameMode: 'random-or-custom', teamMode: false, lateJoin: true, phoneAnswerText: true },
-		questions: dq.map((q) => ({ type: q.type, prompt: q.prompt, promptTranslation: q.prompt_translation, imageMediaId: null, timeLimit: q.time_limit, pointsMultiplier: q.points_multiplier, data: JSON.parse(q.data) }))
+		questions: dq.map((q) => { const { clipMediaId: _c, ...data } = JSON.parse(q.data); return { type: q.type, prompt: q.prompt, promptTranslation: q.prompt_translation, imageMediaId: null, timeLimit: q.time_limit, pointsMultiplier: q.points_multiplier, data }; })
 	};
 	const ds = await adm2.req(`/panel/api/quizzes/${demoIds[1]}`, { method: 'PUT', body: JSON.stringify(demoSave), headers: { 'content-type': 'application/json', accept: 'application/json' } });
 	ok(ds.status === 200, `przykładowe pytania przechodzą walidację edytora (${ds.text.slice(0, 120)})`);
+	const audioQ = JSON.parse(dq[0].data);
+	ok(dq[0].type === 'audio' && audioQ.audioMediaId, 'przykładowy quiz ma pytanie audio');
+	const mp3 = await adm2.req(`/media/${audioQ.audioMediaId}`, { raw: true });
+	const head = Buffer.from(await mp3.res.arrayBuffer()).subarray(0, 3).toString('latin1');
+	ok(mp3.status === 200 && (head === 'ID3' || head.charCodeAt(0) === 0xff), 'melodia to poprawny plik MP3 dostępny dla właściciela');
+	ok((await B().req(`/media/${audioQ.audioMediaId}`, { raw: true })).status === 404, 'melodia niedostępna publicznie');
 
 	ok(srv.alive(), 'serwer działa do końca testu');
 } catch (e) {

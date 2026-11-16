@@ -202,7 +202,7 @@ Działa na Windows, macOS i Linuksie z **Docker Desktop**. Komputer i telefony m
    ```bash
    docker compose -f docker-compose.local.yml --env-file .env.local exec app node server/cli.js demo-quiz twoj@email.pl
    ```
-   Pytanie audio dodaj w edytorze z własnym plikiem MP3.
+   Pytanie audio ma melodię „Cicha noc” (domena publiczna) wygenerowaną przez aplikację – własne MP3 dodasz w edytorze.
 
 Zatrzymanie: Ctrl+C. Dane zostają w wolumenie Dockera (`proem-quiz-local_data`); usunięcie wszystkiego:
 `docker compose -f docker-compose.local.yml down -v`.
