@@ -138,6 +138,15 @@ try {
 	// Admin zarządza udostępnianiem cudzego quizu
 	ok((await adm2.req(`/panel/quizzes/${sq}/share`)).status === 200, 'admin otwiera udostępnianie cudzego quizu');
 	ok((await setShare(adm2, { userId: kasiaId, permission: 'host' })).status === 200, 'admin udostępnia cudzy quiz');
+	// Udostępnienie „prowadzenie” administratorowi nie odbiera mu prawa edycji (review Codexa #3)
+	const sp = (await author.req(`/panel/quizzes/${sq}/share`)).text;
+	ok(!/admin2@proem\.pl|Test Admin \(/.test(sp.match(/<select name="userId"[\s\S]*?<\/select>/)?.[0] ?? ''), 'administratorzy nie są na liście do udostępnienia');
+	const { default: Database } = await import('better-sqlite3');
+	const sdb = new Database(path.join(srv.dataDir, 'quiz.db'), { readonly: true });
+	const adminId = sdb.prepare('SELECT id FROM users WHERE email = ?').get('admin2@proem.pl')?.id;
+	sdb.close();
+	if (adminId) await setShare(author, { userId: adminId, permission: 'host' });
+	ok(!!adminId && (await adm2.req(`/panel/api/quizzes/${sq}`, { method: 'PUT', body: quizBody('Poprawione przez admina'), headers: json })).status === 200, 'admin z wpisem „prowadzenie” nadal może edytować');
 
 	ok(srv.alive(), 'serwer działa do końca testu');
 } catch (e) {

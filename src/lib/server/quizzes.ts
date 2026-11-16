@@ -15,15 +15,14 @@ export function quizAccess(user: User, quizId: string): Access {
 	const q = db.select({ ownerId: schema.quizzes.ownerId }).from(schema.quizzes).where(eq(schema.quizzes.id, quizId)).get();
 	if (!q) return null;
 	if (q.ownerId === user.id) return 'owner';
+	// Admin widzi i może edytować wszystko (np. gdy autor odszedł) – udostępnienie nie może tego obniżyć.
+	if (user.role === 'admin') return 'edit';
 	const share = db
 		.select()
 		.from(schema.quizShares)
 		.where(and(eq(schema.quizShares.quizId, quizId), eq(schema.quizShares.userId, user.id)))
 		.get();
-	if (share) return share.permission;
-	// Admin widzi i może edytować wszystko (np. gdy autor odszedł).
-	if (user.role === 'admin') return 'edit';
-	return null;
+	return share ? share.permission : null;
 }
 
 export const canEdit = (a: Access) => a === 'owner' || a === 'edit';
