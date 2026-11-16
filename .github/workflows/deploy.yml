@@ -58,7 +58,7 @@ jobs:
           link="$(echo "$out" | grep -o 'http://localhost:3000/invite/[A-Za-z0-9_-]*')"
           test -n "$link"
           curl -fsS -H 'accept: text/html' "$link" | grep -q 'type="password"'
-          ls -ln data
+          sudo ls -ln data
       - name: ffmpeg i zapis działają przy systemie plików tylko do odczytu
         run: |
           docker compose exec -T app ffmpeg -nostdin -hide_banner -loglevel error -f lavfi -i sine=duration=1 -y /data/media/smoke.mp3
