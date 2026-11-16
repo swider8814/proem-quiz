@@ -26,7 +26,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 	const candidates = db
 		.select({ id: schema.users.id, name: schema.users.name, email: schema.users.email })
 		.from(schema.users)
-		.where(and(ne(schema.users.id, quiz.ownerId), eq(schema.users.disabled, false)))
+		.where(and(ne(schema.users.id, quiz.ownerId), eq(schema.users.disabled, false), ne(schema.users.role, 'admin'))) // admini mają dostęp zawsze
 		.orderBy(asc(schema.users.name))
 		.all()
 		.filter((u) => !sharedIds.has(u.id));
