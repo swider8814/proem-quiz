@@ -1,0 +1,151 @@
+// Edytor quizów w prawdziwej przeglądarce.   node tests/editor-ui.e2e.mjs [katalog-na-zrzuty]
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { chromium } from 'playwright-core';
+import { finish, makeAdmin, makeMp3, ok, sleep, startServer } from './_helpers.mjs';
+
+const shots = process.argv[2];
+if (shots) fs.mkdirSync(shots, { recursive: true });
+const srv = await startServer();
+const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH ?? '/usr/bin/google-chrome', args: ['--no-sandbox', '--autoplay-policy=no-user-gesture-required'] });
+const snap = async (p, n) => shots && p.screenshot({ path: `${shots}/${n}.png`, fullPage: true });
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'pq-ed-'));
+const mp3 = path.join(tmp, 'Cicha noc.mp3');
+fs.writeFileSync(mp3, makeMp3(20));
+const png = path.join(tmp, 'zdjecie.png');
+fs.writeFileSync(png, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64'));
+
+try {
+	const { browser: admin } = await makeAdmin(srv, 'ed@proem.pl');
+	const ctx = await browser.newContext({ viewport: { width: 1400, height: 1000 } });
+	await ctx.addCookies([{ name: 'pq_session', value: admin.jar.pq_session, url: srv.base }]);
+	const p = await ctx.newPage();
+	const errors = [];
+	p.on('pageerror', (e) => errors.push(String(e)));
+	p.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+	p.on('dialog', (d) => d.accept());
+
+	// Nowy quiz z listy
+	await p.goto(`${srv.base}/panel`);
+	await p.fill('input[name="title"]', 'Wigilia 2026');
+	await p.click('button:has-text("Utwórz quiz")');
+	await p.waitForURL(/\/panel\/quizzes\/quiz_/);
+	ok(true, 'quiz utworzony z listy');
+
+	// Pytanie audio
+	await p.selectOption('select[aria-label="Typ nowego pytania"]', 'audio');
+	await p.click('button:has-text("+ Dodaj pytanie")');
+	await p.setInputFiles('.audio input[type="file"]', mp3);
+	await p.waitForSelector('.audio .play', { timeout: 20000 });
+	await p.waitForFunction(() => !document.querySelector('.wave .loading'), null, { timeout: 15000 });
+	ok(await p.isVisible('.wave'), 'po wgraniu MP3 widać falę dźwięku');
+	ok(/Cicha noc/.test(await p.textContent('.audio .top')), 'nazwa pliku widoczna');
+	// Zakres wpisany ręcznie
+	await p.fill('.controls label:has-text("Początek") input', '0:02');
+	await p.press('.controls label:has-text("Początek") input', 'Tab');
+	await p.fill('.controls label:has-text("Koniec") input', '0:08,5');
+	await p.press('.controls label:has-text("Koniec") input', 'Tab');
+	ok(/6\.5 s/.test(await p.textContent('.len')), 'długość fragmentu przeliczona (6.5 s)');
+	await p.click('.audio .play');
+	await sleep(400);
+	ok(await p.isVisible('.audio .play[aria-label="Zatrzymaj"]'), 'odsłuch fragmentu startuje');
+	await p.click('.audio .play');
+	const answers = p.locator('.answers input[type="text"]');
+	await answers.nth(0).fill('Cicha noc');
+	await answers.nth(1).fill('Wśród nocnej ciszy');
+	await answers.nth(2).fill('Lulajże, Jezuniu');
+	await snap(p, 'ed-01-audio');
+
+	// Pytanie ABCD z obrazkiem i dwiema poprawnymi
+	await p.selectOption('select[aria-label="Typ nowego pytania"]', 'choice');
+	await p.click('button:has-text("+ Dodaj pytanie")');
+	await p.fill('input[placeholder^="np. Jaka to kolęda"]', 'Które kolory są na fladze Polski?');
+	await answers.nth(0).fill('Biały');
+	await answers.nth(1).fill('Czerwony');
+	await answers.nth(2).fill('Zielony');
+	await p.locator('.answer').nth(1).locator('input[type="checkbox"]').check();
+	await p.setInputFiles('.image input[type="file"]', png);
+	await p.waitForSelector('.image img');
+	ok(true, 'obrazek dodany do pytania');
+
+	// Prawda / fałsz
+	await p.selectOption('select[aria-label="Typ nowego pytania"]', 'truefalse');
+	await p.click('button:has-text("+ Dodaj pytanie")');
+	await p.fill('input[placeholder^="np. Jaka to kolęda"]', 'Mikołaj ma renifery');
+	// Tekst
+	await p.selectOption('select[aria-label="Typ nowego pytania"]', 'text');
+	await p.click('button:has-text("+ Dodaj pytanie")');
+	await p.fill('input[placeholder^="np. Jaka to kolęda"]', 'Jak ma na imię renifer z czerwonym nosem?');
+	await p.fill('input[aria-label="Akceptowana odpowiedź 1"]', 'Rudolf');
+	await p.click('button:has-text("+ dodaj wariant")');
+	await p.fill('input[aria-label="Akceptowana odpowiedź 2"]', 'Rudolph');
+	// Kolejność
+	await p.selectOption('select[aria-label="Typ nowego pytania"]', 'order');
+	await p.click('button:has-text("+ Dodaj pytanie")');
+	await p.fill('input[placeholder^="np. Jaka to kolęda"]', 'Ułóż zdanie');
+	for (const [i, w] of ['I', 'love', 'Christmas'].entries()) await p.fill(`input[aria-label="Element ${i + 1}"]`, w);
+
+	ok((await p.locator('.list .item').count()) === 5, '5 pytań na liście');
+	ok(/Niezapisane zmiany/.test(await p.textContent('.status')), 'status: niezapisane zmiany');
+	ok(await p.locator('a.start.disabled').count() === 1, '„Uruchom grę” zablokowane przy niezapisanych zmianach');
+
+	// Zmiana kolejności
+	await p.locator('.list .item').nth(4).click();
+	await p.click('button[aria-label="Przesuń w górę"]');
+	ok(/Ułóż zdanie/.test(await p.locator('.list .item').nth(3).textContent()), 'przesunięcie pytania w górę');
+
+	// Zapis (Ctrl+S)
+	await p.keyboard.press('Control+s');
+	await p.waitForFunction(() => /Zapisano/.test(document.querySelector('.status')?.textContent ?? ''), null, { timeout: 30000 });
+	ok(true, 'zapis Ctrl+S (z wycięciem fragmentu audio)');
+	await snap(p, 'ed-02-zapisane');
+
+	// Po odświeżeniu wszystko jest
+	await p.reload();
+	await p.waitForSelector('.list .item');
+	ok((await p.locator('.list .item').count()) === 5, 'po odświeżeniu 5 pytań');
+	await p.locator('.list .item').nth(0).click();
+	await p.waitForSelector('.audio .play', { timeout: 15000 });
+	const start = await p.inputValue('.controls label:has-text("Początek") input');
+	const end = await p.inputValue('.controls label:has-text("Koniec") input');
+	ok(start === '0:02.0' && end === '0:08.5', `zakres audio zachowany (${start}–${end})`);
+	ok(/Zapisano/.test(await p.textContent('.status')), 'po odświeżeniu brak fałszywych „niezapisanych zmian”');
+	await p.locator('.list .item').nth(1).click();
+	const checked = await p.locator('.answer input[type="checkbox"]:checked').count();
+	ok(checked === 2, 'dwie poprawne odpowiedzi zachowane');
+
+	// Błąd walidacji jest czytelny
+	await p.locator('.list .item').nth(2).click();
+	await p.fill('input[placeholder^="np. Jaka to kolęda"]', '');
+	await p.click('button:has-text("Zapisz")');
+	await p.waitForSelector('.status .err');
+	ok(/Pytanie 3/.test(await p.textContent('.status .err')), `czytelny błąd zapisu: ${await p.textContent('.status .err')}`);
+
+	// Mobile: panel na telefonie nie rozjeżdża się
+	const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+	await phone.addCookies([{ name: 'pq_session', value: admin.jar.pq_session, url: srv.base }]);
+	const m = await phone.newPage();
+	await m.goto(p.url());
+	await m.waitForSelector('.list .item');
+	const overflow = await m.evaluate(() => {
+		if (document.documentElement.scrollWidth > document.documentElement.clientWidth + 1) return 'strona';
+		for (const el of document.querySelectorAll('.list .item, header nav, .card')) {
+			const p = el.parentElement.getBoundingClientRect(), r = el.getBoundingClientRect();
+			if (r.right > p.right + 1 && getComputedStyle(el.parentElement).overflowX !== 'visible') return el.className;
+			if (r.right > window.innerWidth + 1) return el.className;
+		}
+		return false;
+	});
+	ok(!overflow, 'edytor na telefonie bez poziomego przewijania');
+	await snap(m, 'ed-03-telefon');
+
+	ok(errors.filter((e) => !/Failed to load resource/.test(e)).length === 0, `brak błędów JS ${errors.join(' | ')}`);
+} catch (e) {
+	ok(false, `wyjątek: ${e.stack}`);
+} finally {
+	await browser.close();
+	srv.stop();
+	fs.rmSync(tmp, { recursive: true, force: true });
+}
+process.exit(finish() ? 1 : 0);
