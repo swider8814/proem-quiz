@@ -30,6 +30,9 @@ ok(deploy?.includes('DOCKER_CONFIG='), 'deploy.sh używa osobnych danych logowan
 ok(!/docker (system|container|volume|network) prune|docker rm |docker stop /.test(deploy ?? ''), 'deploy.sh nie zatrzymuje ani nie usuwa cudzych kontenerów');
 ok(/prune -f --filter "label=org\.opencontainers\.image\.source=https:\/\/github\.com\/swider8814\/proem-quiz"/.test(deploy ?? ''), 'deploy.sh usuwa tylko obrazy quizu');
 ok(/command="%s",restrict/.test(setup), 'klucz GitHuba ograniczony do deploy.sh (restrict)');
+for (const key of ['QUIZ_UID', 'QUIZ_MEM', 'QUIZ_CPUS', 'MEDIA_QUOTA_BYTES', 'MEDIA_MIN_FREE_BYTES']) {
+	ok(new RegExp(`ensure_env ${key} `).test(setup), `${key} dopisywany także do istniejącego .env (review Codexa #4)`);
+}
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'pq-deploy-'));
 for (const [name, body] of [['setup.sh', setup], ['deploy.sh', deploy ?? '']]) {
