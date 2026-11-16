@@ -56,7 +56,13 @@
 					Wpisz 6-cyfrowy kod, który pokazała aplikacja:
 					{#if form?.error}<p class="error" role="alert">{form.error}</p>{/if}
 					<form method="POST">
+						{#if data.reconfigure}
+							<label for="password">Obecne hasło (potwierdzenie zmiany)</label>
+							<input id="password" name="password" type="password" autocomplete="current-password" required />
+							<label for="code">Kod z aplikacji</label>
+						{/if}
 						<input
+							id="code"
 							name="code"
 							class="code"
 							type="text"

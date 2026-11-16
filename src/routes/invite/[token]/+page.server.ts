@@ -4,6 +4,7 @@ import type { Actions, PageServerLoad } from './$types';
 import { db, schema } from '#lib/server/db/index.js';
 import { createSession, deleteUserSessions, hashPassword, passwordProblem, setSessionCookie } from '#lib/server/auth/index.js';
 import { findInvite } from '#lib/server/users.js';
+import { clientIp } from '#lib/server/net.js';
 
 export const load: PageServerLoad = ({ params }) => {
 	const found = findInvite(params.token);
@@ -12,7 +13,8 @@ export const load: PageServerLoad = ({ params }) => {
 };
 
 export const actions: Actions = {
-	default: async ({ params, request, cookies, getClientAddress }) => {
+	default: async (event) => {
+		const { params, request, cookies } = event;
 		const found = findInvite(params.token);
 		if (!found) error(404, 'Ten link zaproszenia jest nieważny albo wygasł.');
 
@@ -33,7 +35,7 @@ export const actions: Actions = {
 		// Po ustawieniu hasła od razu logujemy. Admin zostanie przekierowany do konfiguracji TOTP.
 		const { token, session } = createSession(user, {
 			mfaPassed: !user.totpEnabled,
-			ip: getClientAddress(),
+			ip: clientIp(event),
 			userAgent: request.headers.get('user-agent') ?? undefined
 		});
 		setSessionCookie(cookies, token, session.expiresAt);

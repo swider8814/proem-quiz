@@ -1,7 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import QRCode from 'qrcode';
 import type { Actions, PageServerLoad } from './$types';
-import { enableTotp, newTotpSecret, totpUri } from '#lib/server/auth/index.js';
+import { enableTotp, newTotpSecret, totpUri, verifyPassword } from '#lib/server/auth/index.js';
 import { decrypt, encrypt } from '#lib/server/auth/crypto.js';
 import { MFA_LIMIT, hit, isLimited } from '#lib/server/auth/rate-limit.js';
 
@@ -41,6 +41,7 @@ export const load: PageServerLoad = async ({ locals, cookies, url }) => {
 
 	return {
 		required: user.role === 'admin',
+		reconfigure: user.totpEnabled,
 		qr: await QRCode.toDataURL(uri, { margin: 1, width: 240 }),
 		secret: secret.replace(/(.{4})/g, '$1 ').trim()
 	};
@@ -56,7 +57,16 @@ export const actions: Actions = {
 		const pending = cookies.get(COOKIE);
 		if (!pending) return fail(400, { error: 'Sesja konfiguracji wygasła. Zeskanuj nowy kod QR.' });
 
-		const code = String((await request.formData()).get('code') ?? '');
+		const form = await request.formData();
+		const code = String(form.get('code') ?? '');
+		// Zmiana istniejącej weryfikacji wymaga potwierdzenia hasłem (ktoś mógł przejąć otwartą sesję).
+		if (user.totpEnabled) {
+			const pw = String(form.get('password') ?? '');
+			if (!user.passwordHash || !(await verifyPassword(user.passwordHash, pw))) {
+				hit(key, MFA_LIMIT.windowMs);
+				return fail(400, { error: 'Nieprawidłowe hasło.' });
+			}
+		}
 		const codes = await enableTotp(user, decrypt(pending), code);
 		if (!codes) {
 			hit(key, MFA_LIMIT.windowMs);

@@ -1,6 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { checkCredentials, createSession, needsMfa, setSessionCookie } from '#lib/server/auth/index.js';
+import { clientIp } from '#lib/server/net.js';
 import { IP_LIMIT, LOGIN_LIMIT, hit, isLimited, reset } from '#lib/server/auth/rate-limit.js';
 
 const safeNext = (n: string | null) => (n && n.startsWith('/panel') ? n : '/panel');
@@ -11,11 +12,12 @@ export const load: PageServerLoad = ({ locals, url }) => {
 };
 
 export const actions: Actions = {
-	default: async ({ request, cookies, getClientAddress, url }) => {
+	default: async (event) => {
+		const { request, cookies, url } = event;
 		const form = await request.formData();
 		const email = String(form.get('email') ?? '').toLowerCase().trim();
 		const password = String(form.get('password') ?? '');
-		const ip = getClientAddress();
+		const ip = clientIp(event);
 
 		const wait = Math.max(
 			isLimited(`login:${email}`, LOGIN_LIMIT.max, LOGIN_LIMIT.windowMs),

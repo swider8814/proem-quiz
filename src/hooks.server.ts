@@ -31,5 +31,14 @@ export const handle: Handle = async ({ event, resolve }) => {
 	response.headers.set('X-Frame-Options', 'DENY');
 	response.headers.set('Referrer-Policy', 'same-origin');
 	response.headers.set('X-Content-Type-Options', 'nosniff');
+	response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
+	response.headers.set('Cross-Origin-Opener-Policy', 'same-origin');
+	if (event.url.protocol === 'https:') {
+		response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+	}
+	// Strony panelu i logowania nie mogą trafiać do cache przeglądarki/proxy.
+	if (/^\/(panel|login|invite|logout)/.test(path)) {
+		response.headers.set('Cache-Control', 'no-store');
+	}
 	return response;
 };

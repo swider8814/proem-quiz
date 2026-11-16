@@ -19,7 +19,23 @@ export default defineConfig({
 				runes: ({ filename }) =>
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
-			adapter: adapter({ out: 'build' })
+			adapter: adapter({ out: 'build' }),
+			csp: {
+				mode: 'auto',
+				directives: {
+					'default-src': ['self'],
+					'script-src': ['self'],
+					'style-src': ['self', 'unsafe-inline'],
+					'img-src': ['self', 'data:', 'blob:'],
+					'media-src': ['self', 'blob:'],
+					'font-src': ['self'],
+					'connect-src': ['self', 'ws:', 'wss:'],
+					'object-src': ['none'],
+					'base-uri': ['self'],
+					'form-action': ['self'],
+					'frame-ancestors': ['none']
+				}
+			}
 		}),
 		realtimeDev
 	]
