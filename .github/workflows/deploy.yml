@@ -31,6 +31,7 @@ jobs:
       - run: npm run build
       - run: npm test
       - run: npm run test:e2e
+      - run: CHROME_PATH="$(which google-chrome)" npm run test:ui
 
   image:
     needs: check
