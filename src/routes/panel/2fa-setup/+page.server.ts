@@ -5,7 +5,10 @@ import { BusyError, secureCookies, enableTotp, newTotpSecret, setSessionCookie, 
 import { decrypt, encrypt } from '#lib/server/auth/crypto.js';
 import { MFA_LIMIT, consume } from '#lib/server/auth/rate-limit.js';
 import { clientIp } from '#lib/server/net.js';
-import { panelDict } from '#lib/i18n/panel.js';
+import { isPanelLang, panelDict } from '#lib/i18n/panel.js';
+import { LANG_COOKIE, userLang } from '#lib/server/lang.js';
+import { db, schema } from '#lib/server/db/index.js';
+import { eq } from 'drizzle-orm';
 
 // Sekret w trakcie konfiguracji trzymamy w zaszyfrowanym ciasteczku, dopóki użytkownik nie potwierdzi kodem.
 const COOKIE = 'pq_totp_setup';
@@ -83,6 +86,11 @@ export const actions: Actions = {
 			return fail(400, { error: t.err.codeMismatch });
 		}
 		cookies.delete(COOKIE, { path: cookieOpts.path });
+		// Język wybrany przełącznikiem w trakcie konfiguracji (ciasteczko) zostaje zapisany w koncie.
+		const chosen = cookies.get(LANG_COOKIE);
+		if (isPanelLang(chosen) && chosen !== userLang(user)) {
+			db.update(schema.users).set({ locale: chosen }).where(eq(schema.users.id, user.id)).run();
+		}
 		// Wszystkie dotychczasowe sesje wygasły – ta przeglądarka dostaje nową, pełną sesję.
 		setSessionCookie(cookies, res.token, res.session.expiresAt);
 		return { recoveryCodes: res.codes };

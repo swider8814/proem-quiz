@@ -33,7 +33,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 	if (token && found?.refreshed) setSessionCookie(event.cookies, token, found.session.expiresAt);
 	event.locals.user = found?.user ?? null;
 	event.locals.session = found?.session ?? null;
-	event.locals.lang = resolveLang(event.locals.user, event.cookies.get(LANG_COOKIE), event.request.headers.get('accept-language'));
+	event.locals.lang = resolveLang(event.locals.user, !!event.locals.session?.mfaPassed, event.cookies.get(LANG_COOKIE), event.request.headers.get('accept-language'));
 
 	const routeId = event.route.id;
 
