@@ -37,17 +37,17 @@ Każdy push na `main`:
 3. łączy się z Mikrusem po SSH, pobiera nowy obraz i restartuje kontener.
 
 Na Mikrusie nic się nie buduje – serwer tylko pobiera gotowy obraz. Dane (baza + pliki audio)
-leżą w `~/proem-quiz/data` i przetrwają każdą aktualizację.
+leżą w `/srv/proem-quiz/data` i przetrwają każdą aktualizację.
 
 ## Pierwsze uruchomienie na Mikrusie (jednorazowo, ok. 15 min)
 
 Na Mikrusie działają też inne usługi (np. app.proem.pl), dlatego quiz jest od nich odizolowany:
 - osobny projekt i sieć Dockera (`proem-quiz`), komendy quizu nie dotykają innych kontenerów;
 - kontener działa jako osobny użytkownik (uid 10471), bez uprawnień, z systemem plików tylko do odczytu
-  i widzi wyłącznie `~/proem-quiz/data`;
+  i widzi wyłącznie `/srv/proem-quiz/data`;
 - limity: 600 MB RAM, 1 rdzeń, 256 procesów, 2 GB na pliki quizów i blokada wgrywania, gdy na dysku
   zostaje mniej niż 3 GB (wartości w `.env`: `QUIZ_MEM`, `QUIZ_CPUS`, `MEDIA_QUOTA_BYTES`, `MEDIA_MIN_FREE_BYTES`);
-- klucz SSH GitHuba może uruchomić **tylko** `~/proem-quiz/deploy.sh` (bez powłoki i kopiowania plików),
+- klucz SSH GitHuba może uruchomić **tylko** `/srv/proem-quiz/deploy.sh` (bez powłoki i kopiowania plików),
   a `docker-compose.yml` zmienia się wyłącznie ręcznie – przejęte repozytorium nie dostanie się do reszty serwera;
 - nieudana aktualizacja (kontener nie wstaje) jest automatycznie cofana do poprzedniej wersji.
 
@@ -60,7 +60,7 @@ Na Mikrusie działają też inne usługi (np. app.proem.pl), dlatego quiz jest o
    Skrypt najpierw pokaże działające kontenery, wolny RAM i dysk – sprawdź, czy wszystko się zgadza.
    Port wybierz z przydzielonych w panelu Mikrusa; skrypt odrzuci port, którego używa inna usługa.
    Skrypt można uruchomić ponownie (np. po zmianie `docker-compose.yml` w repo) – niczego nie nadpisze bez pytania.
-2. **Klucz `TOTP_ENCRYPTION_KEY`** z `~/proem-quiz/.env` zapisz w menedżerze haseł (potrzebny przy odtwarzaniu kopii).
+2. **Klucz `TOTP_ENCRYPTION_KEY`** z `/srv/proem-quiz/.env` zapisz w menedżerze haseł (potrzebny przy odtwarzaniu kopii).
 3. Wartości do sekretów GitHuba skrypt wypisuje na końcu (krok 4).
 4. **Sekrety w GitHubie:** repo → Settings → Secrets and variables → Actions → New repository secret:
 
@@ -85,7 +85,7 @@ Na Mikrusie działają też inne usługi (np. app.proem.pl), dlatego quiz jest o
 5. **Uruchom deploy:** repo → Actions → „Build i deploy” → Run workflow (albo zrób dowolny push).
    Po zielonym deployu utwórz pierwszego administratora:
    ```bash
-   cd ~/proem-quiz && docker compose exec app node server/cli.js create-admin twoj@email.pl "Imię Nazwisko"
+   cd /srv/proem-quiz && docker compose exec app node server/cli.js create-admin twoj@email.pl "Imię Nazwisko"
    ```
    Otwórz wypisany link, ustaw hasło i zeskanuj kod QR aplikacją do kodów (Google Authenticator, Aegis…).
 6. **Domena przez Cytrus:** w panelu Mikrusa dodaj domenę (np. `quiz.proem.pl`) i jako cel wpisz
@@ -115,16 +115,30 @@ Na Mikrusie działają też inne usługi (np. app.proem.pl), dlatego quiz jest o
 ## Przydatne komendy na serwerze
 
 ```bash
-cd ~/proem-quiz
+cd /srv/proem-quiz
 docker compose logs -f --tail 100   # logi na żywo
 docker compose restart              # restart
 docker compose ps                   # stan
 ```
 
-## Uruchomienie lokalne bez internetu (np. obóz)
+## Próba na własnym komputerze (przed wdrożeniem, albo na obozie bez internetu)
 
-Ten sam obraz działa na każdym komputerze z Dockerem:
-```bash
-docker run -d -p 3000:3000 -v ./data:/data -e ORIGIN=http://<IP laptopa>:3000 ghcr.io/swider8814/proem-quiz
-```
-Telefony w tej samej sieci Wi-Fi wchodzą na `http://<IP laptopa>:3000`.
+Działa na Windows, macOS i Linuksie z **Docker Desktop**. Komputer i telefony muszą być w tej samej sieci Wi-Fi.
+
+1. Pobierz kod: GitHub → repozytorium → **Code → Download ZIP** (rozpakuj) albo sklonuj przez GitHub Desktop.
+2. W folderze z kodem skopiuj `.env.local.example` jako `.env.local` i uzupełnij:
+   `ORIGIN=http://<adres IP komputera>:3000` oraz `TOTP_ENCRYPTION_KEY` (polecenie w pliku).
+3. W terminalu (Windows: PowerShell) w tym folderze:
+   ```bash
+   docker compose -f docker-compose.local.yml --env-file .env.local up --build
+   ```
+   Pierwsze budowanie trwa kilka minut. Windows może zapytać o dostęp do sieci – zezwól (sieci prywatne).
+4. W drugim oknie terminala – pierwszy administrator:
+   ```bash
+   docker compose -f docker-compose.local.yml --env-file .env.local exec app node server/cli.js create-admin twoj@email.pl "Imię Nazwisko"
+   ```
+5. Otwórz wypisany link **przez adres IP** (nie `localhost` – tak samo jak w `ORIGIN`), ustaw hasło i 2FA.
+   Telefony dołączają przez kod QR na ekranie prowadzącego.
+
+Zatrzymanie: Ctrl+C. Dane zostają w wolumenie Dockera (`proem-quiz-local_data`); usunięcie wszystkiego:
+`docker compose -f docker-compose.local.yml down -v`.

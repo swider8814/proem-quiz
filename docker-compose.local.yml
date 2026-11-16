@@ -1,0 +1,41 @@
+# PRÓBA NA WŁASNYM KOMPUTERZE (np. przed wdrożeniem albo na obozie bez internetu).
+#   1. W pliku .env.local ustaw ORIGIN=http://<IP komputera w Wi-Fi>:3000  (patrz README)
+#   2. docker compose -f docker-compose.local.yml --env-file .env.local up --build
+# Dane trafiają do wolumenu Dockera „proem-quiz-local_data”. Nie używaj tego pliku na serwerze.
+name: proem-quiz-local
+services:
+  # Jednorazowo ustawia właściciela wolumenu danych (aplikacja działa jako uid 10471, nie root).
+  init:
+    image: proem-quiz:local
+    build: .
+    user: root
+    entrypoint: ["sh", "-c", "chown 10471:10471 /data && chmod 750 /data"]
+    volumes:
+      - data:/data
+  app:
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    image: proem-quiz:local
+    restart: "no"
+    environment:
+      DATA_DIR: /data
+      PORT: 3000
+      ORIGIN: ${ORIGIN:?Ustaw ORIGIN w .env.local, np. http://192.168.1.20:3000}
+      TOTP_ENCRYPTION_KEY: ${TOTP_ENCRYPTION_KEY:?Ustaw TOTP_ENCRYPTION_KEY w .env.local}
+    ports:
+      - "3000:3000"
+    volumes:
+      - data:/data
+    # Te same ograniczenia co na serwerze – próba wykryje problemy z nimi wcześniej.
+    user: "10471:10471"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 600m
+
+volumes:
+  data:

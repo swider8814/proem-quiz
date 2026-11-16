@@ -1,4 +1,4 @@
-# Proem Quiz na Mikrusie – ~/proem-quiz/docker-compose.yml (zapisuje go scripts/mikrus-setup.sh).
+# Proem Quiz na Mikrusie – /srv/proem-quiz/docker-compose.yml (zapisuje go scripts/mikrus-setup.sh).
 # Plik zmienia się TYLKO ręcznie (ponowne uruchomienie skryptu), nie przy deployu z GitHuba:
 # nawet przejęte repozytorium nie może przez niego dostać się do reszty serwera (np. app.proem.pl).
 # Wartości z .env: PORT, QUIZ_UID, QUIZ_MEM, QUIZ_CPUS (domyślne poniżej).

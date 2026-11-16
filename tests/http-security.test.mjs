@@ -110,7 +110,7 @@ try {
 		const cookie = winner.setCookies.find((c) => c.startsWith('pq_session='));
 		const exp = new Date(cookie.match(/Expires=([^;]+)/i)[1]).getTime();
 		ok(exp - Date.now() > 29 * 24 * 3600 * 1000, '#10 ciasteczko po MFA ważne ~30 dni');
-		ok(/HttpOnly/i.test(cookie) && /SameSite=Lax/i.test(cookie) && /Secure/i.test(cookie), '#10 HttpOnly, SameSite=Lax, Secure');
+		ok(/HttpOnly/i.test(cookie) && /SameSite=Lax/i.test(cookie), '#10 HttpOnly, SameSite=Lax (Secure pod https – test niżej)');
 	}
 
 	// ── #8, #12: dostęp do mediów ─────────────────────────────────────────
@@ -176,6 +176,25 @@ try {
 		const fs = await import('node:fs');
 		const leftovers = fs.readdirSync(`${srv.dataDir}/media`).filter((f) => f.includes('.upload'));
 		ok(leftovers.length === 0, '#6 brak plików częściowych po błędach');
+	}
+
+	// Ciasteczko sesji: „Secure” pod https (produkcja), bez niego przy próbie w sieci lokalnej po http.
+	{
+		const out = srv.cli('create-admin', 'cookie@proem.pl', 'Cookie');
+		const link = out.match(/\/invite\/[A-Za-z0-9_-]+/)[0];
+		const r = await B().req(link, { method: 'POST', form: { password: 'BardzoTajne123!', repeat: 'BardzoTajne123!' } });
+		const c = r.setCookies.find((x) => x.startsWith('pq_session='));
+		ok(c && !/;\s*Secure/i.test(c) && /HttpOnly/i.test(c), 'ORIGIN http → ciasteczko bez Secure (sieć lokalna), nadal HttpOnly');
+		const https = await startServer({ ORIGIN: 'https://quiz.example' });
+		try {
+			const out2 = https.cli('create-admin', 'cookie@proem.pl', 'Cookie');
+			const link2 = out2.match(/\/invite\/[A-Za-z0-9_-]+/)[0];
+			const r2 = await new Browser(https.base).req(link2, { method: 'POST', form: { password: 'BardzoTajne123!', repeat: 'BardzoTajne123!' }, headers: { origin: 'https://quiz.example' } });
+			const c2 = r2.setCookies.find((x) => x.startsWith('pq_session='));
+			ok(c2 && /;\s*Secure/i.test(c2), `ORIGIN https → ciasteczko Secure (${r2.status})`);
+		} finally {
+			https.stop();
+		}
 	}
 
 	ok(srv.alive(), 'serwer działa do końca testu');

@@ -7,12 +7,12 @@
 # Bezpieczeństwo wobec innych usług na serwerze (np. app.proem.pl):
 #  - quiz działa w osobnym projekcie Dockera, osobnej sieci, jako osobny użytkownik (uid 10471),
 #    z systemem plików tylko do odczytu, bez uprawnień i z limitami RAM/CPU/procesów;
-#  - widzi wyłącznie katalog ~/proem-quiz/data;
-#  - klucz SSH dla GitHuba może uruchomić TYLKO ~/proem-quiz/deploy.sh (nie daje powłoki);
+#  - widzi wyłącznie katalog /srv/proem-quiz/data;
+#  - klucz SSH dla GitHuba może uruchomić TYLKO /srv/proem-quiz/deploy.sh (nie daje powłoki);
 #  - docker-compose.yml zmienia się tylko przez ten skrypt, nie przy deployu.
 set -euo pipefail
 
-APP_DIR="${APP_DIR:-$HOME/proem-quiz}"
+APP_DIR="${APP_DIR:-/srv/proem-quiz}" # poza katalogiem domowym roota – dostęp do odczytu dla kopii zapasowych
 QUIZ_UID=10471
 KEY_TAG=github-actions-proem-quiz
 
@@ -78,11 +78,14 @@ fi
 
 # --- 2. Katalog, .env, docker-compose.yml, deploy.sh ---
 bold "2/5 Katalog $APP_DIR"
+# Grupa o numerze użytkownika quizu – należy do niej tylko konto kopii zapasowych (odczyt danych).
+getent group "$QUIZ_UID" >/dev/null || groupadd -g "$QUIZ_UID" proem-quiz
 mkdir -p "$APP_DIR/data"
+chown "root:$QUIZ_UID" "$APP_DIR"
 chmod 750 "$APP_DIR"
 chown -R "$QUIZ_UID:$QUIZ_UID" "$APP_DIR/data"
-chmod 700 "$APP_DIR/data"
-info "Dane quizu: $APP_DIR/data (właściciel: uid $QUIZ_UID – tylko kontener quizu)"
+chmod 750 "$APP_DIR/data"
+info "Dane quizu: $APP_DIR/data (właściciel: uid $QUIZ_UID – kontener quizu; odczyt: konto kopii zapasowych)"
 
 ENV_FILE="$APP_DIR/.env"
 if [[ -f "$ENV_FILE" ]]; then
@@ -129,7 +132,7 @@ fi
 COMPOSE="$APP_DIR/docker-compose.yml"
 write_compose() {
 	cat >"$1" <<'COMPOSE_EOF'
-# Proem Quiz na Mikrusie – ~/proem-quiz/docker-compose.yml (zapisuje go scripts/mikrus-setup.sh).
+# Proem Quiz na Mikrusie – /srv/proem-quiz/docker-compose.yml (zapisuje go scripts/mikrus-setup.sh).
 # Plik zmienia się TYLKO ręcznie (ponowne uruchomienie skryptu), nie przy deployu z GitHuba:
 # nawet przejęte repozytorium nie może przez niego dostać się do reszty serwera (np. app.proem.pl).
 # Wartości z .env: PORT, QUIZ_UID, QUIZ_MEM, QUIZ_CPUS (domyślne poniżej).

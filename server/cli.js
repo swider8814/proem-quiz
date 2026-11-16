@@ -2,6 +2,8 @@
 //   docker compose exec app node server/cli.js create-admin jan@proem.pl "Jan Kowalski"
 //   docker compose exec app node server/cli.js invite-link jan@proem.pl
 //   docker compose exec app node server/cli.js reset-2fa jan@proem.pl
+//   docker compose exec app node server/cli.js backup /data/backup/quiz-2026-12-16.db
+import fs from 'node:fs';
 import path from 'node:path';
 import { createHash, randomBytes } from 'node:crypto';
 import Database from 'better-sqlite3';
@@ -68,7 +70,32 @@ switch (cmd) {
 		console.log(`Zresetowano 2FA dla ${user.email}. Przy następnym logowaniu skonfiguruje je od nowa.`);
 		break;
 	}
+	case 'backup': {
+		// Spójna kopia działającej bazy (SQLite online backup), bez sesji logowania.
+		const dest = emailArg;
+		if (!dest || !dest.endsWith('.db')) throw new Error('Użycie: backup <plik.db>');
+		const destDir = path.resolve(path.dirname(dest));
+		if (!destDir.startsWith(path.resolve(DATA_DIR) + path.sep)) throw new Error('Kopia musi trafić do katalogu danych (np. /data/backup).');
+		fs.mkdirSync(destDir, { recursive: true, mode: 0o750 });
+		const tmp = `${dest}.tmp`;
+		fs.rmSync(tmp, { force: true });
+		await db.backup(tmp);
+		const copy = new Database(tmp);
+		try {
+			copy.exec('DELETE FROM sessions;');
+			const check = copy.pragma('integrity_check', { simple: true });
+			if (check !== 'ok') throw new Error(`Kopia uszkodzona: ${check}`);
+			copy.exec('VACUUM;');
+		} finally {
+			copy.close();
+		}
+		fs.chmodSync(tmp, 0o640);
+		fs.renameSync(tmp, dest);
+		const stat = fs.statSync(dest);
+		console.log(JSON.stringify({ ok: true, file: dest, bytes: stat.size }));
+		break;
+	}
 	default:
-		console.log('Komendy: create-admin <email> "<Imię>", invite-link <email>, reset-2fa <email>');
+		console.log('Komendy: create-admin <email> "<Imię>", invite-link <email>, reset-2fa <email>, backup <plik.db>');
 }
 db.close();

@@ -1,7 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import QRCode from 'qrcode';
 import type { Actions, PageServerLoad } from './$types';
-import { BusyError, enableTotp, newTotpSecret, setSessionCookie, totpUri, verifyPassword } from '#lib/server/auth/index.js';
+import { BusyError, secureCookies, enableTotp, newTotpSecret, setSessionCookie, totpUri, verifyPassword } from '#lib/server/auth/index.js';
 import { decrypt, encrypt } from '#lib/server/auth/crypto.js';
 import { MFA_LIMIT, consume } from '#lib/server/auth/rate-limit.js';
 import { clientIp } from '#lib/server/net.js';
@@ -13,7 +13,7 @@ const cookieOpts = {
 	path: '/panel/2fa-setup',
 	httpOnly: true,
 	sameSite: 'strict' as const,
-	secure: process.env.NODE_ENV === 'production',
+	secure: secureCookies(),
 	maxAge: 15 * 60
 };
 

@@ -37,6 +37,12 @@ async function withHashSlot<T>(fn: () => Promise<T>): Promise<T> {
 	}
 }
 
+/** Ciasteczka „Secure”, gdy aplikacja działa pod https (ORIGIN). Próba w sieci lokalnej po http też działa. */
+export const secureCookies = () => {
+	const origin = process.env.ORIGIN;
+	return origin ? origin.startsWith('https://') : process.env.NODE_ENV === 'production';
+};
+
 // ── Hasła ────────────────────────────────────────────────────────────────
 
 export const hashPassword = (pw: string) => withHashSlot(() => hash(pw, { memoryCost: 19456, timeCost: 2 }));
@@ -157,7 +163,7 @@ export function setSessionCookie(cookies: Cookies, token: string, expiresAt: Dat
 		path: '/',
 		httpOnly: true,
 		sameSite: 'lax',
-		secure: process.env.NODE_ENV === 'production',
+		secure: secureCookies(),
 		expires: expiresAt
 	});
 }
