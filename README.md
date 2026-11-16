@@ -3,7 +3,7 @@
 Aplikacja do quizów na żywo w stylu Kahoot, z pytaniami audio („jaka to piosenka?”).
 Specyfikacja: dokument „Proem Quiz – specyfikacja” w Claude.
 
-**Stack:** SvelteKit 3 (adapter-node) · Socket.IO · SQLite + Drizzle · Node 22 · PM2 na Mikrusie 3.0.
+**Stack:** SvelteKit 3 (adapter-node) · Socket.IO · SQLite + Drizzle · Node 22 · Docker na Mikrusie 3.0.
 
 ## Praca lokalnie
 
@@ -25,46 +25,74 @@ server/realtime.js     komunikacja na żywo (na razie /diag do testu połączeni
 src/lib/server/db/     schemat bazy i połączenie
 src/routes/test-ws/    strona testu WebSocketów
 drizzle/               migracje SQL (uruchamiane automatycznie)
-scripts/deploy.sh      deploy na serwerze (git pull → build → PM2)
+Dockerfile             obraz aplikacji
+docker-compose.yml     uruchomienie na Mikrusie
 ```
 
-## Pierwsze uruchomienie na Mikrusie (jednorazowo)
+## Jak działa wdrożenie
 
-1. **Node 22 i PM2** (jeśli nie ma):
+Każdy push na `main`:
+1. GitHub Actions sprawdza kod i buduje obraz Dockera,
+2. wysyła go do GitHub Container Registry (`ghcr.io/swider8814/proem-quiz`),
+3. łączy się z Mikrusem po SSH, pobiera nowy obraz i restartuje kontener.
+
+Na Mikrusie nic się nie buduje – serwer tylko pobiera gotowy obraz. Dane (baza + pliki audio)
+leżą w `~/proem-quiz/data` i przetrwają każdą aktualizację.
+
+## Pierwsze uruchomienie na Mikrusie (jednorazowo, ok. 15 min)
+
+1. **Zaloguj się na Mikrusa** (SSH, dane z panelu) i zainstaluj Dockera:
    ```bash
-   curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs build-essential ffmpeg
-   npm i -g pm2 && pm2 startup
+   curl -fsSL https://get.docker.com | sh
+   docker compose version   # powinno pokazać wersję
    ```
-2. **Klucz deploy do repo** (żeby serwer mógł robić `git pull` z prywatnego repo):
+2. **Utwórz katalog i plik `.env`:**
    ```bash
-   ssh-keygen -t ed25519 -f ~/.ssh/proem_quiz_deploy -N ""
-   cat ~/.ssh/proem_quiz_deploy.pub   # → GitHub: repo → Settings → Deploy keys → Add (read-only)
-   printf 'Host github.com\n  IdentityFile ~/.ssh/proem_quiz_deploy\n' >> ~/.ssh/config
-   git clone git@github.com:swider8814/proem-quiz.git ~/proem-quiz
+   mkdir -p ~/proem-quiz/data && cd ~/proem-quiz
+   nano .env
    ```
-3. **Konfiguracja:** `cp ~/proem-quiz/.env.example ~/proem-quiz/.env` i uzupełnij
-   (`PORT` = jeden z portów Mikrusa, `ORIGIN`, `DATA_DIR`, `TOTP_ENCRYPTION_KEY`).
-4. **Start:** `bash ~/proem-quiz/scripts/deploy.sh`
-5. **Domena przez Cytrus:** w panelu Mikrusa dodaj domenę (np. `quiz.proem.pl`) i jako cel
-   wpisz `http://<IP lub adres serwera>:<PORT>`. W DNS domeny: rekord CNAME na `backend.strony.me`.
-6. Wejdź na `https://quiz.proem.pl/test-ws` – zielony komunikat „WebSocket działa” = wszystko gotowe.
-   Żółty („long-polling”) = Cytrus nie przepuszcza WebSocketów; aplikacja zadziała, ale daj znać.
+   Wklej i uzupełnij:
+   ```
+   PORT=20123                       # jeden z portów przydzielonych Twojemu Mikrusowi
+   ORIGIN=https://quiz.proem.pl
+   TOTP_ENCRYPTION_KEY=...          # wygeneruj: openssl rand -base64 32
+   ```
+3. **Klucz SSH dla GitHub Actions:**
+   ```bash
+   ssh-keygen -t ed25519 -f ~/gha_deploy -N "" -C github-actions
+   cat ~/gha_deploy.pub >> ~/.ssh/authorized_keys
+   cat ~/gha_deploy          # skopiuj całość (z BEGIN/END) do sekretu MIKRUS_SSH_KEY
+   rm ~/gha_deploy ~/gha_deploy.pub
+   ```
+4. **Sekrety w GitHubie:** repo → Settings → Secrets and variables → Actions → New repository secret:
 
-## Automatyczny deploy (GitHub Actions)
+   | Sekret | Wartość |
+   |---|---|
+   | `MIKRUS_HOST` | adres serwera, np. `srv12.mikr.us` |
+   | `MIKRUS_SSH_PORT` | port SSH z panelu Mikrusa (np. `10123`) |
+   | `MIKRUS_USER` | `root` |
+   | `MIKRUS_SSH_KEY` | prywatny klucz z kroku 3 |
 
-Każdy push na `main` → sprawdzenie i build → SSH na Mikrusa → `scripts/deploy.sh`.
+5. **Uruchom deploy:** repo → Actions → „Build i deploy” → Run workflow (albo zrób dowolny push).
+6. **Domena przez Cytrus:** w panelu Mikrusa dodaj domenę (np. `quiz.proem.pl`) i jako cel wpisz
+   `http://<adres serwera>:<PORT z .env>`. W DNS domeny ustaw CNAME na `backend.strony.me`.
+7. **Test:** wejdź na `https://quiz.proem.pl/test-ws`.
+   Zielony „WebSocket działa” = gotowe. Żółty („long-polling”) = Cytrus nie przepuszcza
+   WebSocketów; aplikacja zadziała, ale daj znać.
 
-Na serwerze dodaj klucz, którym loguje się GitHub Actions:
+## Przydatne komendy na serwerze
+
 ```bash
-ssh-keygen -t ed25519 -f ~/gha_deploy -N "" && cat ~/gha_deploy.pub >> ~/.ssh/authorized_keys
-cat ~/gha_deploy   # zawartość → sekret MIKRUS_SSH_KEY, potem usuń plik: rm ~/gha_deploy*
+cd ~/proem-quiz
+docker compose logs -f --tail 100   # logi na żywo
+docker compose restart              # restart
+docker compose ps                   # stan
 ```
 
-W repo: **Settings → Secrets and variables → Actions** dodaj:
+## Uruchomienie lokalne bez internetu (np. obóz)
 
-| Sekret | Przykład |
-|---|---|
-| `MIKRUS_HOST` | `srv12.mikr.us` |
-| `MIKRUS_SSH_PORT` | port SSH z panelu Mikrusa |
-| `MIKRUS_USER` | `root` |
-| `MIKRUS_SSH_KEY` | prywatny klucz z kroku wyżej |
+Ten sam obraz działa na każdym komputerze z Dockerem:
+```bash
+docker run -d -p 3000:3000 -v ./data:/data -e ORIGIN=http://<IP laptopa>:3000 ghcr.io/swider8814/proem-quiz
+```
+Telefony w tej samej sieci Wi-Fi wchodzą na `http://<IP laptopa>:3000`.

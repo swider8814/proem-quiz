@@ -1,0 +1,22 @@
+# Na Mikrusie: katalog ~/proem-quiz z tym plikiem i plikiem .env.
+# Plik jest kopiowany na serwer automatycznie przy każdym deployu.
+services:
+  app:
+    image: ghcr.io/swider8814/proem-quiz:latest
+    container_name: proem-quiz
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATA_DIR: /data
+      PORT: 3000
+    ports:
+      # Lewa strona = port Mikrusa, na który Cytrus kieruje ruch (z .env).
+      - "${PORT:-3000}:3000"
+    volumes:
+      - ./data:/data
+    mem_limit: 700m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
