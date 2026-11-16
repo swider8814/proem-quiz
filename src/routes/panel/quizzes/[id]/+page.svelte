@@ -138,6 +138,7 @@
 			{#if saving}Zapisywanie…{:else if saveError}<span class="err">{saveError}</span>{:else if dirty}Niezapisane zmiany{:else}Zapisano{/if}
 		</span>
 		<button class="secondary" type="button" onclick={() => (showSettings = !showSettings)} aria-expanded={showSettings}>Ustawienia</button>
+		{#if data.canShare}<a class="btn secondary" href="/panel/quizzes/{data.quiz.id}/share">Udostępnij</a>{/if}
 		{#if !ro}<button type="button" onclick={save} disabled={saving || !dirty}>Zapisz</button>{/if}
 		<a class="btn start" href="/panel/quizzes/{data.quiz.id}/host" class:disabled={dirty || questions.length === 0} aria-disabled={dirty || questions.length === 0}>Uruchom grę</a>
 	</div>

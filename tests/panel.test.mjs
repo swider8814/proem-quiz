@@ -93,6 +93,51 @@ try {
 	const del2 = await adm2.req(`${themeUrl}?/delete`, { method: 'POST', form: {} });
 	ok(del2.status === 303, 'usunięcie motywu niedomyślnego');
 
+	// ── Udostępnianie quizów między autorami ──
+	const kasia = await makeAuthor(srv, adm2, 'kasia@proem.pl');
+	const cq = await author.req('/panel?/create', { method: 'POST', form: { title: 'Quiz autora' } });
+	const sq = cq.loc.split('/').pop();
+	const json = { 'content-type': 'application/json', accept: 'application/json' };
+	const quizBody = (title) => JSON.stringify({
+		title, description: null, themeId: null, locale: 'pl',
+		settings: { defaultTimeLimit: 20, streakBonus: true, nicknameMode: 'random-or-custom', teamMode: false, lateJoin: true, phoneAnswerText: true },
+		questions: [{ type: 'choice', prompt: '2+2?', promptTranslation: null, imageMediaId: null, timeLimit: 20, pointsMultiplier: 1, data: { type: 'choice', answers: ['3', '4'], correct: [1] } }]
+	});
+	ok((await author.req(`/panel/api/quizzes/${sq}`, { method: 'PUT', body: quizBody('Quiz autora'), headers: json })).status === 200, 'autor zapisuje swój quiz');
+	ok((await kasia.req(`/panel/quizzes/${sq}`)).status === 404, 'przed udostępnieniem inny autor nie widzi quizu');
+	ok((await kasia.req(`/panel/quizzes/${sq}/share`)).status === 404, 'obcy nie otworzy strony udostępniania');
+
+	const sharePage = await author.req(`/panel/quizzes/${sq}/share`);
+	ok(sharePage.status === 200 && sharePage.text.includes('kasia@proem.pl'), 'właściciel widzi listę osób do udostępnienia');
+	const kasiaId = sharePage.text.match(/<option value="(usr_[A-Za-z0-9_-]+)">kasia/)?.[1];
+	ok(!!kasiaId, 'ID konta w formularzu udostępniania');
+
+	const setShare = (b, form) => b.req(`/panel/quizzes/${sq}/share?/set`, { method: 'POST', form });
+	ok((await setShare(author, { userId: kasiaId, permission: 'host' })).status === 200, 'udostępnienie do prowadzenia');
+	const list = (await kasia.req('/panel')).text;
+	ok(list.includes('Quiz autora'), 'udostępniony quiz na liście drugiej osoby');
+	ok((await kasia.req(`/panel/quizzes/${sq}`)).status === 200, 'osoba z dostępem „prowadzenie” otwiera quiz (podgląd)');
+	ok((await kasia.req(`/panel/quizzes/${sq}/host`)).status === 200, 'osoba z dostępem „prowadzenie” otwiera ekran gry');
+	ok((await kasia.req(`/panel/api/quizzes/${sq}`, { method: 'PUT', body: quizBody('Przejęty'), headers: json })).status === 403, 'dostęp „prowadzenie” nie pozwala edytować');
+	ok((await kasia.req(`/panel/quizzes/${sq}/share`)).status === 403, 'osoba z dostępem nie zarządza udostępnianiem');
+	ok((await setShare(kasia, { userId: kasiaId, permission: 'edit' })).status === 403, 'nie można samemu podnieść sobie uprawnień');
+	const delShared = await kasia.req('/panel?/delete', { method: 'POST', form: { id: sq } });
+	ok(delShared.status === 403, 'osoba z dostępem nie usunie cudzego quizu');
+
+	ok((await setShare(author, { userId: kasiaId, permission: 'edit' })).status === 200, 'zmiana na edycję');
+	ok((await kasia.req(`/panel/api/quizzes/${sq}`, { method: 'PUT', body: quizBody('Quiz autora v2'), headers: json })).status === 200, 'dostęp „edycja” pozwala zapisać');
+
+	ok((await setShare(author, { userId: kasiaId, permission: 'owner' })).status === 400, 'nieznane uprawnienie odrzucone');
+	ok((await setShare(author, { userId: 'usr_nieistnieje', permission: 'host' })).status === 400, 'nieistniejące konto odrzucone');
+
+	ok((await setShare(author, { userId: kasiaId, permission: 'host', remove: '1' })).status === 200, 'odebranie dostępu');
+	ok((await kasia.req(`/panel/quizzes/${sq}`)).status === 404, 'po odebraniu dostępu quiz znika');
+	ok(!(await kasia.req('/panel')).text.includes('Quiz autora'), 'po odebraniu dostępu quizu nie ma na liście');
+
+	// Admin zarządza udostępnianiem cudzego quizu
+	ok((await adm2.req(`/panel/quizzes/${sq}/share`)).status === 200, 'admin otwiera udostępnianie cudzego quizu');
+	ok((await setShare(adm2, { userId: kasiaId, permission: 'host' })).status === 200, 'admin udostępnia cudzy quiz');
+
 	ok(srv.alive(), 'serwer działa do końca testu');
 } catch (e) {
 	ok(false, `wyjątek: ${e.stack}`);
