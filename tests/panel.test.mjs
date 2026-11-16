@@ -10,7 +10,7 @@ const outbox = () => {
 	return fs.existsSync(f) ? fs.readFileSync(f, 'utf8').trim().split('\n').map((l) => JSON.parse(l)) : [];
 };
 const waitMail = async (to, n) => {
-	for (let i = 0; i < 40; i++) {
+	for (let i = 0; i < 80; i++) {
 		const m = outbox().filter((x) => x.to === to);
 		if (m.length >= n) return m[n - 1];
 		await new Promise((r) => setTimeout(r, 50));
@@ -32,6 +32,7 @@ try {
 
 	// ── Reset hasła ───────────────────────────────────────────────────────
 	const f1 = await B().req('/login/forgot', { method: 'POST', form: { email: 'admin@proem.pl' } });
+	ok(!outbox().some((m) => m.to === 'admin@proem.pl'), 'odpowiedź przed jakąkolwiek pracą dla konta (brak różnicy czasu istnieje/nie istnieje)');
 	const f2 = await B().req('/login/forgot', { method: 'POST', form: { email: 'nie-ma@proem.pl' } });
 	ok(f1.status === 200 && f2.status === 200 && /Jeśli konto z tym adresem istnieje/.test(f1.text) && /Jeśli konto z tym adresem istnieje/.test(f2.text), 'ta sama odpowiedź dla istniejącego i nieistniejącego konta');
 	const resetMail = await waitMail('admin@proem.pl', 1);
