@@ -16,6 +16,7 @@
 			<input id="password" name="password" type="password" autocomplete="current-password" required />
 			<button class="block">Zaloguj</button>
 		</form>
+		<p class="muted"><a href="/login/forgot">Nie pamiętasz hasła?</a></p>
 	</div>
 	<p class="muted">Konta zakłada administrator. Nie masz dostępu? Napisz do niego.</p>
 </main>

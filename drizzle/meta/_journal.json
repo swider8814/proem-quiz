@@ -36,6 +36,13 @@
       "when": 1794850589956,
       "tag": "0004_seed_styles",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1794856979414,
+      "tag": "0005_invite_purpose",
+      "breakpoints": true
     }
   ]
 }

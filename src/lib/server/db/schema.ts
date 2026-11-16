@@ -52,6 +52,8 @@ export const sessions = sqliteTable(
 
 export const invites = sqliteTable('invites', {
 	id: text('id').primaryKey(), // sha256 tokenu z linku
+	// invite = aktywacja konta (link od admina), reset = reset hasła (link z e-maila, ważny 1 h)
+	purpose: text('purpose', { enum: ['invite', 'reset'] }).notNull().default('invite'),
 	userId: text('user_id')
 		.notNull()
 		.references(() => users.id, { onDelete: 'cascade' }),

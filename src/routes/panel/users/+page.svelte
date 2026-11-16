@@ -16,6 +16,7 @@
 {#if form?.link}
 	<div class="success">
 		<p><strong>Link zaproszenia dla: {form.linkFor}</strong> (ważny 7 dni, działa raz)</p>
+		{#if form.mailed}<p>✉️ Zaproszenie wysłano też e-mailem.</p>{:else if data.mail}<p class="error">Nie udało się wysłać e-maila – przekaż link ręcznie.</p>{/if}
 		<code class="copy">{form.link}</code>
 		<p>
 			<button type="button" class="secondary" onclick={() => copy(form.link)}>{copied ? 'Skopiowano ✓' : 'Kopiuj link'}</button>
