@@ -99,7 +99,7 @@ info "Dane quizu: $APP_DIR/data (właściciel: uid $QUIZ_UID – kontener quizu;
 
 ENV_FILE="$APP_DIR/.env"
 if [[ -f "$ENV_FILE" ]]; then
-	info ".env już istnieje – zostawiam bez zmian (edycja: nano $ENV_FILE)."
+	info ".env już istnieje – istniejących wartości nie zmieniam (edycja: nano $ENV_FILE)."
 else
 	info "Port: jeden z portów TCP przydzielonych Twojemu Mikrusowi (panel Mikrusa), NIE używany przez inne usługi."
 	while :; do
@@ -138,6 +138,21 @@ EOF
 	info "Zapisano $ENV_FILE (tylko root może go czytać)."
 	warn "TOTP_ENCRYPTION_KEY z tego pliku zapisz też w menedżerze haseł – bez niego logowanie z 2FA nie zadziała po odtworzeniu kopii."
 fi
+
+# Ustawienia dodane w nowszych wersjach skryptu – dopisywane do istniejącego .env, jeśli ich brakuje
+# (wartości ustawione ręcznie zostają). Bez nich aplikacja użyłaby wyższych limitów domyślnych.
+ensure_env() { # ensure_env KLUCZ WARTOŚĆ
+	if ! grep -qE "^$1=" "$ENV_FILE"; then
+		printf '%s=%s\n' "$1" "$2" >>"$ENV_FILE"
+		info "Dopisano do .env: $1=$2"
+	fi
+}
+ensure_env QUIZ_UID "$QUIZ_UID"
+ensure_env QUIZ_MEM 600m
+ensure_env QUIZ_CPUS 1.0
+ensure_env MEDIA_QUOTA_BYTES 2147483648
+ensure_env MEDIA_MIN_FREE_BYTES 3221225472
+chmod 600 "$ENV_FILE"
 
 COMPOSE="$APP_DIR/docker-compose.yml"
 write_compose() {

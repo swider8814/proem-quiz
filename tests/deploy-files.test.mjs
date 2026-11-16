@@ -32,6 +32,9 @@ ok(/prune -f --filter "label=org\.opencontainers\.image\.source=https:\/\/github
 ok(/command="%s",restrict/.test(setup), 'klucz GitHuba ograniczony do deploy.sh (restrict)');
 ok(/OLD_DIR="\$HOME\/proem-quiz"/.test(setup) && /exit 1/.test(setup.split('OLD_DIR=')[1] ?? ''), 'stara instalacja w ~/proem-quiz wykrywana – bez drugiej, pustej instalacji (review Codexa #5)');
 ok(/\^command=\\"\$DEPLOY\\",/.test(setup), 'klucz GitHuba wskazujący inny deploy.sh jest wymieniany');
+for (const key of ['QUIZ_UID', 'QUIZ_MEM', 'QUIZ_CPUS', 'MEDIA_QUOTA_BYTES', 'MEDIA_MIN_FREE_BYTES']) {
+	ok(new RegExp(`ensure_env ${key} `).test(setup), `${key} dopisywany także do istniejącego .env (review Codexa #4)`);
+}
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'pq-deploy-'));
 for (const [name, body] of [['setup.sh', setup], ['deploy.sh', deploy ?? '']]) {
