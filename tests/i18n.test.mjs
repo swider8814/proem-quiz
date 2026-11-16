@@ -135,6 +135,20 @@ try {
 	const asAuthor = await john.req('/panel/users?/locale', { method: 'POST', form: { id: johnId, locale: 'en' } });
 	ok(asAuthor.status === 403, 'autor nie zmienia języka przez panel administratora');
 
+	// Przełącznik działa też w trakcie obowiązkowej konfiguracji 2FA (sesja pośrednia) – review Codexa #4
+	{
+		const { browser: newAdmin } = await makeAdmin(srv, 'nowy-admin@proem.pl', { totp: false });
+		const before = await newAdmin.req('/panel/2fa-setup');
+		ok(/Weryfikacja dwuetapowa/.test(before.text), 'konfiguracja 2FA najpierw po polsku');
+		await newAdmin.req('/lang', { method: 'POST', form: { lang: 'en', next: '/panel/2fa-setup' } });
+		const after = await newAdmin.req('/panel/2fa-setup');
+		ok(/Two-step verification/.test(after.text) && /<html lang="en">/.test(after.text), 'po przełączeniu konfiguracja 2FA po angielsku');
+		const { generate } = await import('otplib');
+		const secret = after.text.match(/<code class="copy[^>]*>([A-Z2-7 ]+)<\/code>/)[1].replace(/ /g, '');
+		await newAdmin.req('/panel/2fa-setup', { method: 'POST', form: { code: await generate({ secret }) } });
+		ok(/Create quiz/.test((await newAdmin.req('/panel')).text), 'język wybrany podczas konfiguracji 2FA zapisany w koncie');
+	}
+
 	ok(srv.alive(), 'serwer działa do końca testu');
 } catch (e) {
 	ok(false, `wyjątek: ${e.stack}`);

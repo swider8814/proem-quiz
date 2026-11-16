@@ -6,9 +6,13 @@ export const LANG_COOKIE = 'pq_lang';
 /** Język panelu dla konta (uk → en). */
 export const userLang = (user: Pick<User, 'locale'>): PanelLang => (user.locale === 'pl' ? 'pl' : 'en');
 
-/** Język panelu z konta (uk → en), potem z ciasteczka, potem z przeglądarki. */
-export function resolveLang(user: User | null, cookie: string | undefined, acceptLanguage: string | null): PanelLang {
-	if (user) return userLang(user);
+/**
+ * Język panelu: konto po pełnym logowaniu; w sesji pośredniej (kod 2FA / obowiązkowa konfiguracja 2FA)
+ * pierwszeństwo ma ciasteczko z przełącznika (konta wtedy nie zmieniamy); potem przeglądarka.
+ */
+export function resolveLang(user: User | null, mfaPassed: boolean, cookie: string | undefined, acceptLanguage: string | null): PanelLang {
+	if (user && mfaPassed) return userLang(user);
 	if (isPanelLang(cookie)) return cookie;
+	if (user) return userLang(user);
 	return langFromAcceptLanguage(acceptLanguage);
 }
