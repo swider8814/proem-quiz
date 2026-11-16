@@ -60,6 +60,28 @@
 	{/if}
 </div>
 
+<div class="card">
+	<h2>{S.backup}</h2>
+	{#if !data.backup}
+		<p><span class="tag warn">—</span> {S.backupNone}</p>
+	{:else}
+		<p>
+			{S.lastBackup}: <strong>{new Date(data.backup.at).toLocaleString(S.dateLocale)}</strong>
+			{#if data.backup.snapshotOk}<span class="tag ok">OK</span>{:else}<span class="tag off">✕</span>{/if}
+			<span class="muted">· {(data.backup.snapshotBytes / 1024).toFixed(0)} KB</span>
+		</p>
+		<p>
+			{S.driveLabel}:
+			{#if data.backup.drive === 'ok'}<span class="tag ok">{S.driveOk}</span>
+			{:else if data.backup.drive === 'failed'}<span class="tag off">{S.driveFailed}</span>
+			{:else}<span class="tag warn">{S.driveOff}</span>{/if}
+		</p>
+		{#if !data.backup.snapshotOk}<p class="error">{S.backupFailed}</p>{/if}
+		{#if data.backup.stale}<p class="error">{S.backupStale}</p>{/if}
+		<p class="muted">{S.nasNote}</p>
+	{/if}
+</div>
+
 <style>
 	h2 { font-size: 1.1rem; margin-top: 0; }
 	.card { margin-bottom: 1.5rem; max-width: 40rem; }

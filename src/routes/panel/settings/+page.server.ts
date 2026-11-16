@@ -3,6 +3,7 @@ import type { Actions, PageServerLoad } from './$types';
 import { getSettings, saveSettings } from '#lib/server/themes.js';
 import { mailConfigured } from '#lib/server/mail.js';
 import { errText, panelDict } from '#lib/i18n/panel.js';
+import { readBackupStatus } from '#lib/server/backup-status.js';
 
 const requireAdmin = (locals: App.Locals) => {
 	if (locals.user?.role !== 'admin') error(403, panelDict(locals.lang).err.adminsOnly);
@@ -10,7 +11,7 @@ const requireAdmin = (locals: App.Locals) => {
 
 export const load: PageServerLoad = ({ locals }) => {
 	requireAdmin(locals);
-	return { settings: getSettings(), mail: mailConfigured(), mailFrom: process.env.MAIL_FROM ?? null };
+	return { settings: getSettings(), mail: mailConfigured(), mailFrom: process.env.MAIL_FROM ?? null, backup: readBackupStatus() };
 };
 
 export const actions: Actions = {

@@ -112,6 +112,65 @@ Na Mikrusie działają też inne usługi (np. app.proem.pl), dlatego quiz jest o
    Sprawdzenie z innego komputera: `curl -m 5 http://<adres serwera>:<PORT>/health` powinien
    się nie połączyć, a `https://quiz.proem.pl/health` – działać.
 
+## Kopie zapasowe (NAS + Dysk współdzielony Google)
+
+Co noc o 02:30 serwer robi spójną kopię bazy (`/srv/proem-quiz/data/backup`, 7 dni na serwerze) i wysyła
+**zaszyfrowaną** kopię bazy oraz nowe pliki audio/obrazy na Dysk współdzielony Google (kopie bazy: 90 dni,
+potem kosz Dysku jeszcze 30 dni). Rano **NAS sam pobiera** kopię przez SSH (nic nie otwieracie u siebie),
+a migawki Btrfs na NAS-ie trzymają historię 90 dni. Stan ostatniej kopii: panel → Ustawienia.
+
+Kto co może:
+- NAS: klucz pozwala **tylko czytać** `/srv/proem-quiz/data` (rrsync -ro, bez powłoki). Serwer nie ma żadnego dostępu do NAS-a.
+- Serwer → Dysk Google: konto techniczne widzi tylko jeden Dysk współdzielony; usunięte pliki trafiają do kosza.
+  Zawartość jest szyfrowana – bez dwóch haseł z menedżera haseł nikt (także Google) jej nie odczyta.
+
+### 1. Google (raz, ok. 15 min)
+1. https://console.cloud.google.com → nowy projekt, np. `proem-quiz-kopie`.
+2. **Interfejsy API i usługi → Biblioteka → Google Drive API → Włącz.**
+3. **IAM → Konta usługi → Utwórz** (np. `quiz-kopie`), bez ról w projekcie → zakładka **Klucze → Dodaj klucz → JSON**.
+   Jeśli Google zablokuje tworzenie klucza („disableServiceAccountKeyCreation” – domyślnie włączone w nowszych
+   organizacjach), w **IAM → Zasady organizacji** dodaj wyjątek **tylko dla tego projektu** i spróbuj ponownie.
+4. Dysk Google → **Dyski współdzielone → Nowy**, np. „Kopie – Proem Quiz”. **Zarządzaj użytkownikami** → dodaj
+   adres konta usługi (`…@….iam.gserviceaccount.com`) z rolą **Menedżer treści** (nie „Menedżer”).
+   Jeśli Workspace nie pozwala dodać adresu spoza domeny: Konsola administracyjna → Aplikacje → Google Workspace →
+   Dysk i Dokumenty → Ustawienia udostępniania (zezwól dla tej jednostki albo dodaj domenę `iam.gserviceaccount.com`).
+5. ID dysku to końcówka adresu po otwarciu dysku: `drive.google.com/drive/folders/<ID>`.
+
+### 2. Serwer
+```bash
+nano mikrus-backup-setup.sh                   # wklej scripts/mikrus-backup-setup.sh z GitHuba
+bash mikrus-backup-setup.sh                   # za pierwszym razem poprosi o zapisanie pliku JSON, potem uruchom ponownie
+bash /srv/proem-quiz/backup.sh                # pierwsza kopia od razu
+```
+Skrypt zapyta o klucz publiczny NAS-a (krok 3) i ID dysku, wypisze **dwa hasła szyfrowania** – zapisz je
+w menedżerze haseł razem z `TOTP_ENCRYPTION_KEY`. Plik JSON klucza po konfiguracji usuń z komputera.
+
+### 3. NAS Synology
+1. Utwórz folder współdzielony `Kopie` (wolumen Btrfs, dostęp tylko dla administratorów).
+2. Wgraj `scripts/nas-pull.sh` do `Kopie/proem-quiz/` i uzupełnij 4 wartości na początku pliku
+   (`SERVER_FINGERPRINT` wypisuje mikrus-backup-setup.sh).
+3. **Panel sterowania → Harmonogram zadań → Utwórz → Zadanie zaplanowane → Skrypt zdefiniowany przez użytkownika**,
+   użytkownik `root`: jednorazowo `bash /volume1/Kopie/proem-quiz/nas-pull.sh init` (wynik = klucz publiczny do kroku 2),
+   potem codziennie o 05:00 `bash /volume1/Kopie/proem-quiz/nas-pull.sh` z powiadomieniem e-mail przy błędzie.
+4. **Snapshot Replication → Migawki → `Kopie`**: codziennie 06:00, przechowywanie 90 dni.
+
+### Przed wydarzeniem
+`bash /srv/proem-quiz/backup.sh` – świeża kopia na serwerze i na Dysku.
+
+### Odtwarzanie
+Z NAS-a (najprościej) – na serwerze:
+```bash
+cd /srv/proem-quiz && docker compose stop app
+cp data/quiz.db data/quiz.db.przed-odtworzeniem
+cp <kopia>/backup/quiz-RRRR-MM-DD_GGMM.db data/quiz.db   # plik z NAS-a (np. scp z komputera)
+rm -f data/quiz.db-wal data/quiz.db-shm
+rsync -a <kopia>/media/ data/media/                        # brakujące pliki audio/obrazy
+chown -R 10471:10471 data && docker compose up -d
+```
+Z Dysku Google (gdy NAS niedostępny): z `rclone.conf` i dwóch haseł –
+`rclone copy gcrypt:db/<plik> .` oraz `rclone copy gcrypt:media media/` (konfiguracja: `backup-config/rclone.conf`).
+Kopie nie zawierają sesji logowania – po odtworzeniu wszyscy logują się ponownie (hasło + 2FA, ten sam `TOTP_ENCRYPTION_KEY`).
+
 ## Przydatne komendy na serwerze
 
 ```bash

@@ -45,6 +45,25 @@ for (const [name, body] of [['setup.sh', setup], ['deploy.sh', deploy ?? '']]) {
 }
 fs.rmSync(tmp, { recursive: true, force: true });
 
+// ── Kopie zapasowe ──
+const bsetup = fs.readFileSync('scripts/mikrus-backup-setup.sh', 'utf8');
+const backupSh = bsetup.match(/<<'BACKUP_EOF'\n([\s\S]*?)\nBACKUP_EOF\n/)?.[1] ?? '';
+ok(/command="%s -ro %s\/data\/",restrict/.test(bsetup), 'klucz NAS-a: tylko odczyt katalogu danych (rrsync -ro, restrict)');
+ok(!/passwd -l/.test(bsetup) && /usermod -p '\*'/.test(bsetup), 'konto kopii bez hasła, ale nie zablokowane (sshd przyjmie klucz)');
+ok(/--read-only/.test(backupSh) && /--cap-drop ALL --cap-add DAC_READ_SEARCH/.test(backupSh) && /data:\/data:ro/.test(backupSh), 'rclone w zamkniętym kontenerze, dane tylko do odczytu');
+ok(/install -d -m 700 -o root -g root "\$CFG"/.test(bsetup), 'konfiguracja Dysku (klucze, hasła) dostępna tylko dla roota');
+ok(/use_trash = true/.test(bsetup), 'kasowanie na Dysku przez kosz');
+const nas = fs.readFileSync('scripts/nas-pull.sh', 'utf8');
+ok(/StrictHostKeyChecking=yes/.test(nas) && /SERVER_FINGERPRINT/.test(nas), 'NAS weryfikuje odcisk klucza serwera');
+for (const [name, body] of [['mikrus-backup-setup.sh', bsetup], ['backup.sh', backupSh], ['nas-pull.sh', nas]]) {
+	const f = path.join(os.tmpdir(), `pq-syntax-${name}`);
+	fs.writeFileSync(f, body);
+	let good = true;
+	try { execFileSync('bash', ['-n', f], { stdio: 'pipe' }); } catch { good = false; }
+	fs.rmSync(f, { force: true });
+	ok(good, `${name}: poprawna składnia bash`);
+}
+
 const wf = fs.readFileSync('.github/workflows/deploy.yml', 'utf8');
 ok(!/scp-action|ssh-action/.test(wf), 'deploy nie kopiuje plików ani nie uruchamia dowolnych komend na serwerze');
 ok(/StrictHostKeyChecking=yes/.test(wf) && /MIKRUS_SSH_FINGERPRINT/.test(wf), 'deploy weryfikuje odcisk klucza serwera');

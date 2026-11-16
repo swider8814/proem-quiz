@@ -339,7 +339,18 @@ const pl = {
 		sender: 'Nadawca',
 		notConfigured: 'Nieskonfigurowane',
 		notConfiguredNote: 'Zaproszenia trzeba przekazywać ręcznie (link w panelu), a reset hasła przez e-mail nie działa.',
-		howTo: 'Dodaj na serwerze w .env: SENDGRID_API_KEY, MAIL_FROM (adres zweryfikowany w SendGrid), opcjonalnie MAIL_FROM_NAME, i zrestartuj aplikację.'
+		howTo: 'Dodaj na serwerze w .env: SENDGRID_API_KEY, MAIL_FROM (adres zweryfikowany w SendGrid), opcjonalnie MAIL_FROM_NAME, i zrestartuj aplikację.',
+		backup: 'Kopie zapasowe',
+		backupNone: 'Brak informacji o kopiach. Skonfiguruj je na serwerze: scripts/mikrus-backup-setup.sh (README).',
+		lastBackup: 'Ostatnia kopia',
+		backupFailed: 'Ostatnia kopia bazy nie powiodła się – sprawdź log na serwerze (/var/log/proem-quiz-backup.log).',
+		backupStale: 'Ostatnia kopia jest starsza niż 36 godzin – sprawdź, czy działa harmonogram na serwerze.',
+		driveLabel: 'Dysk Google',
+		driveOk: 'wysłano',
+		driveFailed: 'błąd wysyłki',
+		driveOff: 'nieskonfigurowany',
+		nasNote: 'Kopię z serwera co rano pobiera NAS (stan zadania widać w DSM).',
+		dateLocale: 'pl-PL'
 	},
 	mail: {
 		footer: 'Proem Quiz · wiadomość wysłana automatycznie, nie odpowiadaj na nią.',
@@ -759,7 +770,18 @@ const en: PanelDict = {
 		sender: 'Sender',
 		notConfigured: 'Not configured',
 		notConfiguredNote: 'Invitations must be passed on manually (link in the dashboard), and password reset by email does not work.',
-		howTo: 'On the server, add to .env: SENDGRID_API_KEY, MAIL_FROM (an address verified in SendGrid), optionally MAIL_FROM_NAME, then restart the app.'
+		howTo: 'On the server, add to .env: SENDGRID_API_KEY, MAIL_FROM (an address verified in SendGrid), optionally MAIL_FROM_NAME, then restart the app.',
+		backup: 'Backups',
+		backupNone: 'No backup information yet. Set backups up on the server: scripts/mikrus-backup-setup.sh (README).',
+		lastBackup: 'Last backup',
+		backupFailed: 'The last database backup failed – check the log on the server (/var/log/proem-quiz-backup.log).',
+		backupStale: 'The last backup is older than 36 hours – check that the schedule on the server works.',
+		driveLabel: 'Google Drive',
+		driveOk: 'uploaded',
+		driveFailed: 'upload error',
+		driveOff: 'not configured',
+		nasNote: 'The NAS fetches the server backup every morning (see the task status in DSM).',
+		dateLocale: 'en-GB'
 	},
 	mail: {
 		footer: 'Proem Quiz · automated message, please do not reply.',
