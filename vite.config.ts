@@ -1,14 +1,18 @@
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import adapter from '@sveltejs/adapter-node';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig, type Plugin } from 'vite';
-import { attachRealtime } from './server/realtime.js';
 
 // W trybie dev podpinamy Socket.IO pod serwer Vite,
 // w produkcji robi to server/index.js.
 const realtimeDev: Plugin = {
 	name: 'proem-quiz-realtime',
-	configureServer(server) {
-		if (server.httpServer) attachRealtime(server.httpServer as import('node:http').Server);
+	async configureServer(server) {
+		// Ścieżka w zmiennej: serwer gry to czysty JS, poza kontrolą typów SvelteKit.
+		const realtimePath = pathToFileURL(path.resolve('server/realtime.js')).href;
+		const { attachRealtime } = await import(/* @vite-ignore */ realtimePath);
+		if (server.httpServer) attachRealtime(server.httpServer);
 	}
 };
 
