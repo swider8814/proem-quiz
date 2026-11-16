@@ -41,6 +41,18 @@ leżą w `~/proem-quiz/data` i przetrwają każdą aktualizację.
 
 ## Pierwsze uruchomienie na Mikrusie (jednorazowo, ok. 15 min)
 
+**Szybka droga – skrypt (kroki 1–4 automatycznie):**
+1. Na GitHubie otwórz `scripts/mikrus-setup.sh` → przycisk „Copy raw file”.
+2. Na Mikrusie (SSH): `nano mikrus-setup.sh`, wklej, zapisz (Ctrl+O, Enter, Ctrl+X).
+3. `bash mikrus-setup.sh` – zainstaluje Dockera (jeśli trzeba), zapyta o port i domenę, utworzy `.env`
+   z wygenerowanym kluczem, przygotuje klucz SSH dla GitHub Actions i wypisze wartości sekretów.
+4. Wpisz sekrety w GitHubie (krok 4 niżej) i uruchom deploy (krok 5).
+5. Po deployu: `bash mikrus-setup.sh admin twoj@email.pl "Imię Nazwisko"` – wypisze link do ustawienia
+   hasła i 2FA dla pierwszego administratora.
+6. Dalej kroki 6–9 (Cytrus, test, zaufane proxy, zapora).
+
+**Ręcznie (to samo krok po kroku):**
+
 1. **Zaloguj się na Mikrusa** (SSH, dane z panelu) i zainstaluj Dockera:
    ```bash
    curl -fsSL https://get.docker.com | sh
@@ -90,6 +102,11 @@ leżą w `~/proem-quiz/data` i przetrwają każdą aktualizację.
    `/etc/ssh/ssh_host_ecdsa_key.pub` lub `ssh_host_rsa_key.pub` (zależy, którego klucza użyje połączenie).
 
 5. **Uruchom deploy:** repo → Actions → „Build i deploy” → Run workflow (albo zrób dowolny push).
+   Po zielonym deployu utwórz pierwszego administratora:
+   ```bash
+   cd ~/proem-quiz && docker compose exec app node server/cli.js create-admin twoj@email.pl "Imię Nazwisko"
+   ```
+   Otwórz wypisany link, ustaw hasło i zeskanuj kod QR aplikacją do kodów (Google Authenticator, Aegis…).
 6. **Domena przez Cytrus:** w panelu Mikrusa dodaj domenę (np. `quiz.proem.pl`) i jako cel wpisz
    `http://<adres serwera>:<PORT z .env>`. W DNS domeny ustaw CNAME na `backend.strony.me`.
 7. **Test:** wejdź na `https://quiz.proem.pl/test-ws`.

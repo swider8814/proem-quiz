@@ -9,7 +9,8 @@ Model zagrożeń: `docs/threat-model.md`.
 - `npm run build` – build produkcyjny (wymagany przed testami e2e)
 - `npm test` – testy jednostkowe i Socket.IO (wymaga ffmpeg)
 - `npm run test:e2e` – testy HTTP i bezpieczeństwa na osobnym procesie serwera
-- `npm run test:ui` – cała gra w Chrome (prowadzący + telefony); `CHROME_PATH` wskazuje przeglądarkę
+- `npm run test:ui` – cała gra i edytor w Chrome (prowadzący + telefony); `CHROME_PATH` wskazuje przeglądarkę
+- `npm run test:load` – 300 graczy przez Socket.IO, serwer na jednym rdzeniu (progi opóźnień i RAM)
 
 ## Code Review Rules
 - Pisz review **po polsku**.
