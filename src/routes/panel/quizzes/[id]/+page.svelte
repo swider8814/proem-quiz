@@ -178,7 +178,7 @@
 		const input = e.currentTarget as HTMLInputElement;
 		const file = input.files?.[0];
 		input.value = '';
-		if (!file || current.data.type !== 'choice') return;
+		if (!file || (current.data.type !== 'choice' && current.data.type !== 'poll')) return;
 		answerImageError = '';
 		try {
 			const m = await uploadFile(file, E.uploadFailed);
@@ -193,7 +193,7 @@
 		}
 	}
 	function removeAnswerImage(i: number) {
-		if (current.data.type !== 'choice' || !current.data.images) return;
+		if ((current.data.type !== 'choice' && current.data.type !== 'poll') || !current.data.images) return;
 		current.data.images[i] = null;
 		if (!current.data.images.some(Boolean)) delete current.data.images;
 	}
@@ -374,12 +374,16 @@
 							{#each QTYPES as qt}<option value={qt}>{E.types[qt]}</option>{/each}
 						</select>
 					</label>
-					<label>{E.time}<input type="number" min="5" max="240" bind:value={current.timeLimit} /></label>
-					<label>{E.points}
-						<select bind:value={current.pointsMultiplier}>
-							<option value={1}>×1</option><option value={2}>×2</option><option value={0}>{E.noPoints}</option>
-						</select>
-					</label>
+					{#if current.type !== 'slide'}
+						<label>{E.time}<input type="number" min="5" max="240" bind:value={current.timeLimit} /></label>
+					{/if}
+					{#if current.type !== 'slide' && current.type !== 'poll'}
+						<label>{E.points}
+							<select bind:value={current.pointsMultiplier}>
+								<option value={1}>×1</option><option value={2}>×2</option><option value={0}>{E.noPoints}</option>
+							</select>
+						</label>
+					{/if}
 					<div class="q-tools">
 						<button type="button" class="secondary" onclick={() => move(selected, -1)} disabled={selected === 0} aria-label={E.moveUp}><Icon name="up" /></button>
 						<button type="button" class="secondary" onclick={() => move(selected, 1)} disabled={selected === questions.length - 1} aria-label={E.moveDown}><Icon name="down" /></button>
@@ -388,9 +392,30 @@
 					</div>
 				</div>
 
-				<label>{E.prompt}
+				<label>{current.type === 'slide' ? E.slideTitle : E.prompt}
 					<input type="text" bind:value={current.prompt} maxlength="200" placeholder={E.promptPlaceholder} />
 				</label>
+				{#if current.data.type === 'poll'}<p class="muted">{E.pollHint}</p>{/if}
+				{#if current.data.type === 'slide'}
+					{@const d = current.data}
+					<p class="muted">{E.slideHint}</p>
+					<label>{E.slideText}<textarea bind:value={d.text} maxlength="500" rows="4"></textarea></label>
+				{/if}
+				{#if current.data.type === 'slider'}
+					{@const d = current.data}
+					<div class="slider-set">
+						<label>{E.sliderMin}<input type="number" bind:value={d.min} step="any" /></label>
+						<label>{E.sliderMax}<input type="number" bind:value={d.max} step="any" /></label>
+						<label>{E.sliderStep}<input type="number" bind:value={d.step} min="0" step="any" /></label>
+						<label>{E.sliderCorrect}<input type="number" bind:value={d.correct} step="any" /></label>
+						<label>{E.sliderUnit}<input type="text" value={d.unit ?? ''} oninput={(e) => (d.unit = (e.currentTarget as HTMLInputElement).value || undefined)} maxlength="12" /></label>
+						<label>{E.sliderMargin}
+							<select bind:value={d.margin}>
+								{#each ['none', 'low', 'medium', 'high'] as const as m}<option value={m}>{E.margins[m]}</option>{/each}
+							</select>
+						</label>
+					</div>
+				{/if}
 				<label>{E.translation}
 					<input type="text" value={current.promptTranslation ?? ''} oninput={(e) => (current.promptTranslation = (e.currentTarget as HTMLInputElement).value || null)} maxlength="200" placeholder={E.translationPlaceholder} />
 				</label>
@@ -414,11 +439,11 @@
 					{/key}
 				{/if}
 
-				{#if current.data.type === 'choice' || current.data.type === 'audio'}
+				{#if current.data.type === 'choice' || current.data.type === 'audio' || current.data.type === 'poll'}
 					{@const d = current.data}
 					<div class="answers">
 						{#each d.answers as _, i}
-							<div class="answer" class:correct={d.correct.includes(i)}>
+							<div class="answer" class:correct={d.type !== 'poll' && d.correct.includes(i)}>
 								<span class="shape" style:background={ANSWER_COLORS[i]} aria-hidden="true">
 									<svg width="18" height="18" viewBox="0 0 40 40">
 										{#if shapes[i] === 'circle'}<circle cx="20" cy="20" r="16" fill="#111" />
@@ -426,9 +451,11 @@
 										{:else}<path d={shapes[i]} fill="#111" />{/if}
 									</svg>
 								</span>
-								<input type="text" bind:value={d.answers[i]} maxlength="80" placeholder={(d.type === 'choice' && d.images?.[i] ? E.caption : E.answer(String.fromCharCode(65 + i))) + (i >= 2 || (d.type === 'choice' && d.images?.[i]) ? E.optional : '')} aria-label={E.answer(String.fromCharCode(65 + i))} />
-								<label class="check small"><input type="checkbox" checked={d.correct.includes(i)} onchange={() => toggleCorrect(i)} /> {E.correct}</label>
-								{#if d.type === 'choice'}
+								<input type="text" bind:value={d.answers[i]} maxlength="80" placeholder={(d.type !== 'audio' && d.images?.[i] ? E.caption : E.answer(String.fromCharCode(65 + i))) + (i >= 2 || (d.type !== 'audio' && d.images?.[i]) ? E.optional : '')} aria-label={E.answer(String.fromCharCode(65 + i))} />
+								{#if d.type !== 'poll'}
+									<label class="check small"><input type="checkbox" checked={d.correct.includes(i)} onchange={() => toggleCorrect(i)} /> {E.correct}</label>
+								{/if}
+								{#if d.type === 'choice' || d.type === 'poll'}
 									<div class="ans-img">
 										{#if d.images?.[i]}
 											<img src="/media/{d.images[i]}" alt={E.answerImage(String.fromCharCode(65 + i))} />
@@ -540,6 +567,8 @@
 	.grow { flex: 1; min-width: 12rem; }
 	.q-tools { display: flex; gap: 0.35rem; }
 	.q-tools button { padding: 0.5rem 0.7rem; font-size: 0.85rem; }
+	.slider-set { display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: 0.4rem 0.8rem; }
+	textarea { width: 100%; font: inherit; padding: 0.5rem; border: 1px solid var(--line); border-radius: 0.5rem; box-sizing: border-box; }
 	.ans-img { flex-basis: 100%; display: flex; align-items: center; gap: 0.6rem; }
 	.ans-img img { height: 64px; max-width: 120px; object-fit: contain; border-radius: 0.4rem; background: #fff; border: 1px solid var(--line); }
 	.file-link { position: relative; cursor: pointer; color: #1368ce; text-decoration: underline; font-size: 0.9rem; }

@@ -16,6 +16,11 @@ export const introMs = (settings) => {
 	return base + (settings?.teamMode && Number.isInteger(talk) && talk > 0 && talk <= 30 ? talk * 1000 : 0);
 };
 export const MAX_MEMBERS = 6;
+/** Pytania bez oceny (ankieta) nie zmieniają punktów ani serii. */
+const UNGRADED = new Set(['poll']);
+/** Tolerancja suwaka jako część zakresu. */
+const SLIDER_MARGIN = { none: 0, low: 0.05, medium: 0.1, high: 0.2 };
+const sliderMargin = (d) => (d.max - d.min) * (SLIDER_MARGIN[d.margin] ?? 0);
 const GRACE_MS = 600; // opóźnienie sieci przy odpowiedzi tuż przed końcem
 const MAX_PLAYERS = 300;
 const MAX_GAMES_PER_USER = 3;
@@ -43,7 +48,7 @@ function shuffle(arr) {
 
 /**
  * @typedef {{
- *   id: string, type: 'choice'|'truefalse'|'audio'|'text'|'order', prompt: string,
+ *   id: string, type: 'choice'|'truefalse'|'audio'|'text'|'order'|'poll'|'slider'|'slide', prompt: string,
  *   promptTranslation?: string|null, imageUrl?: string|null, timeLimit: number, multiplier: number, data: any
  * }} QuestionSnap
  * @typedef {{
@@ -213,6 +218,7 @@ export class Game {
 			case 'leaderboard':
 				return this.index + 1 < this.quiz.questions.length ? this.startQuestion(this.index + 1) : this.end();
 			case 'question':
+				if (this.question.type === 'slide') return this.index + 1 < this.quiz.questions.length ? this.startQuestion(this.index + 1) : this.end();
 				return this.closeQuestion();
 			default:
 				return 'invalid-state';
@@ -222,6 +228,14 @@ export class Game {
 	startQuestion(i) {
 		this.clearTimer();
 		this.index = i;
+		// Slajd: bez odliczania i bez czasu – wisi, aż prowadzący przejdzie dalej.
+		if (this.question.type === 'slide') {
+			this.state = 'question';
+			this.openedAt = Date.now();
+			this.deadline = null;
+			this.broadcastAll();
+			return null;
+		}
 		const ms = introMs(this.quiz.settings);
 		if (ms === 0) {
 			this.openQuestion();
@@ -244,9 +258,10 @@ export class Game {
 
 	closeQuestion() {
 		if (this.state !== 'question') return 'invalid-state';
+		if (this.question.type === 'slide') return 'invalid-state';
 		this.clearTimer();
-		// Brak odpowiedzi = seria przerwana.
-		for (const p of this.activePlayers()) if (!p.answers.has(this.index)) p.streak = 0;
+		// Brak odpowiedzi = seria przerwana (ankieta się nie liczy).
+		if (!UNGRADED.has(this.question.type)) for (const p of this.activePlayers()) if (!p.answers.has(this.index)) p.streak = 0;
 		this.state = 'reveal';
 		this.broadcastAll();
 		return null;
@@ -265,6 +280,7 @@ export class Game {
 	/** @returns {{ ok: true } | { error: string }} */
 	submitAnswer(player, payload) {
 		if (this.state !== 'question') return { error: 'closed' };
+		if (this.question.type === 'slide') return { error: 'invalid' };
 		if (!payload || !Number.isInteger(payload.index) || payload.index !== this.index) return { error: 'stale' };
 		if (player.answers.has(this.index)) return { error: 'already' };
 		const now = Date.now();
@@ -280,10 +296,12 @@ export class Game {
 			const speed = 1 - 0.5 * (elapsed / (q.timeLimit * 1000));
 			points = Math.round(1000 * speed * check.fraction) * q.multiplier;
 		}
-		const correct = check.fraction === 1;
+		const ungraded = UNGRADED.has(q.type);
+		const correct = ungraded ? null : (check.correct ?? check.fraction === 1);
 		const before = { score: player.score, streak: player.streak };
 		if (correct) player.streak += 1;
-		else player.streak = 0;
+		else if (!ungraded) player.streak = 0;
+		if (ungraded) points = 0;
 		let bonus = 0;
 		if (correct && this.quiz.settings.streakBonus && player.streak >= 3 && q.multiplier > 0) {
 			bonus = Math.min(100 * (player.streak - 2), 500);
@@ -329,6 +347,22 @@ export class Game {
 				const good = order.filter((id, i) => map.correct[i] === id).length;
 				const fraction = good === order.length ? 1 : d.partialCredit ? good / order.length : 0;
 				return { value: order, fraction };
+			}
+			case 'poll': {
+				const c = payload.choice;
+				if (!Number.isInteger(c) || c < 0 || c >= d.answers.length) return null;
+				return { value: c, fraction: 0 };
+			}
+			case 'slider': {
+				const v = payload.value;
+				if (typeof v !== 'number' || !Number.isFinite(v) || v < d.min || v > d.max) return null;
+				// Punkty: dokładnie = pełne; w granicach tolerancji – od 50% do 100% zależnie od odległości.
+				const dist = Math.abs(v - d.correct);
+				const margin = sliderMargin(d);
+				const eps = d.step / 1000;
+				if (dist <= eps) return { value: v, fraction: 1, correct: true };
+				if (margin > 0 && dist <= margin + eps) return { value: v, fraction: 1 - 0.5 * Math.min(1, dist / margin), correct: true };
+				return { value: v, fraction: 0, correct: false };
 			}
 		}
 		return null;
@@ -379,6 +413,13 @@ export class Game {
 		}
 		if (q.type === 'order') base.items = this.orderMaps.get(this.index).shuffled;
 		if (q.type === 'truefalse' && d.thumbs) base.thumbs = true;
+		if (q.type === 'poll') {
+			if (forHost || this.quiz.settings.phoneAnswerText) base.answers = d.answers;
+			else base.answerCount = d.answers.length;
+			if (Array.isArray(d.images) && d.images.some(Boolean)) base.answerImages = d.images.map((id) => (id ? `/game-media/${this.pin}/${id}` : null));
+		}
+		if (q.type === 'slider') base.slider = { min: d.min, max: d.max, step: d.step, unit: d.unit ?? '' };
+		if (q.type === 'slide') base.text = d.text ?? '';
 		if (forHost) {
 			base.imageUrl = q.imageUrl ?? null;
 			if (q.type === 'audio') {
@@ -398,6 +439,8 @@ export class Game {
 			case 'truefalse': return { correct: d.correct };
 			case 'text': return { accepted: d.accepted };
 			case 'order': return { order: this.orderMaps.get(this.index).correct };
+			case 'poll': return {};
+			case 'slider': return { value: d.correct, margin: sliderMargin(d), unit: d.unit ?? '' };
 		}
 	}
 
@@ -411,6 +454,16 @@ export class Game {
 		}
 		if (q.type === 'truefalse') {
 			return { counts: [answers.filter((a) => a.value === true).length, answers.filter((a) => a.value === false).length] };
+		}
+		if (q.type === 'poll') {
+			const counts = q.data.answers.map(() => 0);
+			for (const a of answers) counts[a.value]++;
+			return { counts };
+		}
+		if (q.type === 'slider') {
+			const vals = answers.map((a) => a.value);
+			const avg = vals.length ? vals.reduce((x, y) => x + y, 0) / vals.length : null;
+			return { correct: answers.filter((a) => a.correct).length, wrong: answers.filter((a) => !a.correct).length, average: avg === null ? null : Math.round(avg * 100) / 100 };
 		}
 		return { correct: answers.filter((a) => a.correct).length, wrong: answers.filter((a) => !a.correct).length };
 	}
@@ -478,6 +531,8 @@ export class Game {
 			if (this.state === 'reveal') {
 				const a = p.answers.get(this.index);
 				v.result = a ? { correct: a.correct, points: a.points, bonus: a.bonus } : { correct: false, points: 0, bonus: 0, missed: true };
+				if (this.question.type === 'poll') v.result = { poll: true, voted: !!a, correct: null, points: 0, bonus: 0 };
+				if (this.question.type === 'slider' && a) v.result = { ...v.result, value: a.value };
 				v.question = this.publicQuestion(false);
 				v.solution = this.solution();
 			}

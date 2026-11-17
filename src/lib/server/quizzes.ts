@@ -134,10 +134,13 @@ const answerList = z.array(str(80).min(1, 'emptyAnswer')).min(2).max(4);
 const correctList = z.array(z.number().int().min(0).max(3)).min(1, 'markCorrect').max(4);
 const mediaId = z.string().regex(/^med_[A-Za-z0-9_-]{10,20}$/);
 
+const sliderNum = z.number().finite().min(-1_000_000).max(1_000_000);
+export const QUESTION_TYPES = ['choice', 'truefalse', 'audio', 'text', 'order', 'poll', 'slider', 'slide'] as const;
+
 const questionSchema = z
 	.object({
 		id: z.string().max(40).optional(),
-		type: z.enum(['choice', 'truefalse', 'audio', 'text', 'order']),
+		type: z.enum(QUESTION_TYPES),
 		prompt: str(200).min(1, 'writePrompt'),
 		promptTranslation: str(200).nullable().optional(),
 		imageMediaId: mediaId.nullable().optional(),
@@ -162,7 +165,22 @@ const questionSchema = z
 				revealEndMs: z.number().int().min(0).max(3 * 60 * 60 * 1000).nullable().optional()
 			}),
 			z.object({ type: z.literal('text'), accepted: z.array(str(80).min(1)).min(1).max(10), typoTolerance: z.union([z.literal(0), z.literal(1), z.literal(2)]) }),
-			z.object({ type: z.literal('order'), items: z.array(str(60).min(1)).min(3).max(6), partialCredit: z.boolean() })
+			z.object({ type: z.literal('order'), items: z.array(str(60).min(1)).min(3).max(6), partialCredit: z.boolean() }),
+			z.object({
+				type: z.literal('poll'),
+				answers: z.array(str(80)).min(2).max(4),
+				images: z.array(mediaId.nullable()).max(4).optional()
+			}),
+			z.object({
+				type: z.literal('slider'),
+				min: sliderNum,
+				max: sliderNum,
+				step: z.number().finite().positive().max(1_000_000),
+				correct: sliderNum,
+				margin: z.enum(['none', 'low', 'medium', 'high']),
+				unit: str(12).optional()
+			}),
+			z.object({ type: z.literal('slide'), text: str(500) })
 		])
 	})
 	.superRefine((q, ctx) => {
@@ -171,7 +189,13 @@ const questionSchema = z
 		if ((d.type === 'choice' || d.type === 'audio') && d.correct.some((c) => c >= d.answers.length)) {
 			ctx.addIssue({ code: 'custom', message: 'correctOutOfRange' });
 		}
-		if (d.type === 'choice') {
+		if (d.type === 'slider') {
+			const steps = (d.max - d.min) / d.step;
+			const onStep = (v: number) => Math.abs((v - d.min) / d.step - Math.round((v - d.min) / d.step)) < 1e-6;
+			if (!(d.max > d.min) || steps > 10_000 || !Number.isInteger(Math.round(steps * 1e6) / 1e6)) ctx.addIssue({ code: 'custom', message: 'sliderRange' });
+			else if (d.correct < d.min || d.correct > d.max || !onStep(d.correct)) ctx.addIssue({ code: 'custom', message: 'sliderCorrect' });
+		}
+		if (d.type === 'choice' || d.type === 'poll') {
 			if (d.images && d.images.length !== d.answers.length) ctx.addIssue({ code: 'custom', message: 'emptyAnswer' });
 			// Odpowiedź = podpis albo obrazek (albo oba).
 			if (d.answers.some((a, i) => !a.trim() && !d.images?.[i])) ctx.addIssue({ code: 'custom', message: 'emptyAnswer' });
@@ -236,7 +260,7 @@ export async function saveQuiz(user: User, quizId: string, input: QuizSave): Pro
 	for (const q of input.questions) {
 		if (q.imageMediaId) ids.add(q.imageMediaId);
 		if (q.data.type === 'audio') ids.add(q.data.audioMediaId);
-		if (q.data.type === 'choice') for (const im of q.data.images ?? []) if (im) ids.add(im);
+		if (q.data.type === 'choice' || q.data.type === 'poll') for (const im of q.data.images ?? []) if (im) ids.add(im);
 	}
 	for (const a of [input.settings.podiumAudio, input.settings.musicAudio]) if (a) ids.add(a.mediaId);
 	const media = ids.size ? db.select().from(schema.media).where(inArray(schema.media.id, [...ids])).all() : [];
@@ -245,7 +269,7 @@ export async function saveQuiz(user: User, quizId: string, input: QuizSave): Pro
 	for (const m of media) if (!canUseMedia(user, m)) return { error: 'mediaAccess' as ErrKey };
 	for (const q of input.questions) {
 		if (q.imageMediaId && byId.get(q.imageMediaId)?.kind !== 'image') return { error: 'badImage' as ErrKey };
-		if (q.data.type === 'choice' && (q.data.images ?? []).some((im) => im && byId.get(im)?.kind !== 'image')) return { error: 'badImage' as ErrKey };
+		if ((q.data.type === 'choice' || q.data.type === 'poll') && (q.data.images ?? []).some((im) => im && byId.get(im)?.kind !== 'image')) return { error: 'badImage' as ErrKey };
 		if (q.data.type === 'audio') {
 			const m = byId.get(q.data.audioMediaId);
 			if (m?.kind !== 'audio') return { error: 'badAudio' as ErrKey };

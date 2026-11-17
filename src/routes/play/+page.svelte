@@ -16,7 +16,7 @@
 
 	type Item = { id: string; label: string };
 	type Q = {
-		index: number; total: number; type: 'choice' | 'truefalse' | 'audio' | 'text' | 'order'; thumbs?: boolean; answerImages?: (string | null)[];
+		index: number; total: number; type: 'choice' | 'truefalse' | 'audio' | 'text' | 'order' | 'poll' | 'slider' | 'slide'; thumbs?: boolean; slider?: { min: number; max: number; step: number; unit: string }; answerImages?: (string | null)[];
 		timeLimit: number; prompt: string; promptTranslation: string | null;
 		answers?: string[]; answerCount?: number; items?: Item[];
 	};
@@ -26,8 +26,8 @@
 		me: { id: string; nick: string; score: number; streak: number };
 		now: number; question?: Q; deadline?: number | null; introEnds?: number | null; answered?: boolean;
 		rank?: number | null; players?: number; behindBy?: number;
-		result?: { correct: boolean; points: number; bonus: number; missed?: boolean };
-		solution?: { correct?: number[] | boolean; accepted?: string[]; order?: string[] };
+		result?: { correct: boolean | null; points: number; bonus: number; missed?: boolean; poll?: boolean; voted?: boolean; value?: number };
+		solution?: { correct?: number[] | boolean; accepted?: string[]; order?: string[]; value?: number; unit?: string };
 	};
 
 	let socket: Socket | null = null;
@@ -47,6 +47,12 @@
 	let textAnswer = $state('');
 	let picked = $state<string[]>([]);
 	let members = $state<string[]>(['']);
+	let sliderVal = $state<number | null>(null);
+	/** Środek suwaka na siatce kroku (bez błędów zaokrągleń typu 0,30000000000000004). */
+	const sliderMid = (sl: { min: number; max: number; step: number }) => {
+		const dec = (String(sl.step).split('.')[1] ?? '').length;
+		return Number((sl.min + Math.round((sl.max - sl.min) / 2 / sl.step) * sl.step).toFixed(dec));
+	};
 	let toast = $state('');
 	let toastTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -103,6 +109,7 @@
 				sent = false;
 				textAnswer = '';
 				picked = s.question?.items?.map((it) => it.id) ?? [];
+				sliderVal = null;
 				navigator.vibrate?.(80);
 			}
 			if (s.state === 'question') sent = !!s.answered;
@@ -290,6 +297,13 @@
 					<p>{L.waitForStart}</p>
 				</div>
 			</main>
+		{:else if gs.state === 'question' && q?.type === 'slide'}
+			<main class="center" in:fly={{ y: 24, duration: 380 }}>
+				<div class="g-box card msg">
+					<p class="huge">{L.slideLook}</p>
+					<p>{q.prompt}</p>
+				</div>
+			</main>
 		{:else if (gs.state === 'intro' || gs.state === 'question') && q}
 			<div class="qhead">
 				<span>{L.question} {q.index + 1} {L.of} {q.total}</span>
@@ -318,11 +332,28 @@
 			{:else if sent}
 				<main class="center" in:fly={{ y: 24, duration: 380 }}>
 					<div class="g-box card msg">
-						<p class="huge">{L.answerSent}</p>
+						<p class="huge">{q.type === 'poll' ? L.voted : L.answerSent}</p>
 						<p>{L.waitOthers}</p>
 					</div>
 				</main>
-			{:else if q.type === 'choice' || q.type === 'audio'}
+			{:else if q.type === 'slider' && q.slider}
+				{@const sl = q.slider}
+				<main class="center slider-q">
+					<p class="slider-val g-box">{pts(sliderVal ?? sliderMid(sl))}{sl.unit ? ` ${sl.unit}` : ''}</p>
+					<input
+						class="range"
+						type="range"
+						min={sl.min}
+						max={sl.max}
+						step={sl.step}
+						value={sliderVal ?? sliderMid(sl)}
+						oninput={(e) => (sliderVal = Number((e.currentTarget as HTMLInputElement).value))}
+						aria-label={L.yourAnswer}
+					/>
+					<div class="range-ends"><span>{pts(sl.min)}</span><span>{pts(sl.max)}</span></div>
+					<button class="g-btn wide" onclick={() => answer({ value: sliderVal ?? sliderMid(sl) })}>{L.send}</button>
+				</main>
+			{:else if q.type === 'choice' || q.type === 'audio' || q.type === 'poll'}
 				<main class="tiles" class:two={answerCount <= 2} class:text={!!q.answers && !q.answerImages} class:pics={!!q.answerImages}>
 					{#each Array(answerCount) as _, i}
 						<button class="g-tile a{i}" in:scale={{ start: 0.8, delay: i * 70, duration: 320, easing: backOut }} onclick={() => answer({ choice: i })} aria-label={q.answers?.[i] || String.fromCharCode(65 + i)}>
@@ -360,6 +391,12 @@
 					<button class="g-btn wide" disabled={picked.length !== q.items.length} onclick={() => answer({ order: picked })}>{L.send}</button>
 				</div>
 			{/if}
+		{:else if gs.state === 'reveal' && gs.result?.poll}
+			<main class="center" in:scale={{ start: 0.9, duration: 420, easing: backOut }}>
+				<div class="g-box card msg">
+					<p class="huge">{gs.result.voted ? L.voteCounted : L.noVote}</p>
+				</div>
+			</main>
 		{:else if gs.state === 'reveal' && gs.result}
 			<main class="center result" in:scale={{ start: 0.9, duration: 420, easing: backOut }} class:good={gs.result.correct} class:bad={!gs.result.correct}>
 				<div class="g-box card msg">
@@ -367,6 +404,9 @@
 					<!-- result.points zawiera bonus – tu pokazujemy osobno punkty za odpowiedź i bonus za serię -->
 					{#if gs.result.points - gs.result.bonus > 0}<p class="g-chip plus">+{pts(gs.result.points - gs.result.bonus)}</p>{/if}
 					{#if gs.result.bonus > 0}<p>{L.streak} {gs.me.streak} · +{gs.result.bonus} {L.bonus}</p>{/if}
+					{#if gs.result.value != null && gs.solution?.value != null}
+						<p>{L.yourAnswer}: <b>{pts(gs.result.value)}</b> · {L.correctAnswer}: <b>{pts(gs.solution.value)}</b>{gs.solution.unit ? ` ${gs.solution.unit}` : ''}</p>
+					{/if}
 					{#if gs.rank}<p class="rank">{L.atPlace(gs.rank)}</p>{/if}
 				</div>
 			</main>
@@ -454,6 +494,12 @@
 	.member { font-size: 1.05rem; }
 	.talk-list { list-style: none; margin: 0; padding: 0; width: 100%; display: grid; gap: 8px; }
 	.talk-list li { padding: 10px 14px; font-weight: 800; justify-content: flex-start; min-height: 0; cursor: default; }
+	.slider-q { gap: 20px; }
+	.slider-val { font-size: 2.6rem; font-weight: 900; padding: 8px 24px; margin: 0; font-variant-numeric: tabular-nums; }
+	.range { width: 100%; height: 14px; margin: 18px 0; -webkit-appearance: none; appearance: none; background: rgba(0, 0, 0, 0.15); border-radius: 7px; touch-action: none; }
+	.range::-webkit-slider-thumb { -webkit-appearance: none; width: 44px; height: 44px; border-radius: 50%; background: var(--accent); border: 3px solid #111; cursor: grab; }
+	.range::-moz-range-thumb { width: 44px; height: 44px; border-radius: 50%; background: var(--accent); border: 3px solid #111; cursor: grab; }
+	.range-ends { width: 100%; display: flex; justify-content: space-between; font-weight: 700; opacity: 0.8; }
 	.medal-wrap { display: flex; justify-content: center; }
 	.toast { position: fixed; left: 50%; bottom: max(20px, env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(92vw, 420px); background: #111; color: #fff; padding: 12px 16px; border-radius: 12px; font-weight: 700; text-align: center; z-index: 20; }
 	.place { font-size: 4rem; font-weight: 900; line-height: 1; }

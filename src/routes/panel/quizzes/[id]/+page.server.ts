@@ -14,7 +14,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 	for (const q of loaded.questions) {
 		if (q.imageMediaId) mediaIds.add(q.imageMediaId);
 		if (q.data.type === 'audio') mediaIds.add(q.data.audioMediaId);
-		if (q.data.type === 'choice') for (const im of q.data.images ?? []) if (im) mediaIds.add(im);
+		if (q.data.type === 'choice' || q.data.type === 'poll') for (const im of q.data.images ?? []) if (im) mediaIds.add(im);
 	}
 	const settings = { ...DEFAULT_QUIZ_SETTINGS, ...loaded.quiz.settings };
 	// Edytor dostaje plik i zakres; wycięty fragment (clipMediaId) serwer liczy sam przy zapisie.

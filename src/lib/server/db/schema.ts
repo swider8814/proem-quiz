@@ -179,7 +179,7 @@ export const media = sqliteTable('media', {
 	createdAt: createdAt()
 });
 
-export type QuestionType = 'choice' | 'truefalse' | 'audio' | 'text' | 'order';
+export type QuestionType = 'choice' | 'truefalse' | 'audio' | 'text' | 'order' | 'poll' | 'slider' | 'slide';
 // Pytanie "z obrazkiem" to dowolny typ z ustawionym imageMediaId.
 
 export type QuestionData =
@@ -197,7 +197,10 @@ export type QuestionData =
 			revealEndMs?: number; // dłuższy fragment po odpowiedzi
 	  }
 	| { type: 'text'; accepted: string[]; typoTolerance: 0 | 1 | 2 }
-	| { type: 'order'; items: string[]; partialCredit: boolean };
+	| { type: 'order'; items: string[]; partialCredit: boolean }
+	| { type: 'poll'; answers: string[]; images?: (string | null)[] } // ankieta: bez poprawnej odpowiedzi i punktów
+	| { type: 'slider'; min: number; max: number; step: number; correct: number; margin: 'none' | 'low' | 'medium' | 'high'; unit?: string }
+	| { type: 'slide'; text: string }; // slajd: tytuł (prompt) + tekst + obrazek, bez odpowiedzi
 
 export const questions = sqliteTable(
 	'questions',
@@ -207,7 +210,7 @@ export const questions = sqliteTable(
 			.notNull()
 			.references(() => quizzes.id, { onDelete: 'cascade' }),
 		position: integer('position').notNull(),
-		type: text('type', { enum: ['choice', 'truefalse', 'audio', 'text', 'order'] }).notNull(),
+		type: text('type', { enum: ['choice', 'truefalse', 'audio', 'text', 'order', 'poll', 'slider', 'slide'] }).notNull(),
 		prompt: text('prompt').notNull(),
 		promptTranslation: text('prompt_translation'), // opcjonalny 2. wiersz (np. EN + PL)
 		imageMediaId: text('image_media_id').references(() => media.id),

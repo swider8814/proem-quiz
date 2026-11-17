@@ -218,6 +218,61 @@ for (const cd of [0, 3]) {
 	ta.close();
 }
 
+// Ankieta, suwak i slajd
+{
+	const qz = {
+		...quiz, quizId: 'types', settings: { ...quiz.settings, countdown: 0 },
+		questions: [
+			{ id: 's1', type: 'slide', prompt: 'Witajcie!', timeLimit: 20, multiplier: 1, data: { type: 'slide', text: 'Zaczynamy' } },
+			{ id: 'p1', type: 'poll', prompt: 'Ulubiona kolęda?', timeLimit: 20, multiplier: 1, data: { answers: ['Cicha noc', 'Lulajże'] } },
+			{ id: 'r1', type: 'slider', prompt: 'Ile dni ma grudzień?', timeLimit: 20, multiplier: 1, data: { min: 0, max: 100, step: 1, correct: 31, margin: 'low', unit: 'dni' } }
+		]
+	};
+	const g = registry().create(qz, 'user1');
+	const h = connect(URL, { auth: { role: 'host', pin: g.pin, token: g.hostToken }, transports: ['websocket'] });
+	let hs = null;
+	h.on('state', (x) => (hs = x));
+	await nextState(h);
+	const a = mk();
+	const b = mk();
+	await emit(a, 'join', { pin: g.pin, nick: 'Ania', deviceId: 'ty1' });
+	await emit(b, 'join', { pin: g.pin, nick: 'Bartek', deviceId: 'ty2' });
+	const slide = nextState(a, (x) => x.state === 'question');
+	await emit(h, 'host:next', {});
+	const sl = await slide;
+	ok(sl.question.type === 'slide' && sl.question.text === 'Zaczynamy' && sl.deadline === null, 'slajd: bez czasu, z tekstem');
+	ok((await emit(a, 'answer', { index: 0, choice: 0 })).error === 'invalid', 'slajd: odpowiedź odrzucona');
+	ok((await emit(h, 'host:skip', {})).error === 'invalid-state', 'slajd: „zakończ pytanie” nie działa');
+	const poll = nextState(a, (x) => x.state === 'question' && x.question.index === 1);
+	await emit(h, 'host:next', {}); // slajd → od razu następne pytanie
+	const pq = await poll;
+	ok(pq.question.type === 'poll' && pq.question.answers.length === 2, 'po slajdzie od razu ankieta');
+	const pr = nextState(a, (x) => x.state === 'reveal');
+	await emit(a, 'answer', { index: 1, choice: 1 });
+	await emit(b, 'answer', { index: 1, choice: 1 });
+	const prv = await pr;
+	ok(prv.result.poll && prv.result.voted && prv.me.score === 0, 'ankieta: bez punktów, głos policzony');
+	await sleep(50);
+	ok(JSON.stringify(hs.distribution.counts) === '[0,2]', `ankieta: rozkład głosów ${JSON.stringify(hs.distribution.counts)}`);
+	await emit(h, 'host:next', {}); // ranking
+	const sq = nextState(a, (x) => x.state === 'question' && x.question.index === 2);
+	await emit(h, 'host:next', {});
+	const sv = await sq;
+	ok(sv.question.slider?.max === 100 && sv.question.slider.unit === 'dni' && sv.question.correct === undefined, 'suwak: zakres bez poprawnej wartości');
+	ok((await emit(a, 'answer', { index: 2, value: 101 })).error === 'invalid', 'suwak: wartość spoza zakresu odrzucona');
+	ok((await emit(a, 'answer', { index: 2, value: '31' })).error === 'invalid', 'suwak: tekst zamiast liczby odrzucony');
+	const rr = nextState(a, (x) => x.state === 'reveal');
+	const rb = nextState(b, (x) => x.state === 'reveal');
+	await emit(a, 'answer', { index: 2, value: 31 });
+	await emit(b, 'answer', { index: 2, value: 34 });
+	const [ra, rb2] = await Promise.all([rr, rb]);
+	ok(ra.result.correct && rb2.result.correct && ra.result.points > rb2.result.points && rb2.result.points > 0, `suwak: dokładnie ${ra.result.points} > blisko ${rb2.result.points} > 0`);
+	ok(ra.solution.value === 31 && rb2.result.value === 34, 'suwak: wynik pokazuje poprawną wartość i odpowiedź gracza');
+	h.close();
+	a.close();
+	b.close();
+}
+
 // PIN brute force
 const brute = mk();
 let limitedHit = false;

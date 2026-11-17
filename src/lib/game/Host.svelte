@@ -37,6 +37,7 @@
 	type HQ = {
 		index: number; total: number; type: string; timeLimit: number; multiplier: number;
 		prompt: string; promptTranslation: string | null; answers?: string[]; items?: { id: string; label: string }[];
+		slider?: { min: number; max: number; step: number; unit: string }; text?: string;
 		thumbs?: boolean; answerImages?: (string | null)[]; imageUrl?: string | null; audio?: { url: string; loop: boolean; revealUrl: string | null };
 	};
 	type HS = {
@@ -44,8 +45,8 @@
 		title: string; locale: string; theme: GameTheme; settings: { teamMode: boolean; podiumSound?: PodiumSound; podiumUrl?: string | null; music?: MusicKind; musicUrl?: string | null; musicLobby?: boolean; musicQuestions?: boolean };
 		totalQuestions: number; players?: { id: string; nick: string; connected: boolean; members?: string[] }[]; playerCount: number;
 		now: number; question?: HQ; deadline?: number | null; introEnds?: number | null; answered?: number;
-		solution?: { correct?: number[] | boolean; accepted?: string[]; order?: string[] };
-		distribution?: { counts?: number[]; correct?: number; wrong?: number };
+		solution?: { correct?: number[] | boolean; accepted?: string[]; order?: string[]; value?: number; margin?: number; unit?: string };
+		distribution?: { counts?: number[]; correct?: number; wrong?: number; average?: number | null };
 		ranking?: { id: string; nick: string; score: number; rank: number; members?: string[] }[];
 		standings?: { id: string; nick: string; score: number; rank: number; connected: boolean }[];
 	};
@@ -344,7 +345,7 @@
 
 	function next() {
 		if (!hs) return;
-		if (hs.state === 'question') return cmd('host:skip');
+		if (hs.state === 'question' && q?.type !== 'slide') return cmd('host:skip');
 		if (hs.state === 'ended') return;
 		cmd('host:next');
 	}
@@ -397,9 +398,14 @@
 		return Array.isArray(c) ? c.includes(i) : false;
 	};
 	const pinFmt = (p: string) => `${p.slice(0, 3)} ${p.slice(3)}`;
+	const pct = (c: number) => {
+		const total = (hs?.distribution?.counts ?? []).reduce((a, b) => a + b, 0);
+		return total ? Math.round((c / total) * 100) : 0;
+	};
+	const fmtNum = (n: number | undefined) => (n == null ? '' : n.toLocaleString(hs?.locale === 'en' ? 'en-GB' : hs?.locale === 'uk' ? 'uk-UA' : 'pl-PL', { maximumFractionDigits: 2 }));
 	const maxCount = $derived(Math.max(1, ...(hs?.distribution?.counts ?? [1])));
 	const nextLabel = $derived(
-		!hs ? '' : hs.state === 'lobby' ? L.start : hs.state === 'question' ? L.skip : hs.state === 'leaderboard' && q && q.index + 1 >= q.total ? L.podium : L.next
+		!hs ? '' : hs.state === 'lobby' ? L.start : hs.state === 'question' && q?.type === 'slide' ? L.next : hs.state === 'question' ? L.skip : hs.state === 'leaderboard' && q && q.index + 1 >= q.total ? L.podium : L.next
 	);
 </script>
 
@@ -427,7 +433,7 @@
 	{:else}
 		<header class="bar">
 			<span class="brand">{#if theme?.logoUrl}<img src={theme.logoUrl} alt="" />{:else}{(theme?.name ?? 'Proem').split(' – ')[0]}{/if}</span>
-			{#if q && hs.state !== 'lobby'}<span class="g-chip">{L.question} {q.index + 1} {L.of} {q.total}</span>{/if}
+			{#if q && hs.state !== 'lobby' && q.type !== 'slide'}<span class="g-chip">{L.question} {q.index + 1} {L.of} {q.total}</span>{/if}
 			<span class="g-chip pinchip">PIN {pinFmt(hs.pin)}</span>
 		</header>
 
@@ -485,6 +491,13 @@
 					<p class="listen">{L.getReady}</p>
 				{/if}
 			</section>
+		{:else if hs.state === 'question' && q?.type === 'slide'}
+			<section class="slide">
+				<h1 class="slide-title" in:fly={{ y: -20, duration: 500 }}>{q.prompt}</h1>
+				{#if q.promptTranslation}<p class="tr">{q.promptTranslation}</p>{/if}
+				{#if q.imageUrl}<img class="slide-img" src={q.imageUrl} alt="" in:scale={{ start: 0.92, delay: 150, duration: 500 }} />{/if}
+				{#if q.text}<p class="slide-text g-box" in:fly={{ y: 20, delay: 250, duration: 500 }}>{q.text}</p>{/if}
+			</section>
 		{:else if (hs.state === 'question' || hs.state === 'reveal') && q}
 			<section class="question">
 				<div class="g-box promptbox">
@@ -508,11 +521,20 @@
 							<div class="dist">
 								{#each hs.distribution.counts as c, i}
 									<div class="col">
-										<span class="num">{c}</span>
-										<div class="barv a{q.type === 'truefalse' ? 1 - i : i}" class:dim={hs.solution && !(q.type === 'truefalse' ? (i === 0) === hs.solution.correct : isCorrect(i))} style:height="{(c / maxCount) * 100}%"></div>
+										<span class="num">{c}{#if q.type === 'poll'}<small class="pct"> · {pct(c)}%</small>{/if}</span>
+										<div class="barv a{q.type === 'truefalse' ? 1 - i : i}" class:dim={q.type !== 'poll' && hs.solution && !(q.type === 'truefalse' ? (i === 0) === hs.solution.correct : isCorrect(i))} style:height="{(c / maxCount) * 100}%"></div>
 									</div>
 								{/each}
 							</div>
+						{:else if hs.state === 'reveal' && q.type === 'slider' && hs.solution}
+							<div class="slider-res" in:scale={{ start: 0.8, duration: 500, easing: backOut }}>
+								<span class="label">{L.correctAnswer}</span>
+								<span class="big-val g-box">{fmtNum(hs.solution.value)}{q.slider?.unit ? ` ${q.slider.unit}` : ''}</span>
+								{#if hs.distribution?.average != null}<span>{L.average}: <b>{fmtNum(hs.distribution.average)}</b></span>{/if}
+								<span>{L.closeEnough(hs.distribution?.correct ?? 0)}</span>
+							</div>
+						{:else if hs.state === 'question' && q.type === 'slider' && q.slider}
+							<p class="listen big-range">{fmtNum(q.slider.min)} – {fmtNum(q.slider.max)}{q.slider.unit ? ` ${q.slider.unit}` : ''}</p>
 						{:else if hs.state === 'reveal' && hs.distribution}
 							<p class="listen">{hs.distribution.correct} {L.correctCount} · {hs.distribution.wrong} {L.wrongCount}</p>
 						{/if}
@@ -522,7 +544,7 @@
 					{#if q.answers}
 						<div class="answers" class:with-images={!!q.answerImages}>
 							{#each q.answers as a, i}
-								<div class="g-tile a{i}" class:dim={hs.state === 'reveal' && !isCorrect(i)} in:scale={{ start: 0.85, delay: 120 + i * 90, duration: 350, easing: backOut }}>
+								<div class="g-tile a{i}" class:dim={hs.state === 'reveal' && q.type !== 'poll' && !isCorrect(i)} in:scale={{ start: 0.85, delay: 120 + i * 90, duration: 350, easing: backOut }}>
 									{#if style === 'calm'}<span class="badge">{String.fromCharCode(65 + i)}</span>
 									{:else}<Shape {i} size={40} color={shapeColor(style)} />{/if}
 									{#if q.answerImages?.[i]}<img class="ans-img" src={q.answerImages[i]} alt={a || String.fromCharCode(65 + i)} />{/if}
@@ -655,6 +677,14 @@
 	.members { font-weight: 600; opacity: 0.75; font-size: 0.8em; }
 	.answers.talk { width: 100%; }
 	.answers.talk .g-tile { min-height: 7vh; font-size: 1.2em; }
+	.slide { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3vh; text-align: center; }
+	.slide-title { margin: 0; font-size: 3.2em; line-height: 1.1; }
+	.slide-img { max-height: 45vh; max-width: 80%; object-fit: contain; }
+	.slide-text { margin: 0; padding: 1em 1.5em; font-size: 1.5em; max-width: 70%; white-space: pre-line; }
+	.slider-res { display: flex; flex-direction: column; align-items: center; gap: 1vh; font-size: 1.2em; }
+	.big-val { font-size: 2.6em; font-weight: 900; padding: 0.2em 0.8em; }
+	.big-range { font-size: 2em; }
+	.pct { font-size: 0.7em; opacity: 0.8; }
 	.thumb { display: flex; justify-content: center; flex: 1; }
 	.center { margin: auto; }
 	.big { font-size: 2em; font-weight: 900; }
