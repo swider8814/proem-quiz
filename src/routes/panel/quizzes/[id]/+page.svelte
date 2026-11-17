@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '#lib/Icon.svelte';
 	import { beforeNavigate } from '$app/navigation';
 	import AudioClipEditor from '#lib/editor/AudioClipEditor.svelte';
 	import {
@@ -224,8 +225,8 @@
 						</select>
 					</label>
 					<div class="q-tools">
-						<button type="button" class="secondary" onclick={() => move(selected, -1)} disabled={selected === 0} aria-label={E.moveUp}>↑</button>
-						<button type="button" class="secondary" onclick={() => move(selected, 1)} disabled={selected === questions.length - 1} aria-label={E.moveDown}>↓</button>
+						<button type="button" class="secondary" onclick={() => move(selected, -1)} disabled={selected === 0} aria-label={E.moveUp}><Icon name="up" /></button>
+						<button type="button" class="secondary" onclick={() => move(selected, 1)} disabled={selected === questions.length - 1} aria-label={E.moveDown}><Icon name="down" /></button>
 						<button type="button" class="secondary" onclick={() => duplicate(selected)}>{E.duplicate}</button>
 						<button type="button" class="danger" onclick={() => remove(selected)}>{E.remove}</button>
 					</div>
@@ -286,7 +287,7 @@
 					{#each d.accepted as _, i}
 						<div class="row">
 							<input type="text" bind:value={d.accepted[i]} maxlength="80" aria-label={E.accepted(i + 1)} />
-							{#if d.accepted.length > 1}<button type="button" class="secondary" onclick={() => d.accepted.splice(i, 1)} aria-label={E.remove}>✕</button>{/if}
+							{#if d.accepted.length > 1}<button type="button" class="secondary" onclick={() => d.accepted.splice(i, 1)} aria-label={E.remove}><Icon name="close" /></button>{/if}
 						</div>
 					{/each}
 					{#if d.accepted.length < 10}<button type="button" class="link" onclick={() => d.accepted.push('')}>{E.addVariant}</button>{/if}
@@ -302,7 +303,7 @@
 						<div class="row">
 							<span class="n">{i + 1}.</span>
 							<input type="text" bind:value={d.items[i]} maxlength="60" aria-label={E.item(i + 1)} />
-							{#if d.items.length > 3}<button type="button" class="secondary" onclick={() => d.items.splice(i, 1)} aria-label={E.remove}>✕</button>{/if}
+							{#if d.items.length > 3}<button type="button" class="secondary" onclick={() => d.items.splice(i, 1)} aria-label={E.remove}><Icon name="close" /></button>{/if}
 						</div>
 					{/each}
 					{#if d.items.length < 6}<button type="button" class="link" onclick={() => d.items.push('')}>{E.addItem}</button>{/if}

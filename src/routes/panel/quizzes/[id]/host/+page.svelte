@@ -49,7 +49,7 @@
 
 {#if game}
 	<div class="overlay">
-		<Host pin={game.pin} hostToken={game.hostToken} qr={game.qr} joinHost={game.joinHost} onClosed={closed} />
+		<Host quizId={data.quiz.id} pin={game.pin} hostToken={game.hostToken} qr={game.qr} joinHost={game.joinHost} onClosed={closed} />
 	</div>
 {:else}
 	<div class="card start">
@@ -65,7 +65,7 @@
 {/if}
 
 <style>
-	.overlay { position: fixed; inset: 0; z-index: 50; overflow: auto; }
+	.overlay { position: fixed; inset: 0; z-index: 50; overflow: hidden; }
 	.start { max-width: 34rem; margin: 3rem auto; text-align: center; }
 	.start button { font-size: 1.2rem; padding: 0.9rem 2rem; background: #26890c; }
 	.small { font-size: 0.85rem; }

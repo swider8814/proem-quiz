@@ -87,6 +87,20 @@ try {
 	ok(true, 'prowadzący widzi 3 graczy');
 	await snap(host, '04-prowadzacy-poczekalnia');
 
+	// ── Ekran dla widzów (osobne okno na projektor) ───────────────────────
+	const [screen] = await Promise.all([host.waitForEvent('popup'), host.click('button:has-text("Otwórz ekran dla widzów")')]);
+	screen.errors = [];
+	screen.on('pageerror', (e) => screen.errors.push(String(e)));
+	await screen.setViewportSize({ width: 1920, height: 1080 });
+	await screen.waitForSelector('.pin');
+	ok((await screen.textContent('.pin')).replace(/\s/g, '') === pin, 'ekran widzów pokazuje PIN');
+	ok(await screen.$eval('.qr', (i) => i.src.startsWith('data:image/')), 'ekran widzów pokazuje kod QR');
+	ok((await screen.$$('.game .controls, .game .mini, .game button')).length === 0, 'ekran widzów nie ma żadnych przycisków');
+	await screen.waitForFunction(() => document.querySelectorAll('.players .player').length === 3);
+	await host.waitForSelector('text=Ekran widzów połączony');
+	ok(true, 'prowadzący widzi, że ekran widzów jest połączony');
+	await snap(screen, '04b-ekran-widzow-poczekalnia');
+
 	// ── Pytanie 1: audio ──────────────────────────────────────────────────
 	await host.click('button:has-text("Zaczynamy")');
 	await phones[0].waitForSelector('.tiles .g-tile', { timeout: 10000 });
@@ -105,6 +119,35 @@ try {
 	await snap(phones[0], '07-telefon-dobrze');
 	await snap(phones[1], '08-telefon-zle');
 	await snap(host, '09-prowadzacy-wyniki');
+	// Przyciski prowadzącego muszą być widoczne także na mniejszym ekranie laptopa
+	// (np. 1280×720 przy skalowaniu Windows), bez przewijania.
+	const footerFits = async (label) => {
+		for (const vp of [{ width: 1600, height: 900 }, { width: 1280, height: 600 }, { width: 1024, height: 560 }]) {
+			await host.setViewportSize(vp);
+			await sleep(150);
+			const m = await host.evaluate(() => {
+				const f = document.querySelector('.controls').getBoundingClientRect();
+				return { bottom: Math.round(f.bottom), vh: innerHeight, scroll: document.scrollingElement.scrollHeight };
+			});
+			ok(m.bottom <= m.vh && m.scroll <= m.vh, `${label} ${vp.width}×${vp.height}: przyciski na dole widoczne ${JSON.stringify(m)}`);
+		}
+		await host.setViewportSize({ width: 1600, height: 900 });
+	};
+	await footerFits('wyniki pytania audio');
+	await screen.waitForSelector('.dist .barv');
+	ok(true, 'ekran widzów pokazuje wyniki pytania');
+	await host.waitForSelector('.side li');
+	ok((await host.$$('.side li')).length === 3, 'prowadzący ma ranking na żywo w panelu bocznym');
+	ok((await screen.$$('.side')).length === 0, 'ranking na żywo nie trafia na ekran widzów');
+	await snap(screen, '09b-ekran-widzow-wyniki');
+	// Spacja w oknie widzów (np. pilot do prezentacji) przełącza grę u prowadzącego.
+	await screen.keyboard.press('Space');
+	await host.waitForSelector('.board');
+	await screen.waitForSelector('.board');
+	ok(true, 'spacja w oknie widzów → ranking u prowadzącego i na ekranie');
+	await host.keyboard.press('Space');
+	await phones[0].waitForSelector('.prompt');
+	await phones[0].waitForFunction(() => !document.body.innerText.includes('Przygotuj się'), null, { timeout: 8000 });
 
 	const nextQ = async () => {
 		await host.keyboard.press('Space'); // ranking
@@ -115,7 +158,6 @@ try {
 	};
 
 	// ── Pytanie 2: prawda/fałsz ───────────────────────────────────────────
-	await nextQ();
 	for (const p of phones) await p.click('button:has-text("Prawda")');
 	await phones[0].waitForSelector('text=Dobrze!');
 	ok(true, 'prawda/fałsz działa');
@@ -156,6 +198,10 @@ try {
 	await snap(phones[0], '13-telefon-koniec');
 	const first = await host.textContent('.step.s1 .who');
 	ok(first === 'Kasia', `zwyciężczyni na podium: ${first}`);
+	await screen.waitForSelector('.podium');
+	await snap(screen, '12b-ekran-widzow-podium');
+	ok(true, 'ekran widzów pokazuje podium');
+	await footerFits('podium');
 
 	// ── Odświeżenie telefonu w trakcie gry nie gubi gracza ───────────────
 	await phones[1].reload();
@@ -163,6 +209,7 @@ try {
 	ok(true, 'po odświeżeniu telefon wraca do gry');
 
 	ok(hostErrors.length === 0, `brak błędów JS u prowadzącego ${hostErrors.join(' | ')}`);
+	ok(screen.errors.length === 0, `brak błędów JS na ekranie widzów ${screen.errors.join(' | ')}`);
 	ok(phones.every((p) => p.errors.length === 0), `brak błędów JS na telefonach ${phones.flatMap((p) => p.errors).join(' | ')}`);
 } catch (e) {
 	ok(false, `wyjątek: ${e.stack}`);

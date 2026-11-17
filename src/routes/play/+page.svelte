@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import type { Socket } from 'socket.io-client';
 	import '#lib/game/game.css';
+	import Icon from '#lib/Icon.svelte';
 	import Shape from '#lib/game/Shape.svelte';
 	import { ask, deviceId, gameSocket, keepAwake, remaining, store } from '#lib/game/client.js';
 	import { errText, t } from '#lib/game/i18n.js';
@@ -224,13 +225,13 @@
 				<span class="big-label">{team ? L.teamName : L.yourNick}</span>
 				{#if !ownNick}
 					<div class="nick-show">{suggestion}</div>
-					<button type="button" class="g-btn ghost wide" onclick={reroll}>🎲 {L.drawAgain}</button>
+					<button type="button" class="g-btn ghost wide" onclick={reroll}><Icon name="dice" /> {L.drawAgain}</button>
 					{#if info.nicknameMode !== 'random-only'}
 						<button type="button" class="linkish" onclick={() => (ownNick = true)}>{L.ownNick}</button>
 					{/if}
 				{:else}
 					<input class="g-input" maxlength="20" bind:value={nick} autocomplete="off" autocapitalize="words" aria-label={team ? L.teamName : L.yourNick} />
-					<button type="button" class="linkish" onclick={() => (ownNick = false)}>🎲 {L.drawAgain}</button>
+					<button type="button" class="linkish" onclick={() => (ownNick = false)}><Icon name="dice" /> {L.drawAgain}</button>
 				{/if}
 				{#if error}<p class="err" role="alert">{error}</p>{/if}
 				<button class="g-btn wide" disabled={busy || (ownNick && nick.trim().length < 2)}>{L.join}</button>
@@ -350,8 +351,20 @@
 		flex-direction: column;
 		gap: 12px;
 		padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
-		max-width: 560px;
-		margin: 0 auto;
+		/* Tło na całą szerokość okna; treść w kolumnie (telefon → tablet → komputer). */
+		--col: 560px;
+	}
+	.play > :not(.offline) { width: 100%; max-width: var(--col); margin-inline: auto; }
+	.card { max-width: 480px; }
+	@media (min-width: 700px) {
+		.play { --col: 720px; gap: 16px; padding-top: 28px; padding-bottom: 28px; }
+		.prompt { font-size: 1.8rem; }
+		.tiles { min-height: 46vh; }
+		.tiles .g-tile { font-size: 1.4rem; }
+	}
+	@media (min-width: 1100px) {
+		.play { --col: 900px; }
+		.prompt { font-size: 2.1rem; }
 	}
 	.center { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
 	.card { width: 100%; padding: 22px; display: flex; flex-direction: column; gap: 14px; }
@@ -363,7 +376,7 @@
 	.err { background: #fff; color: #b0001e; border: 2px solid #b0001e; padding: 10px 12px; font-weight: 800; margin: 0; }
 	.title { font-size: 1.6rem; margin: 0; text-align: center; }
 	.nick-show { font-size: 1.8rem; font-weight: 900; text-align: center; padding: 8px 0; word-break: break-word; }
-	.linkish { background: none; border: 0; font: inherit; font-weight: 700; text-decoration: underline; color: inherit; cursor: pointer; padding: 6px; min-height: 44px; }
+	.linkish { background: none; border: 0; font: inherit; font-weight: 700; text-decoration: underline; color: inherit; cursor: pointer; padding: 6px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 0.4em; }
 	.msg { text-align: center; }
 	.msg p { margin: 0; }
 	.huge { font-size: 1.9rem; font-weight: 900; }

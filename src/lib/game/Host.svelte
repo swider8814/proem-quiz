@@ -6,12 +6,28 @@
 	import type { Socket } from 'socket.io-client';
 	import './game.css';
 	import Shape from './Shape.svelte';
+	import Icon from '#lib/Icon.svelte';
 	import { ask, gameSocket, keepAwake, remaining } from './client.js';
 	import { t } from './i18n.js';
 	import { shapeColor, themeVars, type GameTheme } from './theme.js';
 
-	type Props = { pin: string; hostToken: string; qr: string; joinHost: string; onClosed: () => void };
-	let { pin, hostToken, qr, joinHost, onClosed }: Props = $props();
+	/**
+	 * mode="operator": okno prowadzącego – połączenie z serwerem, sterowanie, dźwięk.
+	 * mode="screen": okno dla widzów (projektor) – bez przycisków i bez połączenia z serwerem;
+	 * dostaje stan z okna prowadzącego przez BroadcastChannel (ta sama przeglądarka i domena).
+	 */
+	type Props = {
+		mode?: 'operator' | 'screen';
+		quizId: string;
+		pin?: string; hostToken?: string; qr?: string; joinHost?: string;
+		onClosed?: () => void;
+	};
+	let { mode = 'operator', quizId, pin = '', hostToken = '', qr: qrProp = '', joinHost: joinHostProp = '', onClosed = () => {} }: Props = $props();
+	const isScreen = $derived(mode === 'screen');
+	let qrRecv = $state('');
+	let joinHostRecv = $state('');
+	const qr = $derived(isScreen ? qrRecv : qrProp);
+	const joinHost = $derived(isScreen ? joinHostRecv : joinHostProp);
 
 	type HQ = {
 		index: number; total: number; type: string; timeLimit: number; multiplier: number;
@@ -26,7 +42,12 @@
 		solution?: { correct?: number[] | boolean; accepted?: string[]; order?: string[] };
 		distribution?: { counts?: number[]; correct?: number; wrong?: number };
 		ranking?: { id: string; nick: string; score: number; rank: number }[];
+		standings?: { id: string; nick: string; score: number; rank: number; connected: boolean }[];
 	};
+	type ScreenMsg =
+		| { t: 'state'; hs: HS; offset: number; answered: { count: number; total: number }; playing: boolean; qr: string; joinHost: string }
+		| { t: 'closed' }
+		| { t: 'hello' | 'ping' | 'bye' | 'next' | 'replay' };
 
 	let socket: Socket | null = null;
 	let hs = $state<HS | null>(null);
@@ -115,7 +136,118 @@
 		if (s.state === 'leaderboard' || s.state === 'ended' || s.state === 'lobby') stopAudio();
 	}
 
+	// ── Okno dla widzów ────────────────────────────────────────────────
+	const channelName = $derived(`pq-screen-${quizId}`);
+	let channel: BroadcastChannel | null = null;
+	let screenSeen = $state(0);
+	let screenClosed = $state(false);
+	const screenOn = $derived(!isScreen && now - screenSeen < 5000);
+
+	function post(m: ScreenMsg) {
+		try {
+			channel?.postMessage(m);
+		} catch {
+			/* kanał zamknięty */
+		}
+	}
+
+	function broadcast() {
+		if (!hs) return;
+		post({ t: 'state', hs: $state.snapshot(hs) as HS, offset, answered: $state.snapshot(answered), playing, qr, joinHost });
+	}
+
+	// Każda zmiana stanu w oknie prowadzącego trafia od razu na ekran widzów.
+	$effect(() => {
+		if (isScreen || !hs) return;
+		void answered.count;
+		void playing;
+		broadcast();
+	});
+
+	function openScreen() {
+		const w = window.open(`/panel/quizzes/${quizId}/screen`, channelName, 'popup,width=1280,height=720');
+		if (!w) {
+			error = PH.popupBlocked;
+			return;
+		}
+		// Jeśli przeglądarka zna drugi ekran (Window Management API, Chrome/Edge), przenieś tam okno.
+		const wm = window as unknown as { getScreenDetails?: () => Promise<{ screens: { availLeft: number; availTop: number; availWidth: number; availHeight: number; isPrimary: boolean }[]; currentScreen: unknown }> };
+		wm.getScreenDetails?.()
+			.then((d) => {
+				const other = d.screens.find((x) => x !== d.currentScreen && !x.isPrimary) ?? d.screens.find((x) => x !== d.currentScreen);
+				if (other && !w.closed) {
+					w.moveTo(other.availLeft, other.availTop);
+					w.resizeTo(other.availWidth, other.availHeight);
+				}
+			})
+			.catch(() => {});
+		w.focus();
+	}
+
+	function onChannel(e: MessageEvent<ScreenMsg>) {
+		const m = e.data;
+		if (!m || typeof m !== 'object') return;
+		if (isScreen) {
+			if (m.t === 'state') {
+				offset = m.offset;
+				const prevState = hs?.state;
+				hs = m.hs;
+				answered = m.answered;
+				playing = m.playing;
+				qrRecv = m.qr;
+				joinHostRecv = m.joinHost;
+				screenClosed = false;
+				if (prevState !== hs.state) wakeCursor();
+			} else if (m.t === 'closed') {
+				hs = null;
+				screenClosed = true;
+			}
+			return;
+		}
+		if (m.t === 'hello' || m.t === 'ping') {
+			screenSeen = Date.now();
+			if (m.t === 'hello') broadcast();
+		} else if (m.t === 'bye') screenSeen = 0;
+		else if (m.t === 'next') next();
+		else if (m.t === 'replay' && q?.audio) playClip();
+	}
+
+	// Kursor znika na ekranie widzów po chwili bez ruchu myszy.
+	let cursorHidden = $state(false);
+	let cursorTimer: ReturnType<typeof setTimeout> | null = null;
+	function wakeCursor() {
+		cursorHidden = false;
+		if (cursorTimer) clearTimeout(cursorTimer);
+		cursorTimer = setTimeout(() => (cursorHidden = true), 2500);
+	}
+
 	onMount(() => {
+		if (typeof BroadcastChannel !== 'undefined') {
+			channel = new BroadcastChannel(channelName);
+			channel.onmessage = onChannel;
+		}
+		const tick = setInterval(() => (now = Date.now()), 200);
+		if (isScreen) {
+			post({ t: 'hello' });
+			const ping = setInterval(() => post({ t: 'ping' }), 2000);
+			const bye = () => post({ t: 'bye' });
+			addEventListener('pagehide', bye);
+			wakeCursor();
+			const unlock = keepAwake();
+			return () => {
+				bye();
+				removeEventListener('pagehide', bye);
+				clearInterval(ping);
+				clearInterval(tick);
+				if (cursorTimer) clearTimeout(cursorTimer);
+				unlock();
+				channel?.close();
+			};
+		}
+		return startOperator(tick);
+	});
+
+	function startOperator(tick: ReturnType<typeof setInterval>) {
 		socket = gameSocket({ role: 'host', pin, token: hostToken });
 		socket.on('state', onState);
 		socket.on('answers', (a: { count: number; total: number }) => (answered = a));
@@ -124,15 +256,15 @@
 			else error = PH.noConnection;
 		});
 		socket.on('connect', () => (error = ''));
-		const tick = setInterval(() => (now = Date.now()), 200);
 		const unlock = keepAwake();
 		return () => {
 			clearInterval(tick);
 			unlock();
 			stopAudio();
 			socket?.disconnect();
+			channel?.close();
 		};
-	});
+	}
 
 	async function cmd(name: string, arg?: Record<string, unknown>) {
 		const r = await ask<{ ok?: boolean; error?: string }>(socket!, name, arg ?? {});
@@ -151,6 +283,7 @@
 	async function closeGame() {
 		if (!confirm(PH.closeConfirm)) return;
 		await cmd('host:close');
+		post({ t: 'closed' });
 		onClosed();
 	}
 
@@ -179,9 +312,14 @@
 		if ((e.target as HTMLElement)?.closest('input, textarea, select')) return;
 		if (e.key === ' ' || e.key === 'ArrowRight' || e.key === 'PageDown') {
 			e.preventDefault();
-			next();
+			// Pilot/klawiatura działa też, gdy aktywne jest okno widzów – polecenie idzie do prowadzącego.
+			if (isScreen) post({ t: 'next' });
+			else next();
 		} else if (e.key === 'f' || e.key === 'F') fullscreen();
-		else if ((e.key === 'r' || e.key === 'R') && q?.audio) playClip();
+		else if (e.key === 'r' || e.key === 'R') {
+			if (isScreen) post({ t: 'replay' });
+			else if (q?.audio) playClip();
+		}
 	}
 
 	const isCorrect = (i: number) => {
@@ -197,15 +335,34 @@
 
 <svelte:window onkeydown={onKey} />
 
-<div class="game host" data-style={style} style={themeVars(theme)}>
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div
+	class="game host"
+	class:screen={isScreen}
+	class:nocursor={isScreen && cursorHidden}
+	data-style={style}
+	style={themeVars(theme)}
+	onmousemove={isScreen ? wakeCursor : undefined}
+	ondblclick={isScreen ? fullscreen : undefined}
+>
 	{#if !hs}
-		<p class="center big">{PH.connecting}</p>
+		{#if isScreen}
+			<div class="center screen-wait">
+				<p class="big">{screenClosed ? PH.screenEnded : PH.screenWaiting}</p>
+				<p>{PH.screenHint}</p>
+			</div>
+		{:else}
+			<p class="center big">{PH.connecting}</p>
+		{/if}
 	{:else}
 		<header class="bar">
 			<span class="brand">{#if theme?.logoUrl}<img src={theme.logoUrl} alt="" />{:else}{(theme?.name ?? 'Proem').split(' – ')[0]}{/if}</span>
 			{#if q && hs.state !== 'lobby'}<span class="g-chip">{L.question} {q.index + 1} {L.of} {q.total}</span>{/if}
 			<span class="g-chip pinchip">PIN {pinFmt(hs.pin)}</span>
 		</header>
+
+		<div class="main">
+		<div class="view">
 
 		{#if hs.state === 'lobby'}
 			<section class="lobby">
@@ -225,8 +382,10 @@
 				{#each hs.players ?? [] as p (p.id)}
 					<li class="g-chip player" class:off={!p.connected}>
 						<span>{p.nick}</span>
-						<button class="mini" onclick={() => cmd('host:rename', { playerId: p.id })} aria-label="{L.randomNick}: {p.nick}" title={L.randomNick}>↻</button>
-						<button class="mini" onclick={() => cmd('host:kick', { playerId: p.id })} aria-label="{L.removePlayer}: {p.nick}" title={L.removePlayer}>✕</button>
+						{#if !isScreen}
+						<button class="mini" onclick={() => cmd('host:rename', { playerId: p.id })} aria-label="{L.randomNick}: {p.nick}" title={L.randomNick}><Icon name="replay" /></button>
+						<button class="mini" onclick={() => cmd('host:kick', { playerId: p.id })} aria-label="{L.removePlayer}: {p.nick}" title={L.removePlayer}><Icon name="close" /></button>
+						{/if}
 					</li>
 				{:else}
 					<li class="waiting">{L.waitingForPlayers}</li>
@@ -242,14 +401,14 @@
 					{#if hs.state === 'question'}
 						<div class="timer g-box">{Math.ceil(left / 1000)}</div>
 					{:else}<div class="timer-space"></div>{/if}
-					<div class="media">
+					<div class="media" class:done={hs.state === 'reveal'}>
 						{#if q.imageUrl}<img src={q.imageUrl} alt="" />{/if}
 						{#if q.audio}
 							<div class="eq" class:on={playing} aria-hidden="true">
 								{#each Array(24) as _, i}<span style:animation-delay="{(i % 7) * 0.09}s"></span>{/each}
 							</div>
-							<p class="listen">{hs.state === 'intro' ? L.getReady : L.listen}</p>
-							<button class="g-btn ghost small" onclick={playClip}>↻ {L.replay}</button>
+							{#if hs.state !== 'reveal'}<p class="listen">{hs.state === 'intro' ? L.getReady : L.listen}</p>{/if}
+							{#if !isScreen}<button class="g-btn ghost small" onclick={playClip}><Icon name="replay" /> {L.replay}</button>{/if}
 						{/if}
 						{#if hs.state === 'intro' && !q.audio && !q.imageUrl}<p class="listen big">{L.getReady}</p>{/if}
 						{#if hs.state === 'reveal' && hs.distribution?.counts}
@@ -277,7 +436,7 @@
 									{#if style === 'calm'}<span class="badge">{String.fromCharCode(65 + i)}</span>
 									{:else}<Shape {i} size={40} color={shapeColor(style)} />{/if}
 									<span>{a}</span>
-									{#if hs.state === 'reveal' && isCorrect(i)}<span class="tick">✓</span>{/if}
+									{#if hs.state === 'reveal' && isCorrect(i)}<span class="tick"><Icon name="check" /></span>{/if}
 								</div>
 							{/each}
 						</div>
@@ -323,24 +482,54 @@
 			</section>
 		{/if}
 
+		</div>
+		{#if screenOn && hs.state !== 'lobby' && hs.standings}
+			<aside class="side g-box" aria-label={PH.liveRanking}>
+				<h2>{PH.liveRanking}</h2>
+				<ol>
+					{#each hs.standings as r (r.id)}
+						<li class:off={!r.connected}><span class="pos">{r.rank}.</span><span class="nm">{r.nick}</span><span class="sc">{r.score}</span></li>
+					{/each}
+				</ol>
+			</aside>
+		{/if}
+		</div>
+
+		{#if !isScreen}
 		<footer class="controls">
 			{#if error}<span class="err" role="alert">{error}</span>{/if}
+			{#if screenOn}<span class="g-chip screen-on"><Icon name="screen" /> {PH.screenConnected}</span>{/if}
 			<span class="spacer"></span>
-			{#if hs.state === 'lobby'}<button class="g-btn ghost" onclick={soundTest}>🔊 {L.soundTest}</button>{/if}
-			<button class="g-btn ghost" onclick={fullscreen} title="F">⛶ {L.fullscreen}</button>
+			<button class="g-btn ghost" onclick={openScreen}><Icon name="screen" /> {PH.openScreen}</button>
+			{#if hs.state === 'lobby'}<button class="g-btn ghost" onclick={soundTest}><Icon name="sound" /> {L.soundTest}</button>{/if}
+			<button class="g-btn ghost" onclick={fullscreen} title="F"><Icon name="fullscreen" /> {L.fullscreen}</button>
 			{#if hs.state === 'ended'}
 				<button class="g-btn" onclick={closeGame}>{L.endGame}</button>
 			{:else}
 				<button class="g-btn ghost" onclick={() => cmd('host:end')}>{L.endGame}</button>
-				<button class="g-btn" onclick={next} title="Spacja">{nextLabel} →</button>
+				<button class="g-btn" onclick={next} title="Spacja">{nextLabel} <Icon name="next" /></button>
 			{/if}
 		</footer>
+		{/if}
 	{/if}
 </div>
 
 <style>
 	:global(body) { margin: 0; }
-	.host { min-height: 100vh; display: flex; flex-direction: column; padding: 2vh 3vw; gap: 2vh; font-size: clamp(14px, 1.4vw, 28px); }
+	.host { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; display: flex; flex-direction: column; padding: 2vh 3vw; gap: 2vh; font-size: clamp(14px, 1.4vw, 28px); }
+	/* Treść zawsze mieści się w oknie – przyciski prowadzącego nie wyjeżdżają poza ekran. */
+	.main { flex: 1; min-height: 0; display: flex; gap: 2vw; }
+	.view { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 2vh; }
+	.side { width: clamp(14em, 22vw, 22em); display: flex; flex-direction: column; min-height: 0; padding: 1em; font-size: 0.85em; }
+	.side h2 { margin: 0 0 0.5em; font-size: 1.2em; }
+	.side ol { list-style: none; margin: 0; padding: 0; overflow: auto; display: flex; flex-direction: column; gap: 0.3em; }
+	.side li { display: flex; gap: 0.5em; font-weight: 700; }
+	.side li.off { opacity: 0.5; }
+	.side .sc { font-variant-numeric: tabular-nums; }
+	.screen.nocursor, .screen.nocursor * { cursor: none; }
+	.screen-wait { text-align: center; padding: 2em; }
+	.screen-on { font-size: 0.8em; display: inline-flex; align-items: center; gap: 0.4em; }
+	.tick { display: inline-flex; }
 	.center { margin: auto; }
 	.big { font-size: 2em; font-weight: 900; }
 	.bar { display: flex; align-items: center; justify-content: space-between; gap: 1em; }
@@ -357,16 +546,17 @@
 	.players { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 0.6em; align-content: flex-start; flex: 1; overflow: auto; }
 	.player { font-size: 1.15em; }
 	.player.off { opacity: 0.5; }
-	.mini { border: 0; background: rgba(0, 0, 0, 0.12); color: inherit; border-radius: 50%; width: 1.8em; height: 1.8em; cursor: pointer; font: inherit; font-size: 0.8em; }
+	.mini { border: 0; background: rgba(0, 0, 0, 0.12); color: inherit; border-radius: 50%; width: 1.8em; height: 1.8em; padding: 0; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font: inherit; font-size: 0.8em; }
 	.waiting { font-weight: 800; font-size: 1.3em; opacity: 0.8; }
-	.question { flex: 1; display: flex; flex-direction: column; gap: 2vh; }
+	.question { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 2vh; }
 	.promptbox { padding: 1.5vh 2vw; text-align: center; }
 	.promptbox h1 { margin: 0; font-size: 2.3em; line-height: 1.1; }
 	.tr { margin: 0.3em 0 0; font-size: 1.1em; opacity: 0.75; }
 	.mid { flex: 1; display: flex; align-items: center; gap: 2vw; min-height: 0; }
 	.timer { width: 4.5em; height: 4.5em; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.6em; font-weight: 900; background: var(--accent); flex-shrink: 0; }
 	.timer-space { width: 7em; flex-shrink: 0; }
-	.media { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1vh; min-height: 0; height: 100%; }
+	.media { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1vh; min-height: 0; height: 100%; overflow: hidden; }
+	.media.done .eq { height: 3em; }
 	.media img { max-height: 34vh; max-width: 100%; object-fit: contain; }
 	.listen { font-weight: 800; font-size: 1.2em; margin: 0; }
 	.small { font-size: 0.8em; min-height: 40px; padding: 0.4em 1em; }
@@ -374,18 +564,18 @@
 	.eq span { width: 0.6em; height: 20%; background: var(--accent); border: calc(var(--bw) / 2) solid var(--line); }
 	.eq.on span { animation: eq 0.6s ease-in-out infinite alternate; }
 	@keyframes eq { from { height: 15%; } to { height: 100%; } }
-	.dist { display: flex; gap: 2vw; align-items: flex-end; height: 26vh; }
+	.dist { display: flex; gap: 2vw; align-items: flex-end; flex: 1 1 26vh; min-height: 6vh; max-height: 26vh; }
 	.col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; width: 5vw; }
 	.num { font-weight: 900; font-size: 1.4em; }
 	.barv { width: 100%; min-height: 6px; border: var(--bw) solid var(--line); }
 	.barv.a0 { background: var(--a0); } .barv.a1 { background: var(--a1); } .barv.a2 { background: var(--a2); } .barv.a3 { background: var(--a3); }
 	.barv.dim { opacity: 0.3; }
 	.answers { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5vh 1.2vw; }
-	.answers .g-tile { min-height: 11vh; padding: 0 1.5vw; font-size: 1.5em; cursor: default; }
+	.answers .g-tile { min-height: 9vh; padding: 0 1.5vw; font-size: 1.5em; cursor: default; }
 	.answers.list { grid-template-columns: 1fr 1fr; }
 	.label { grid-column: 1 / -1; margin: 0; font-weight: 800; }
 	.tick { margin-left: auto; font-size: 1.4em; }
-	.board { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2vh; }
+	.board { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; align-items: center; gap: 2vh; }
 	.board h1 { margin: 0; font-size: 2.5em; }
 	.podium { display: flex; align-items: flex-end; gap: 2vw; }
 	.step { display: flex; flex-direction: column; align-items: center; gap: 0.5em; width: 14vw; }

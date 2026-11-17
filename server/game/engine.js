@@ -396,6 +396,11 @@ export class Game {
 			v.distribution = this.distribution();
 		}
 		if (this.state === 'leaderboard' || this.state === 'ended') v.ranking = this.ranking().slice(0, this.state === 'ended' ? 10 : 5);
+		// Pełna tabela tylko dla okna prowadzącego (panel boczny), nie trafia na ekran widzów.
+		if (this.state !== 'lobby') {
+			const conn = new Map(this.activePlayers().map((p) => [p.id, p.connected]));
+			v.standings = this.ranking().slice(0, 100).map((r) => ({ ...r, connected: conn.get(r.id) ?? false }));
+		}
 		return v;
 	}
 

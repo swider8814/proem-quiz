@@ -239,7 +239,15 @@ const pl = {
 		noConnection: 'Brak połączenia z serwerem…',
 		closeConfirm: 'Zamknąć grę? Gracze zostaną rozłączeni.',
 		connecting: 'Łączenie…',
-		qrAlt: 'Kod QR do dołączenia'
+		qrAlt: 'Kod QR do dołączenia',
+		openScreen: 'Otwórz ekran dla widzów',
+		screenConnected: 'Ekran widzów połączony',
+		popupBlocked: 'Przeglądarka zablokowała nowe okno – zezwól na wyskakujące okna dla tej strony.',
+		screenTitle: 'Ekran dla widzów',
+		screenWaiting: 'Ekran dla widzów – czekam na okno prowadzącego…',
+		screenEnded: 'Gra zakończona.',
+		screenHint: 'Przeciągnij to okno na projektor lub telewizor i naciśnij F albo kliknij dwa razy, aby włączyć pełny ekran.',
+		liveRanking: 'Ranking na żywo'
 	},
 	share: {
 		title: 'Udostępnianie',
@@ -670,7 +678,15 @@ const en: PanelDict = {
 		noConnection: 'No connection to the server…',
 		closeConfirm: 'Close the game? Players will be disconnected.',
 		connecting: 'Connecting…',
-		qrAlt: 'QR code to join'
+		qrAlt: 'QR code to join',
+		openScreen: 'Open audience screen',
+		screenConnected: 'Audience screen connected',
+		popupBlocked: 'The browser blocked the new window – allow pop-ups for this site.',
+		screenTitle: 'Audience screen',
+		screenWaiting: 'Audience screen – waiting for the host window…',
+		screenEnded: 'The game has ended.',
+		screenHint: 'Drag this window to the projector or TV and press F or double-click for full screen.',
+		liveRanking: 'Live ranking'
 	},
 	share: {
 		title: 'Sharing',
