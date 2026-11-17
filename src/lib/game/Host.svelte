@@ -47,7 +47,7 @@
 	type ScreenMsg =
 		| { t: 'state'; hs: HS; offset: number; answered: { count: number; total: number }; playing: boolean; qr: string; joinHost: string }
 		| { t: 'closed' }
-		| { t: 'hello' | 'ping' | 'bye' | 'next' | 'replay' };
+		| { t: 'hello' | 'ping' | 'bye' | 'next' | 'replay' | 'op' | 'op-bye' };
 
 	let socket: Socket | null = null;
 	let hs = $state<HS | null>(null);
@@ -141,6 +141,9 @@
 	let channel: BroadcastChannel | null = null;
 	let screenSeen = $state(0);
 	let screenClosed = $state(false);
+	/** Ekran widzów: kiedy ostatnio odezwało się okno prowadzącego (0 = pożegnało się). */
+	let opSeen = $state(0);
+	const opLost = $derived(isScreen && hs !== null && now - opSeen > 6000);
 	const screenOn = $derived(!isScreen && now - screenSeen < 5000);
 
 	function post(m: ScreenMsg) {
@@ -188,6 +191,7 @@
 		const m = e.data;
 		if (!m || typeof m !== 'object') return;
 		if (isScreen) {
+			opSeen = m.t === 'op-bye' ? 0 : Date.now();
 			if (m.t === 'state') {
 				offset = m.offset;
 				const prevState = hs?.state;
@@ -244,7 +248,17 @@
 				channel?.close();
 			};
 		}
-		return startOperator(tick);
+		// Sygnał życia dla ekranu widzów: bez niego ekran po kilku sekundach przestaje udawać trwającą grę.
+		const op = setInterval(() => post({ t: 'op' }), 2000);
+		const opBye = () => post({ t: 'op-bye' });
+		addEventListener('pagehide', opBye);
+		const stopOperator = startOperator(tick);
+		return () => {
+			clearInterval(op);
+			removeEventListener('pagehide', opBye);
+			opBye();
+			stopOperator();
+		};
 	});
 
 	function startOperator(tick: ReturnType<typeof setInterval>) {
@@ -345,7 +359,7 @@
 	onmousemove={isScreen ? wakeCursor : undefined}
 	ondblclick={isScreen ? fullscreen : undefined}
 >
-	{#if !hs}
+	{#if !hs || opLost}
 		{#if isScreen}
 			<div class="center screen-wait">
 				<p class="big">{screenClosed ? PH.screenEnded : PH.screenWaiting}</p>
