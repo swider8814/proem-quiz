@@ -28,7 +28,7 @@
 			</ol>
 			<p><button type="button" class="secondary" onclick={() => download(form.recoveryCodes)}>{t.twofa.download}</button></p>
 			<label class="check"><input type="checkbox" bind:checked={saved} /> {t.twofa.savedCheck}</label>
-			<p><a class="btn" href="/panel" aria-disabled={!saved} class:disabled={!saved}>{t.twofa.toPanel}</a></p>
+			<p><a class="btn" href="/panel" data-sveltekit-reload aria-disabled={!saved} class:disabled={!saved}>{t.twofa.toPanel}</a></p>
 		</div>
 	{:else}
 		<div class="card">

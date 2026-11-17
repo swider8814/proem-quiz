@@ -44,12 +44,20 @@ try {
 		await Promise.all([page.waitForNavigation(), page.click('button.block')]);
 		const body = await page.textContent('body');
 		ok(page.url().endsWith('/panel/2fa-setup') && !/Cross-site POST/.test(body ?? ''), `aktywacja konta w przeglądarce działa (${page.url().replace(srv.base, '')})`);
+		// Konfiguracja 2FA w przeglądarce → przejście do panelu pokazuje menu administratora (bez odświeżania)
+		const { generate } = await import('otplib');
+		const secret = (await page.textContent('code.copy')).replace(/\s/g, '');
+		await page.fill('#code', await generate({ secret }));
+		await Promise.all([page.waitForSelector('ol.codes'), page.click('button.block')]);
+		await page.check('label.check input');
+		await Promise.all([page.waitForNavigation(), page.click('a.btn:has-text("Przejdź do panelu")')]);
+		ok(await page.isVisible('header nav a[href="/panel/users"]'), 'po konfiguracji 2FA menu administratora widoczne od razu');
 		const page2 = await (await browser.newContext()).newPage();
 		await page2.goto(srv.base + '/login');
 		await page2.fill('#email', 'formularz@proem.pl');
 		await page2.fill('#password', 'BardzoTajne123!');
 		await Promise.all([page2.waitForNavigation(), page2.click('button.block')]);
-		ok(page2.url().includes('/panel/2fa-setup') && !/Cross-site POST/.test((await page2.textContent('body')) ?? ''), `logowanie w przeglądarce działa (${page2.url().replace(srv.base, '')})`);
+		ok(/\/login\/2fa|\/panel\/2fa-setup/.test(page2.url()) && !/Cross-site POST/.test((await page2.textContent('body')) ?? ''), `logowanie w przeglądarce działa (${page2.url().replace(srv.base, '')})`);
 		await ctx.close();
 	}
 
