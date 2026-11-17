@@ -121,10 +121,26 @@ try {
 	const r3 = runBackup({ RCLONE: path.join(bin, 'rclone'), RCLONE_FAIL: '1', BACKUP_STAMP: '2026-12-16_0900' });
 	ok(r3.status !== 0 && status().drive === 'failed' && status().snapshotOk === true, 'błąd Dysku: kod błędu i status „failed”, kopia lokalna jest');
 
+
 	// ── status widoczny w panelu ──
 	const settings = await admin.req('/panel/settings');
 	ok(/Kopie zapasowe/.test(settings.text) && /Dysk Google/.test(settings.text), 'stan kopii w ustawieniach panelu');
 	ok(/błąd/i.test(settings.text), 'panel pokazuje błąd wysyłki na Dysk');
+
+	// Nieudane wysłanie plików → baza tej kopii nie trafia na Dysk (review Codexa #5)
+	fs.writeFileSync(path.join(app, 'rclone.log'), '');
+	fs.writeFileSync(path.join(bin, 'rclone'), '#!/bin/bash\necho "rclone $*" >> "$STUB_APP/rclone.log"\n[[ "$2" == *media-* ]] && exit 1\nexit 0\n', { mode: 0o755 });
+	const r4 = runBackup({ RCLONE: path.join(bin, 'rclone'), BACKUP_STAMP: '2026-12-16_1000' });
+	const calls4 = fs.readFileSync(path.join(app, 'rclone.log'), 'utf8');
+	ok(r4.status !== 0 && !/gcrypt:db/.test(calls4), 'po błędzie wysyłki plików baza nie jest wysyłana na Dysk');
+
+	// Brak pliku wskazanego w bazie → kopia nieudana, nic nie publikujemy (review Codexa #5)
+	const victim = fs.readdirSync(path.join(data, 'media')).find((f) => f.endsWith('.mp3'));
+	const moved = path.join(app, 'odlozony.mp3');
+	fs.renameSync(path.join(data, 'media', victim), moved);
+	const r5 = runBackup({ RCLONE: path.join(bin, 'rclone'), BACKUP_STAMP: '2026-12-16_1100' });
+	ok(r5.status !== 0 && !fs.existsSync(path.join(data, 'backup', 'quiz-2026-12-16_1100.db')) && status().snapshotOk === false, 'brakujący plik w bazie → kopia oznaczona jako nieudana i nieopublikowana');
+	fs.renameSync(moved, path.join(data, 'media', victim));
 
 	// ── odtworzenie: nowy katalog danych z kopii bazy + pliki ──
 	const fresh = fs.mkdtempSync(path.join(os.tmpdir(), 'pq-restore-'));

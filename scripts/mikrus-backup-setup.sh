@@ -87,7 +87,10 @@ if [[ -f backup-config/rclone.conf ]]; then
 	log "Wysyłanie na Dysk Google (szyfrowane)"
 	# Pliki z migawki tej samej chwili co baza; są niezmienne – kopiujemy tylko nowe (--immutable chroni przed nadpisaniem).
 	rc copy "$D/backup/media-$STAMP" gcrypt:media --immutable --transfers 2 --log-level NOTICE || drive=failed
-	rc copy "$D/$DB" gcrypt:db --log-level NOTICE || drive=failed
+	# Bazę publikujemy dopiero, gdy wszystkie jej pliki są już na Dysku.
+	if [[ "$drive" == ok ]]; then
+		rc copy "$D/$DB" gcrypt:db --log-level NOTICE || drive=failed
+	fi
 	# Kopie bazy starsze niż 90 dni → kosz Dysku (tam jeszcze 30 dni na odzyskanie).
 	if [[ "$drive" == ok ]]; then
 		rc delete gcrypt:db --min-age "${KEEP_DRIVE_DAYS}d" --include 'quiz-*.db' --log-level NOTICE || drive=failed

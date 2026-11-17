@@ -231,9 +231,13 @@ switch (cmd) {
 		} finally {
 			copy.close();
 		}
+		if (missing) {
+			// Kopia, w której baza wskazuje brakujące pliki, nie nadaje się do odtworzenia – nie publikujemy jej.
+			fs.rmSync(tmp, { force: true });
+			throw new Error(`Kopia przerwana: ${missing} plików wskazanych w bazie nie ma na dysku serwera.`);
+		}
 		fs.chmodSync(tmp, 0o640);
 		fs.renameSync(tmp, dest);
-		if (missing) console.error(`Uwaga: ${missing} plików z bazy nie ma na dysku (brakowało ich już przed kopią).`);
 		// Rotacja po dacie w nazwie: tylko zwykłe pliki kopii i katalogi migawek (dowiązania pomijane).
 		const cutoff = Date.now() - keepDays * 24 * 3600 * 1000;
 		for (const f of fs.readdirSync(dir)) {
