@@ -114,8 +114,8 @@ export function thumbPath(file: string) {
 
 /**
  * Obrazek: sprawdzenie wymiarów (bez dekodowania), zmniejszenie do 1600 px, usunięcie metadanych
- * (np. GPS ze zdjęć z telefonu) i miniatura 480 px WebP dla telefonów. GIF zostaje jak był (animacja),
- * miniatura z pierwszej klatki.
+ * (np. GPS ze zdjęć z telefonu) i miniatura 480 px WebP dla telefonów. GIF zachowuje animację
+ * (duży jest zmniejszany do 1600 px), miniatura z pierwszej klatki.
  */
 async function processImage(src: string, out: string, thumb: string, ext: string) {
 	let w = 0;
@@ -131,8 +131,15 @@ async function processImage(src: string, out: string, thumb: string, ext: string
 	const fit = (side: number) => `scale='min(${side},iw)':'min(${side},ih)':force_original_aspect_ratio=decrease`;
 	const base = ['-nostdin', '-hide_banner', '-loglevel', 'error', '-y', '-i', src, '-map_metadata', '-1', '-frames:v', '1'];
 	try {
-		if (ext === 'gif') await fs.copyFile(src, out);
-		else {
+		if (ext === 'gif') {
+			// Animowany GIF: mały zostaje bez zmian, duży jest zmniejszany z zachowaniem animacji
+			// (paleta liczona na nowo) – projektor nie dekoduje ogromnych klatek.
+			if (w <= MAX_IMAGE_SIDE && h <= MAX_IMAGE_SIDE) await fs.copyFile(src, out);
+			else {
+				const vf = `${fit(MAX_IMAGE_SIDE)}:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer`;
+				await run('ffmpeg', ['-nostdin', '-hide_banner', '-loglevel', 'error', '-y', '-i', src, '-map_metadata', '-1', '-vf', vf, '-loop', '0', '-f', 'gif', out], 60_000);
+			}
+		} else {
 			const codec = ext === 'png' ? ['-c:v', 'png', '-f', 'image2'] : ext === 'webp' ? ['-c:v', 'libwebp', '-quality', '85', '-f', 'webp'] : ['-c:v', 'mjpeg', '-q:v', '3', '-f', 'image2'];
 			await run('ffmpeg', [...base, '-vf', fit(MAX_IMAGE_SIDE), ...codec, out], 60_000);
 		}

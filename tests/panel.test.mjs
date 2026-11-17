@@ -101,6 +101,21 @@ try {
 		ok(dim(stored) === '1600x1067', `zdjęcie zmniejszone do 1600 px (${dim(stored)})`);
 		ok(!fs.readFileSync(stored).includes('TAJNE-GPS'), 'metadane zdjęcia usunięte');
 		ok(fs.existsSync(thumb) && dim(thumb) === '480x320', `miniatura 480 px WebP (${fs.existsSync(thumb) ? dim(thumb) : 'brak'})`);
+		// Duży animowany GIF: zmniejszony do 1600 px, animacja zachowana; mały GIF bez zmian
+		ff('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'testsrc=size=2400x1200:rate=5', '-frames:v', '5', path.join(tmp, 'big.gif')]);
+		ff('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'testsrc=size=320x240:rate=5', '-frames:v', '3', path.join(tmp, 'small.gif')]);
+		const frames = (f) => ff('ffprobe', ['-v', 'error', '-count_frames', '-select_streams', 'v:0', '-show_entries', 'stream=nb_read_frames', '-of', 'csv=p=0', f], { encoding: 'utf8' }).trim();
+		const fileOf = (id) => {
+			const d = new Database(path.join(srv.dataDir, 'quiz.db'), { readonly: true });
+			const f = d.prepare('SELECT file FROM media WHERE id = ?').get(id).file;
+			d.close();
+			return path.join(srv.dataDir, 'media', f);
+		};
+		const gifBig = fileOf(JSON.parse((await upload(adm2, fs.readFileSync(path.join(tmp, 'big.gif')), 'duzy.gif')).text).id);
+		ok(dim(gifBig) === '1600x800' && frames(gifBig) === '5', `duży GIF zmniejszony z animacją (${dim(gifBig)}, klatek ${frames(gifBig)})`);
+		const smallSrc = fs.readFileSync(path.join(tmp, 'small.gif'));
+		const gifSmall = fileOf(JSON.parse((await upload(adm2, smallSrc, 'maly.gif')).text).id);
+		ok(fs.readFileSync(gifSmall).equals(smallSrc), 'mały GIF zapisany bez zmian');
 		const hugeUp = await upload(adm2, fs.readFileSync(path.join(tmp, 'huge.png')), 'bomba.png');
 		ok(hugeUp.status === 400 && /megapikseli/.test(hugeUp.text), 'obrazek 48 Mpx odrzucony przed dekodowaniem');
 		fs.rmSync(tmp, { recursive: true, force: true });
