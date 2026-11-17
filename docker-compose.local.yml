@@ -7,7 +7,7 @@ services:
   # Jednorazowo ustawia właściciela wolumenu danych (aplikacja działa jako uid 10471, nie root).
   init:
     image: proem-quiz:local
-    build: .
+    pull_policy: never # obraz budowany lokalnie przez usługę app
     user: root
     entrypoint: ["sh", "-c", "chown 10471:10471 /data && chmod 750 /data"]
     volumes:
@@ -16,7 +16,9 @@ services:
     depends_on:
       init:
         condition: service_completed_successfully
+    build: .
     image: proem-quiz:local
+    pull_policy: build # nigdy nie szukaj obrazu w Docker Hub – zawsze buduj z kodu
     restart: "no"
     environment:
       DATA_DIR: /data
