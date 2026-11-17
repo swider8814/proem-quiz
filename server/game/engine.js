@@ -16,6 +16,8 @@ export const introMs = (settings) => {
 	return base + (settings?.teamMode && Number.isInteger(talk) && talk > 0 && talk <= 30 ? talk * 1000 : 0);
 };
 export const MAX_MEMBERS = 6;
+/** Liczba awatarów (jak AVATAR_COUNT w Avatar.svelte). */
+export const AVATARS = 12;
 /** Pytania bez oceny (ankieta) nie zmieniają punktów ani serii. */
 const UNGRADED = new Set(['poll']);
 /** Tolerancja suwaka jako część zakresu. */
@@ -137,7 +139,7 @@ export class Game {
 	}
 
 	/** @returns {{ error: string } | { player: any, token: string }} */
-	addPlayer({ nick, random, deviceId, members }) {
+	addPlayer({ nick, random, deviceId, members, avatar }) {
 		if (this.state === 'ended') return { error: 'game-ended' };
 		if (this.state !== 'lobby' && !this.quiz.settings.lateJoin) return { error: 'started' };
 		if (deviceId && this.bannedDevices.has(deviceId)) return { error: 'removed' };
@@ -166,6 +168,7 @@ export class Game {
 			deviceId: typeof deviceId === 'string' ? deviceId.slice(0, 64) : null,
 			nick: finalNick,
 			members: team,
+			avatar: Number.isInteger(avatar) && avatar >= 0 && avatar < AVATARS ? avatar : randomInt(AVATARS),
 			score: 0,
 			streak: 0,
 			totalTime: 0,
@@ -459,7 +462,7 @@ export class Game {
 	ranking() {
 		return this.activePlayers()
 			.sort((a, b) => b.score - a.score || a.totalTime - b.totalTime || a.joinedAt - b.joinedAt)
-			.map((p, i) => ({ id: p.id, nick: p.nick, score: p.score, rank: i + 1, ...(p.members?.length ? { members: p.members } : {}) }));
+			.map((p, i) => ({ id: p.id, nick: p.nick, avatar: p.avatar, score: p.score, rank: i + 1, ...(p.members?.length ? { members: p.members } : {}) }));
 	}
 
 	/** Pliki, które gracze widzą w bieżącym pytaniu (obrazki odpowiedzi) – trasa /game-media udostępnia tylko je. */
@@ -556,7 +559,7 @@ export class Game {
 			theme: this.quiz.theme,
 			settings: this.quiz.settings,
 			totalQuestions: this.quiz.questions.length,
-			players: this.state === 'lobby' ? this.activePlayers().map((p) => ({ id: p.id, nick: p.nick, connected: p.connected, ...(p.members?.length ? { members: p.members } : {}) })) : undefined,
+			players: this.state === 'lobby' ? this.activePlayers().map((p) => ({ id: p.id, nick: p.nick, avatar: p.avatar, connected: p.connected, ...(p.members?.length ? { members: p.members } : {}) })) : undefined,
 			playerCount: this.activePlayers().length,
 			now: Date.now()
 		};
@@ -587,7 +590,7 @@ export class Game {
 			locale: this.quiz.locale,
 			theme: this.quiz.theme,
 			teamMode: this.quiz.settings.teamMode,
-			me: { id: p.id, nick: p.nick, score: p.score, streak: p.streak, members: p.members ?? [] },
+			me: { id: p.id, nick: p.nick, avatar: p.avatar, score: p.score, streak: p.streak, members: p.members ?? [] },
 			now: Date.now()
 		};
 		if (this.state === 'intro' || this.state === 'question') {

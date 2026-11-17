@@ -273,6 +273,26 @@ for (const cd of [0, 3]) {
 	b.close();
 }
 
+// Awatary: wybrany zostaje, niepoprawny → losowy z zakresu
+{
+	const g = registry().create({ ...quiz, quizId: 'av' }, 'user1');
+	const h = connect(URL, { auth: { role: 'host', pin: g.pin, token: g.hostToken }, transports: ['websocket'] });
+	let hs = null;
+	h.on('state', (x) => (hs = x));
+	await nextState(h);
+	const a = mk();
+	const b = mk();
+	await emit(a, 'join', { pin: g.pin, nick: 'Awa', deviceId: 'av1', avatar: 5 });
+	await emit(b, 'join', { pin: g.pin, nick: 'Bwa', deviceId: 'av2', avatar: 999 });
+	await sleep(100);
+	const pa = hs.players.find((p) => p.nick === 'Awa');
+	const pb = hs.players.find((p) => p.nick === 'Bwa');
+	ok(pa.avatar === 5 && Number.isInteger(pb.avatar) && pb.avatar >= 0 && pb.avatar < 12, `awatary: wybrany ${pa.avatar}, losowy ${pb.avatar}`);
+	h.close();
+	a.close();
+	b.close();
+}
+
 // Losowa kolejność pytań i odpowiedzi
 {
 	const base = {

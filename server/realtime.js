@@ -298,6 +298,7 @@ function playerConnection(socket, games) {
 			nick,
 			random: arg.random === true,
 			deviceId: str(arg.deviceId, 64),
+			avatar: Number.isInteger(arg.avatar) ? arg.avatar : undefined,
 			members
 		});
 		if ('error' in res) return reply(ack, { error: res.error });

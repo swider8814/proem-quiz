@@ -7,6 +7,7 @@
 	import Shape from '#lib/game/Shape.svelte';
 	import Medal from '#lib/game/Medal.svelte';
 	import OrderList from '#lib/game/OrderList.svelte';
+	import Avatar, { AVATAR_COUNT } from '#lib/game/Avatar.svelte';
 	import { pushState } from '$app/navigation';
 	import { fly, scale } from 'svelte/transition';
 	import { backOut } from 'svelte/easing';
@@ -23,7 +24,7 @@
 	type State = {
 		pin: string; state: 'lobby' | 'intro' | 'question' | 'reveal' | 'leaderboard' | 'ended';
 		title: string; locale: string; theme: GameTheme; teamMode: boolean;
-		me: { id: string; nick: string; score: number; streak: number };
+		me: { id: string; nick: string; avatar?: number; score: number; streak: number };
 		now: number; question?: Q; deadline?: number | null; introEnds?: number | null; answered?: boolean;
 		rank?: number | null; players?: number; behindBy?: number;
 		result?: { correct: boolean | null; points: number; bonus: number; missed?: boolean; poll?: boolean; voted?: boolean; value?: number };
@@ -47,6 +48,7 @@
 	let textAnswer = $state('');
 	let picked = $state<string[]>([]);
 	let members = $state<string[]>(['']);
+	let avatar = $state(Math.floor(Math.random() * AVATAR_COUNT));
 	let sliderVal = $state<number | null>(null);
 	/** Środek suwaka na siatce kroku (bez błędów zaokrągleń typu 0,30000000000000004). */
 	const sliderMid = (sl: { min: number; max: number; step: number }) => {
@@ -193,6 +195,7 @@
 			// Podpowiedź z serwera traktujemy jak własny nick (żeby gracz dostał dokładnie to, co widzi).
 			random: false,
 			deviceId: deviceId(),
+			avatar,
 			members: team ? members.map((m) => m.trim()).filter(Boolean) : undefined
 		});
 		busy = false;
@@ -254,6 +257,14 @@
 		<main class="center" in:fly={{ y: 24, duration: 380 }}>
 			<h1 class="title">{info.title}</h1>
 			<form class="g-box card" onsubmit={join}>
+				<span class="big-label">{L.pickAvatar}</span>
+				<div class="avatars" role="radiogroup" aria-label={L.pickAvatar}>
+					{#each Array(AVATAR_COUNT) as _, i}
+						<button type="button" class="av" class:sel={avatar === i} role="radio" aria-checked={avatar === i} aria-label="{L.pickAvatar} {i + 1}" onclick={() => (avatar = i)}>
+							<Avatar id={i} size="100%" animated={avatar === i} />
+						</button>
+					{/each}
+				</div>
 				<span class="big-label">{team ? L.teamName : L.yourNick}</span>
 				{#if !ownNick}
 					<div class="nick-show">{suggestion}</div>
@@ -287,7 +298,7 @@
 		</main>
 	{:else if gs}
 		<header class="top">
-			<span class="g-chip nick">{gs.me.nick}</span>
+			<span class="g-chip nick">{#if gs.me.avatar != null}<Avatar id={gs.me.avatar} size="1.6em" />{/if}<span class="nick-text">{gs.me.nick}</span></span>
 			<span class="g-chip score">{pts(gs.me.score)} {L.points}</span>
 		</header>
 
@@ -420,6 +431,7 @@
 			<main class="center" in:fly={{ y: 24, duration: 380 }}>
 				<div class="g-box card msg">
 					{#if gs.state === 'ended'}<p class="huge">{L.gameOver}</p>{/if}
+					{#if gs.me.avatar != null && !(gs.state === 'ended' && gs.rank && gs.rank <= 3)}<div class="medal-wrap"><Avatar id={gs.me.avatar} size="4.5rem" animated /></div>{/if}
 					{#if gs.rank}
 						{#if gs.state === 'ended' && gs.rank <= 3}<div class="medal-wrap" in:scale={{ start: 0.3, duration: 700, delay: 300, easing: backOut }}><Medal place={gs.rank} size="5rem" /></div>{/if}
 						<p class="place">{gs.rank}.</p><p>{L.place} / {gs.players}</p>
@@ -507,6 +519,11 @@
 	.range::-webkit-slider-thumb { -webkit-appearance: none; width: 44px; height: 44px; border-radius: 50%; background: var(--accent); border: 3px solid #111; cursor: grab; }
 	.range::-moz-range-thumb { width: 44px; height: 44px; border-radius: 50%; background: var(--accent); border: 3px solid #111; cursor: grab; }
 	.range-ends { width: 100%; display: flex; justify-content: space-between; font-weight: 700; opacity: 0.8; }
+	.avatars { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+	.av { border: 3px solid transparent; border-radius: 14px; background: rgba(255, 255, 255, 0.5); padding: 4px; cursor: pointer; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; }
+	.av.sel { border-color: var(--line, #111); background: #fff; transform: scale(1.08); }
+	.nick { display: inline-flex; align-items: center; gap: 6px; }
+	.nick-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.medal-wrap { display: flex; justify-content: center; }
 	.toast { position: fixed; left: 50%; bottom: max(20px, env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(92vw, 420px); background: #111; color: #fff; padding: 12px 16px; border-radius: 12px; font-weight: 700; text-align: center; z-index: 20; }
 	.place { font-size: 4rem; font-weight: 900; line-height: 1; }

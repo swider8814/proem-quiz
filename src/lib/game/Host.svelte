@@ -8,6 +8,7 @@
 	import Shape from './Shape.svelte';
 	import Icon from '#lib/Icon.svelte';
 	import Medal from './Medal.svelte';
+	import Avatar from './Avatar.svelte';
 	import Confetti from './Confetti.svelte';
 	import { fly, scale } from 'svelte/transition';
 	import { backOut } from 'svelte/easing';
@@ -43,12 +44,12 @@
 	type HS = {
 		pin: string; state: 'lobby' | 'intro' | 'question' | 'reveal' | 'leaderboard' | 'ended';
 		title: string; locale: string; theme: GameTheme; settings: { teamMode: boolean; podiumSound?: PodiumSound; podiumUrl?: string | null; music?: MusicKind; musicUrl?: string | null; musicLobby?: boolean; musicQuestions?: boolean };
-		totalQuestions: number; players?: { id: string; nick: string; connected: boolean; members?: string[] }[]; playerCount: number;
+		totalQuestions: number; players?: { id: string; nick: string; avatar?: number; connected: boolean; members?: string[] }[]; playerCount: number;
 		now: number; question?: HQ; deadline?: number | null; introEnds?: number | null; answered?: number;
 		solution?: { correct?: number[] | boolean; accepted?: string[]; order?: string[]; value?: number; margin?: number; unit?: string };
 		distribution?: { counts?: number[]; correct?: number; wrong?: number; average?: number | null };
-		ranking?: { id: string; nick: string; score: number; rank: number; members?: string[] }[];
-		standings?: { id: string; nick: string; score: number; rank: number; connected: boolean }[];
+		ranking?: { id: string; nick: string; avatar?: number; score: number; rank: number; members?: string[] }[];
+		standings?: { id: string; nick: string; avatar?: number; score: number; rank: number; connected: boolean }[];
 	};
 	type ScreenMsg =
 		| { t: 'state'; hs: HS; offset: number; answered: { count: number; total: number }; playing: boolean; qr: string; joinHost: string }
@@ -459,6 +460,7 @@
 			<ul class="players">
 				{#each hs.players ?? [] as p (p.id)}
 					<li class="g-chip player" class:off={!p.connected} in:scale={{ start: 0.6, duration: 300, easing: backOut }}>
+						{#if p.avatar != null}<Avatar id={p.avatar} size="1.7em" animated />{/if}
 						<span>{p.nick}{#if p.members?.length}<small class="members"> · {p.members.join(', ')}</small>{/if}</span>
 						{#if !isScreen}
 						<button class="mini" onclick={() => cmd('host:rename', { playerId: p.id })} aria-label="{L.randomNick}: {p.nick}" title={L.randomNick}><Icon name="replay" /></button>
@@ -582,7 +584,10 @@
 						{#each [1, 0, 2] as idx}
 							{#if hs.ranking[idx]}
 								<div class="step s{idx + 1}" in:fly={{ y: 260, delay: PODIUM_DELAY[idx], duration: 800, easing: backOut }}>
-									<Medal place={idx + 1} size="3.2em" />
+									<div class="pod-top">
+										{#if hs.ranking[idx].avatar != null}<Avatar id={hs.ranking[idx].avatar ?? 0} size="4.2em" animated />{/if}
+										<Medal place={idx + 1} size="2.6em" />
+									</div>
 									<span class="who">{hs.ranking[idx].nick}</span>
 									{#if hs.ranking[idx].members?.length}<span class="members">{hs.ranking[idx].members?.join(', ')}</span>{/if}
 									<div class="g-box block"><span class="place">{idx + 1}</span><span>{hs.ranking[idx].score}</span></div>
@@ -599,6 +604,7 @@
 					{#each hs.ranking?.slice(hs.state === 'ended' ? 3 : 0) ?? [] as r, i (r.id)}
 						<li class="g-box" class:top={r.rank <= 3} in:fly={{ x: -50, delay: (hs.state === 'ended' ? PODIUM_REST : 150) + i * 110, duration: 400 }}>
 							{#if r.rank <= 3}<Medal place={r.rank} />{:else}<span class="pos">{r.rank}.</span>{/if}
+							{#if r.avatar != null}<Avatar id={r.avatar} size="1.6em" />{/if}
 							<span class="nm">{r.nick}{#if r.members?.length}<small class="members"> · {r.members.join(', ')}</small>{/if}</span><span class="sc">{r.score}</span>
 						</li>
 					{/each}
@@ -625,7 +631,7 @@
 				<ol>
 					{#each hs.standings as r (r.id)}
 						<li class:off={!r.connected}>
-							<span class="pos">{r.rank}.</span><span class="nm">{r.nick}</span><span class="sc">{r.score}</span>
+							<span class="pos">{r.rank}.</span>{#if r.avatar != null}<Avatar id={r.avatar} size="1.3em" />{/if}<span class="nm">{r.nick}</span><span class="sc">{r.score}</span>
 							<button class="mini" onclick={() => kickPlayer(r)} aria-label="{L.removePlayer}: {r.nick}" title={L.removePlayer}><Icon name="close" /></button>
 						</li>
 					{/each}
@@ -678,6 +684,8 @@
 	.tick { display: inline-flex; }
 	.answers.with-images .g-tile { min-height: 0; padding: 0.6vh 1.2vw; }
 	.ans-img { height: 13vh; max-width: 40%; object-fit: contain; background: #fff; border-radius: 0.3em; }
+	.pod-top { display: flex; align-items: flex-end; gap: 0.2em; }
+	.player { display: inline-flex; align-items: center; gap: 0.4em; }
 	.members { font-weight: 600; opacity: 0.75; font-size: 0.8em; }
 	.answers.talk { width: 100%; }
 	.answers.talk .g-tile { min-height: 7vh; font-size: 1.2em; }
