@@ -62,7 +62,7 @@ function cell(v: string | number | null | undefined): string {
 }
 
 export type CsvLabels = {
-	place: string; player: string; members: string; score: string; correct: string; answered: string;
+	place: string; player: string; score: string; correct: string; answered: string;
 	question: string; type: string; answeredCount: string; correctCount: string; wrongCount: string; avgTime: string;
 	types: Record<string, string>;
 };
@@ -72,10 +72,10 @@ export function reportCsv(r: NonNullable<ReturnType<typeof getReport>>, L: CsvLa
 	const d = r.data;
 	const qn = d.questions.map((_, i) => `${L.question} ${i + 1}`);
 	const rows: string[] = [];
-	rows.push([L.place, L.player, ...(d.teamMode ? [L.members] : []), L.score, L.correct, L.answered, ...qn].map(cell).join(';'));
+	rows.push([L.place, L.player, L.score, L.correct, L.answered, ...qn].map(cell).join(';'));
 	for (const p of d.players) {
 		rows.push(
-			[p.rank, p.nick, ...(d.teamMode ? [(p.members ?? []).join(', ')] : []), p.score, p.correct, p.answered, ...p.perQuestion.map((a) => (a ? a.p : ''))]
+			[p.rank, p.nick, p.score, p.correct, p.answered, ...p.perQuestion.map((a) => (a ? a.p : ''))]
 				.map(cell)
 				.join(';')
 		);

@@ -482,7 +482,10 @@
 						<div class="cd g-box" in:scale={{ start: 1.6, duration: 450, easing: backOut }}>{introLeft}</div>
 					{/key}
 				</div>
-				{#if hs.settings.teamMode && (q.answers || q.items)}
+				{#if hs.settings.teamMode && q.slider}
+					<p class="listen">{L.teamTalk}</p>
+					<p class="listen big-range">{fmtNum(q.slider.min)} – {fmtNum(q.slider.max)}{q.slider.unit ? ` ${q.slider.unit}` : ''}</p>
+				{:else if hs.settings.teamMode && (q.answers || q.items)}
 					<p class="listen">{L.teamTalk}</p>
 					<div class="answers talk">
 						{#each q.answers ?? q.items?.map((x) => x.label) ?? [] as a, i}

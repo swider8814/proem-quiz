@@ -59,7 +59,7 @@
 				{#each d.players as p}
 					<tr>
 						<td>{p.rank}.</td>
-						<td>{p.nick}{#if p.members?.length}<br /><small class="muted">{p.members.join(', ')}</small>{/if}</td>
+						<td>{p.nick}</td>
 						<td class="num"><strong>{p.score}</strong></td>
 						<td class="num">{p.correct}/{d.questions.filter((q) => graded(q.type)).length}</td>
 						{#each p.perQuestion as a, i}

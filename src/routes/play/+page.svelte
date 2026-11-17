@@ -327,7 +327,13 @@
 			<h1 class="prompt">{q.prompt}</h1>
 			{#if q.promptTranslation}<p class="translation">{q.promptTranslation}</p>{/if}
 
-			{#if gs.state === 'intro' && team && (q.answers || q.items || q.answerImages)}
+			{#if gs.state === 'intro' && team && q.slider}
+				<main class="center talk" in:fly={{ y: 24, duration: 380 }}>
+					<p class="huge">{L.teamTalk}</p>
+					{#key introLeft}<div class="cd g-box" in:scale={{ start: 1.6, duration: 450, easing: backOut }}>{introLeft}</div>{/key}
+					<p class="slider-val g-box">{pts(q.slider.min)} – {pts(q.slider.max)}{q.slider.unit ? ` ${q.slider.unit}` : ''}</p>
+				</main>
+			{:else if gs.state === 'intro' && team && (q.answers || q.items || q.answerImages)}
 				<!-- Narada drużyny: odpowiedzi widać, ale jeszcze nie można odpowiadać. -->
 				<main class="center talk" in:fly={{ y: 24, duration: 380 }}>
 					<p class="huge">{L.teamTalk}</p>

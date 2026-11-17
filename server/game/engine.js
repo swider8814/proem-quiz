@@ -338,9 +338,9 @@ export class Game {
 				const a = p.answers.get(i);
 				return a ? { c: a.correct, p: a.points, ms: a.elapsed } : null;
 			});
+			// Imiona członków drużyn NIE trafiają do raportu – istnieją tylko w trakcie gry (dane dzieci).
 			return {
 				nick: r.nick,
-				...(r.members ? { members: r.members } : {}),
 				score: r.score,
 				rank: r.rank,
 				correct: perQuestion.filter((a) => a?.c === true).length,

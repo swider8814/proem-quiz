@@ -214,6 +214,13 @@ for (const cd of [0, 3]) {
 	await emit(h, 'host:next', {});
 	const st = await intro;
 	ok(Math.abs(st.introEnds - t0 - 8000) < 500 && st.question.answers?.length === 4, `narada: odliczanie 3 s + 5 s, odpowiedzi widoczne (${st.introEnds - t0} ms)`);
+	// Raport po grze drużynowej: bez imion członków (review Codexa – dane dzieci)
+	const gg = registry().get(g.pin);
+	let rep = null;
+	gg.onEnd = (r) => (rep = r);
+	await emit(h, 'host:end', {});
+	await sleep(50);
+	ok(rep && rep.data.players.length === 1 && !JSON.stringify(rep).includes('Ala') && !('members' in rep.data.players[0]), 'raport drużyny bez imion członków');
 	h.close();
 	ta.close();
 }

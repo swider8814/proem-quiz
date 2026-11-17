@@ -246,7 +246,6 @@ export type GameReportData = {
 	questions: { prompt: string; type: string; answered: number; correct: number; wrong: number; avgMs: number | null }[];
 	players: {
 		nick: string;
-		members?: string[];
 		score: number;
 		rank: number;
 		correct: number;

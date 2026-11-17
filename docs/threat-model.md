@@ -18,7 +18,9 @@ za reverse proxy Nginx (Cytrus). Stan gier w pamięci procesu.
 ## Zasoby do ochrony (od najważniejszych)
 1. **Konta admina** – przejęcie = pełna kontrola, w tym tworzenie kont i usuwanie danych.
 2. **Dzieci jako gracze** – nie mogą zobaczyć treści nieodpowiednich (nicki innych graczy na rzutniku),
-   nie zbieramy ich danych osobowych (tylko nick, nic po grze nie zostaje).
+   nie zbieramy ich danych osobowych. W trakcie gry: nick (domyślnie losowy) i opcjonalne imiona
+   członków drużyny – tylko w pamięci. Po grze zostaje wyłącznie raport z nickami i punktami
+   (bez imion członków drużyn), widoczny dla osób z dostępem do quizu i usuwany po 90 dniach.
 3. **Dostępność gry w trakcie wydarzenia** – awaria procesu przerywa wszystkie trwające gry.
 4. **Uczciwość gry** – poprawne odpowiedzi nie mogą wyciec przed końcem pytania; czas i punkty liczy serwer.
 5. **Pliki** – nagrania audio (prawa autorskie) i zdjęcia nie mogą być publiczne.
