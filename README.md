@@ -5,6 +5,21 @@ Specyfikacja: dokument „Proem Quiz – specyfikacja” w Claude.
 
 **Stack:** SvelteKit 3 (adapter-node) · Socket.IO · SQLite + Drizzle · Node 22 · Docker na Mikrusie 3.0.
 
+## Co potrafi
+
+- **Typy pytań:** ABCD (tekst lub obrazki jako odpowiedzi), prawda/fałsz (słowa albo kciuki), audio
+  „jaka to piosenka?” (fragment wycinany na serwerze), wpisywana odpowiedź (z tolerancją literówek),
+  układanie w kolejności (przeciąganie), ankieta (bez punktów), suwak (liczba z tolerancją), slajd.
+- **Prowadzenie:** okno prowadzącego (sterowanie, ranking na żywo, wyrzucanie graczy) + osobne okno
+  dla widzów na projektor; spacja/pilot działa w obu oknach.
+- **Gra:** odliczanie przed pytaniem, muzyka w tle (wbudowana lub własny plik), animacje, podium
+  3 → 2 → 1 z konfetti i dźwiękiem (wbudowanym lub własnym), medale, awatary, tryb drużynowy
+  z czasem na naradę, losowa kolejność pytań/odpowiedzi.
+- **Telefony:** powrót do gry po rozłączeniu (ten sam nick i punkty, także przez ponowne
+  zeskanowanie QR), „wstecz” nie wyrzuca z gry, kod QR między pytaniami.
+- **Po grze:** raport (wyniki, najtrudniejsze pytania) z eksportem CSV dla Excela; usuwany po 90 dniach.
+- **Panel:** po polsku i angielsku, 2FA, udostępnianie quizów, motywy.
+
 ## Praca lokalnie
 
 ```bash
