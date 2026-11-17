@@ -115,6 +115,8 @@ export type QuizSettings = {
 	nicknameMode: 'random-or-custom' | 'random-only';
 	teamMode: boolean;
 	teamTalk: number; // tryb drużynowy: sekundy na naradę przed odpowiedzią (0–30)
+	shuffleQuestions: boolean; // losowa kolejność pytań w każdej grze (slajdy zostają na miejscu)
+	shuffleAnswers: boolean; // losowa kolejność odpowiedzi ABCD
 	lateJoin: boolean; // dołączanie po starcie gry
 	phoneAnswerText: boolean; // tekst odpowiedzi na telefonie (nie tylko kształty)
 };
@@ -132,6 +134,8 @@ export const DEFAULT_QUIZ_SETTINGS: QuizSettings = {
 	nicknameMode: 'random-or-custom',
 	teamMode: false,
 	teamTalk: 10,
+	shuffleQuestions: false,
+	shuffleAnswers: false,
 	lateJoin: true,
 	phoneAnswerText: true
 };

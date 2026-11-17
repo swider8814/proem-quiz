@@ -232,6 +232,8 @@ export const quizSaveSchema = z.object({
 		nicknameMode: z.enum(['random-or-custom', 'random-only']),
 		teamMode: z.boolean(),
 		teamTalk: z.number().int().min(0).max(30).default(10),
+		shuffleQuestions: z.boolean().default(false),
+		shuffleAnswers: z.boolean().default(false),
 		lateJoin: z.boolean(),
 		phoneAnswerText: z.boolean()
 	}),

@@ -47,6 +47,33 @@ function shuffle(arr) {
 }
 
 /**
+ * Losowa kolejność na start gry (ustawienia quizu):
+ *  - pytania: tasujemy tylko pytania, slajdy zostają na swoich miejscach (np. powitanie na początku);
+ *  - odpowiedzi ABCD/audio/ankieta: razem z obrazkami, poprawne indeksy przeliczone.
+ */
+export function shuffled(quiz) {
+	let questions = quiz.questions;
+	if (quiz.settings?.shuffleQuestions) {
+		const pos = questions.map((q, i) => (q.type === 'slide' ? -1 : i)).filter((i) => i >= 0);
+		const mixed = shuffle(pos.map((i) => questions[i]));
+		questions = [...questions];
+		pos.forEach((i, k) => (questions[i] = mixed[k]));
+	}
+	if (quiz.settings?.shuffleAnswers) {
+		questions = questions.map((q) => {
+			const d = q.data;
+			if (!['choice', 'audio', 'poll'].includes(q.type) || !Array.isArray(d?.answers)) return q;
+			const perm = shuffle(d.answers.map((_, i) => i));
+			const data = { ...d, answers: perm.map((i) => d.answers[i]) };
+			if (Array.isArray(d.images)) data.images = perm.map((i) => d.images[i] ?? null);
+			if (Array.isArray(d.correct)) data.correct = d.correct.map((c) => perm.indexOf(c)).sort((a, b) => a - b);
+			return { ...q, data };
+		});
+	}
+	return questions === quiz.questions ? quiz : { ...quiz, questions };
+}
+
+/**
  * @typedef {{
  *   id: string, type: 'choice'|'truefalse'|'audio'|'text'|'order'|'poll'|'slider'|'slide', prompt: string,
  *   promptTranslation?: string|null, imageUrl?: string|null, timeLimit: number, multiplier: number, data: any
@@ -62,6 +89,7 @@ export class Game {
 	/** @param {QuizSnapshot} quiz @param {string} ownerId */
 	constructor(pin, quiz, ownerId, io) {
 		this.pin = pin;
+		quiz = shuffled(quiz);
 		this.quiz = quiz;
 		this.ownerId = ownerId;
 		this.io = io;

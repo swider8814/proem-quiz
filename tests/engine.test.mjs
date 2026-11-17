@@ -2,7 +2,7 @@
 import http from 'node:http';
 import { io as connect } from 'socket.io-client';
 import { attachRealtime } from '../server/realtime.js';
-import { registry } from '../server/game/engine.js';
+import { registry, shuffled } from '../server/game/engine.js';
 
 const server = http.createServer();
 attachRealtime(server);
@@ -271,6 +271,36 @@ for (const cd of [0, 3]) {
 	h.close();
 	a.close();
 	b.close();
+}
+
+// Losowa kolejność pytań i odpowiedzi
+{
+	const base = {
+		...quiz,
+		settings: { ...quiz.settings, shuffleQuestions: true, shuffleAnswers: true },
+		questions: [
+			{ id: 'sl', type: 'slide', prompt: 'Start', timeLimit: 20, multiplier: 1, data: { type: 'slide', text: '' } },
+			...Array.from({ length: 6 }, (_, i) => ({ id: `q${i}`, type: 'choice', prompt: `P${i}`, timeLimit: 20, multiplier: 1, data: { answers: ['a', 'b', 'c', 'd'], correct: [i % 4], images: ['m0', null, 'm2', null] } }))
+		]
+	};
+	let orderChanged = false;
+	let answersChanged = false;
+	let consistent = true;
+	for (let n = 0; n < 50; n++) {
+		const s = shuffled(base);
+		if (s.questions[0].id !== 'sl') consistent = false;
+		if (s.questions.map((q) => q.id).join() !== base.questions.map((q) => q.id).join()) orderChanged = true;
+		for (const q of s.questions.slice(1)) {
+			const orig = base.questions.find((x) => x.id === q.id);
+			if (q.data.answers.join() !== 'a,b,c,d') answersChanged = true;
+			if ([...q.data.answers].sort().join() !== 'a,b,c,d') consistent = false;
+			if (q.data.answers[q.data.correct[0]] !== orig.data.answers[orig.data.correct[0]]) consistent = false;
+			q.data.answers.forEach((a, i) => { if (q.data.images[i] !== orig.data.images[orig.data.answers.indexOf(a)]) consistent = false; });
+		}
+	}
+	ok(orderChanged && answersChanged, 'tasowanie zmienia kolejność pytań i odpowiedzi');
+	ok(consistent, 'tasowanie: slajd na miejscu, poprawna odpowiedź i obrazki idą za odpowiedzią');
+	ok(shuffled(quiz) === quiz, 'bez ustawień – bez zmian');
 }
 
 // PIN brute force

@@ -333,6 +333,8 @@
 		<label class="check"><input type="checkbox" bind:checked={quiz.settings.lateJoin} /> {E.lateJoin}</label>
 		<label class="check"><input type="checkbox" bind:checked={quiz.settings.phoneAnswerText} /> {E.phoneText}</label>
 		<label class="check"><input type="checkbox" bind:checked={quiz.settings.streakBonus} /> {E.streak}</label>
+		<label class="check"><input type="checkbox" bind:checked={quiz.settings.shuffleQuestions} /> {E.shuffleQuestions}</label>
+		<label class="check"><input type="checkbox" bind:checked={quiz.settings.shuffleAnswers} /> {E.shuffleAnswers}</label>
 	</fieldset>
 {/if}
 
