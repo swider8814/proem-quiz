@@ -46,6 +46,12 @@ za reverse proxy Nginx (Cytrus). Stan gier w pamięci procesu.
 | Dostęp do cudzych plików | `canUseMedia` (właściciel / admin / dostęp do quizu, który używa pliku) |
 | XSS | Svelte escapuje treści; CSP z nonce; kolory motywu tylko `#hex`; brak `{@html}` |
 | CSRF | kontrola Origin (SvelteKit + własna dla `/panel/api`), SameSite=Lax |
+| Obrazki odpowiedzi dla telefonów bez logowania | `/game-media/<PIN>/<id>`: tylko obrazki odpowiedzi BIEŻĄCEGO pytania trwającej gry, miniatury 480 px |
+| Metadane zdjęć (np. GPS), „bomby” pikselowe | każdy obrazek przekodowany bez metadanych; > 40 Mpx odrzucane przed dekodowaniem |
+| Formuły w eksporcie CSV (nick „=…”) | komórki zaczynające się od `= + - @` poprzedzone apostrofem |
+| Dane dzieci w raportach | tylko nicki i punkty (bez imion członków drużyn), usuwane po 90 dniach |
+| Przejęty kontener → serwer / app.proem.pl | osobny użytkownik, sieć, limity, tylko `./data`; zapora `scripts/mikrus-firewall.sh` (host i sieci prywatne zablokowane) |
+| Okno widzów przejęte przez obcą stronę | BroadcastChannel działa tylko w tej samej domenie; kanał per gra (PIN) |
 
 ## Poza zakresem
 Ataki fizyczne na VPS, kompromitacja kont GitHub/ChatGPT, DDoS na poziomie sieci (poza limitami aplikacji).
