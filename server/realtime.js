@@ -247,6 +247,7 @@ function playerConnection(socket, games) {
 		socket.join(game.playerRoom);
 		game.sendPlayerState(player);
 		if (game.state === 'lobby') game.broadcastLobby();
+		else game.hostSoon(); // prowadzący widzi, że gracz wrócił
 	}
 
 	const boundTo = () => (socket.data.playerId ? { pin: socket.data.pin, playerId: socket.data.playerId } : null);
@@ -348,7 +349,10 @@ function playerConnection(socket, games) {
 				player.connected = false;
 				player.socketId = null;
 				if (game.state === 'lobby') game.broadcastLobby();
-				else game.io.to(game.hostRoom).emit('answers', { count: game.answeredCount(), total: game.connectedCount() });
+				else {
+					game.io.to(game.hostRoom).emit('answers', { count: game.answeredCount(), total: game.connectedCount() });
+					game.hostSoon(); // prowadzący widzi rozłączonego gracza
+				}
 			}
 		} catch (err) {
 			console.error('[realtime] błąd przy rozłączeniu:', err);

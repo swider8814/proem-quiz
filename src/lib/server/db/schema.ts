@@ -95,6 +95,7 @@ export const themes = sqliteTable('themes', {
 
 export type QuizSettings = {
 	defaultTimeLimit: number; // sekundy
+	countdown: number; // odliczanie przed każdym pytaniem w sekundach, 0 = bez odliczania
 	streakBonus: boolean;
 	nicknameMode: 'random-or-custom' | 'random-only';
 	teamMode: boolean;
@@ -104,6 +105,7 @@ export type QuizSettings = {
 
 export const DEFAULT_QUIZ_SETTINGS: QuizSettings = {
 	defaultTimeLimit: 20,
+	countdown: 5,
 	streakBonus: true,
 	nicknameMode: 'random-or-custom',
 	teamMode: false,

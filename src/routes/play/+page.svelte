@@ -5,6 +5,11 @@
 	import '#lib/game/game.css';
 	import Icon from '#lib/Icon.svelte';
 	import Shape from '#lib/game/Shape.svelte';
+	import Medal from '#lib/game/Medal.svelte';
+	import OrderList from '#lib/game/OrderList.svelte';
+	import { pushState } from '$app/navigation';
+	import { fly, scale } from 'svelte/transition';
+	import { backOut } from 'svelte/easing';
 	import { ask, deviceId, gameSocket, keepAwake, remaining, store } from '#lib/game/client.js';
 	import { errText, t } from '#lib/game/i18n.js';
 	import { shapeColor, themeVars, type GameTheme } from '#lib/game/theme.js';
@@ -19,7 +24,7 @@
 		pin: string; state: 'lobby' | 'intro' | 'question' | 'reveal' | 'leaderboard' | 'ended';
 		title: string; locale: string; theme: GameTheme; teamMode: boolean;
 		me: { id: string; nick: string; score: number; streak: number };
-		now: number; question?: Q; deadline?: number | null; answered?: boolean;
+		now: number; question?: Q; deadline?: number | null; introEnds?: number | null; answered?: boolean;
 		rank?: number | null; players?: number; behindBy?: number;
 		result?: { correct: boolean; points: number; bonus: number; missed?: boolean };
 		solution?: { correct?: number[] | boolean; accepted?: string[]; order?: string[] };
@@ -41,6 +46,8 @@
 	let sent = $state(false); // odpowiedź wysłana w bieżącym pytaniu
 	let textAnswer = $state('');
 	let picked = $state<string[]>([]);
+	let toast = $state('');
+	let toastTimer: ReturnType<typeof setTimeout> | null = null;
 
 	const locale = $derived(gs?.locale ?? info?.locale ?? 'pl');
 	const L = $derived(t(locale));
@@ -52,6 +59,25 @@
 		return remaining(gs?.deadline, offset);
 	});
 	const q = $derived(gs?.question);
+	const introLeft = $derived.by(() => {
+		void now;
+		return Math.max(1, Math.ceil(remaining(gs?.introEnds, offset) / 1000));
+	});
+
+	// Przycisk „wstecz” w trakcie gry nie wyrzuca z gry: trzymamy dodatkowy wpis w historii
+	// (płytka nawigacja SvelteKit), a po cofnięciu przywracamy go i pokazujemy podpowiedź.
+	let guardArmed = false;
+	$effect(() => {
+		if (phase !== 'game') return;
+		if (page.state.guard) return;
+		if (guardArmed) {
+			toast = L.stayInGame;
+			if (toastTimer) clearTimeout(toastTimer);
+			toastTimer = setTimeout(() => (toast = ''), 3500);
+		}
+		guardArmed = true;
+		pushState('', { guard: true });
+	});
 	const answerCount = $derived(q?.answers?.length ?? q?.answerCount ?? 0);
 
 	const sessionKey = (p: string) => `pq:s:${p}`;
@@ -70,11 +96,12 @@
 		socket.on('disconnect', () => (connected = false));
 		socket.on('state', (s: State) => {
 			offset = s.now - Date.now();
-			const newQuestion = s.question && (!gs?.question || gs.question.index !== s.question.index || gs.state !== s.state);
-			if (s.state === 'intro' && newQuestion) {
+			// Nowe pytanie (z odliczaniem albo bez – wtedy od razu stan „question”).
+			const newQuestion = !!s.question && (s.state === 'intro' || s.state === 'question') && (!gs?.question || gs.question.index !== s.question.index || (gs.state !== 'intro' && gs.state !== 'question'));
+			if (newQuestion) {
 				sent = false;
 				textAnswer = '';
-				picked = [];
+				picked = s.question?.items?.map((it) => it.id) ?? [];
 				navigator.vibrate?.(80);
 			}
 			if (s.state === 'question') sent = !!s.answered;
@@ -178,13 +205,7 @@
 		}
 	}
 
-	function pick(id: string) {
-		if (picked.includes(id) || !q?.items) return;
-		picked = [...picked, id];
-	}
-
 	const pts = (n: number) => n.toLocaleString(locale === 'uk' ? 'uk-UA' : locale === 'en' ? 'en-GB' : 'pl-PL');
-	const labelOf = (id: string) => q?.items?.find((i) => i.id === id)?.label ?? '';
 </script>
 
 <svelte:head>
@@ -196,9 +217,10 @@
 	{#if !connected && phase === 'game'}
 		<div class="offline" role="status">{L.reconnecting}</div>
 	{/if}
+	{#if toast}<div class="toast" role="status" transition:fly={{ y: 30, duration: 250 }}>{toast}</div>{/if}
 
 	{#if phase === 'pin'}
-		<main class="center">
+		<main class="center" in:fly={{ y: 24, duration: 380 }}>
 			{#if theme?.logoUrl}<img class="logo" src={theme.logoUrl} alt="" />{/if}
 			<form class="g-box card" onsubmit={checkPin}>
 				<label for="pin" class="big-label">{L.enterPin}</label>
@@ -219,7 +241,7 @@
 			</form>
 		</main>
 	{:else if phase === 'nick' && info}
-		<main class="center">
+		<main class="center" in:fly={{ y: 24, duration: 380 }}>
 			<h1 class="title">{info.title}</h1>
 			<form class="g-box card" onsubmit={join}>
 				<span class="big-label">{team ? L.teamName : L.yourNick}</span>
@@ -238,7 +260,7 @@
 			</form>
 		</main>
 	{:else if phase === 'kicked' || phase === 'replaced'}
-		<main class="center">
+		<main class="center" in:fly={{ y: 24, duration: 380 }}>
 			<div class="g-box card msg">
 				<p>{phase === 'kicked' ? L.kicked : L.replaced}</p>
 				<button class="g-btn wide" onclick={() => { leaveGame(); location.reload(); }}>{L.go}</button>
@@ -251,7 +273,7 @@
 		</header>
 
 		{#if gs.state === 'lobby'}
-			<main class="center">
+			<main class="center" in:fly={{ y: 24, duration: 380 }}>
 				<div class="g-box card msg">
 					<p class="huge">{L.youAreIn}</p>
 					<p>{L.waitForStart}</p>
@@ -269,9 +291,12 @@
 			{#if q.promptTranslation}<p class="translation">{q.promptTranslation}</p>{/if}
 
 			{#if gs.state === 'intro'}
-				<main class="center"><p class="huge">{L.getReady}</p></main>
+				<main class="center" in:fly={{ y: 24, duration: 380 }}>
+					<p class="huge">{L.getReady}</p>
+					{#key introLeft}<div class="cd g-box" in:scale={{ start: 1.6, duration: 450, easing: backOut }}>{introLeft}</div>{/key}
+				</main>
 			{:else if sent}
-				<main class="center">
+				<main class="center" in:fly={{ y: 24, duration: 380 }}>
 					<div class="g-box card msg">
 						<p class="huge">{L.answerSent}</p>
 						<p>{L.waitOthers}</p>
@@ -280,7 +305,7 @@
 			{:else if q.type === 'choice' || q.type === 'audio'}
 				<main class="tiles" class:two={answerCount <= 2} class:text={!!q.answers}>
 					{#each Array(answerCount) as _, i}
-						<button class="g-tile a{i}" onclick={() => answer({ choice: i })} aria-label={q.answers?.[i] ?? `${i + 1}`}>
+						<button class="g-tile a{i}" in:scale={{ start: 0.8, delay: i * 70, duration: 320, easing: backOut }} onclick={() => answer({ choice: i })} aria-label={q.answers?.[i] ?? `${i + 1}`}>
 							{#if style === 'calm'}<span class="badge">{String.fromCharCode(65 + i)}</span>
 							{:else}<Shape {i} size={q.answers ? 34 : 72} color={shapeColor(style)} />{/if}
 							{#if q.answers}<span class="tile-text">{q.answers[i]}</span>{/if}
@@ -300,25 +325,13 @@
 				</form>
 			{:else if q.type === 'order' && q.items}
 				<div class="stack">
-					<p class="hint">{L.tapInOrder}</p>
-					<ol class="picked">
-						{#each picked as id, i}<li class="g-box"><b>{i + 1}.</b> {labelOf(id)}</li>{/each}
-					</ol>
-					<div class="order-items">
-						{#each q.items as it, i}
-							<button class="g-tile a{i % 4} order-btn" disabled={picked.includes(it.id)} class:dim={picked.includes(it.id)} onclick={() => pick(it.id)}>
-								<span class="tile-text">{it.label}</span>
-							</button>
-						{/each}
-					</div>
-					<div class="row">
-						<button class="g-btn ghost" onclick={() => (picked = [])} disabled={!picked.length}>{L.reset}</button>
-						<button class="g-btn grow" disabled={picked.length !== q.items.length} onclick={() => answer({ order: picked })}>{L.send}</button>
-					</div>
+					<p class="hint">{L.dragToOrder}</p>
+					<OrderList items={q.items} bind:order={picked} upLabel={L.moveUp} downLabel={L.moveDown} />
+					<button class="g-btn wide" disabled={picked.length !== q.items.length} onclick={() => answer({ order: picked })}>{L.send}</button>
 				</div>
 			{/if}
 		{:else if gs.state === 'reveal' && gs.result}
-			<main class="center result" class:good={gs.result.correct} class:bad={!gs.result.correct}>
+			<main class="center result" in:scale={{ start: 0.9, duration: 420, easing: backOut }} class:good={gs.result.correct} class:bad={!gs.result.correct}>
 				<div class="g-box card msg">
 					<p class="huge">{gs.result.missed ? L.missed : gs.result.correct ? L.correct : L.wrong}</p>
 					<!-- result.points zawiera bonus – tu pokazujemy osobno punkty za odpowiedź i bonus za serię -->
@@ -328,10 +341,13 @@
 				</div>
 			</main>
 		{:else if gs.state === 'leaderboard' || gs.state === 'ended'}
-			<main class="center">
+			<main class="center" in:fly={{ y: 24, duration: 380 }}>
 				<div class="g-box card msg">
 					{#if gs.state === 'ended'}<p class="huge">{L.gameOver}</p>{/if}
-					{#if gs.rank}<p class="place">{gs.rank}.</p><p>{L.place} / {gs.players}</p>{/if}
+					{#if gs.rank}
+						{#if gs.state === 'ended' && gs.rank <= 3}<div class="medal-wrap" in:scale={{ start: 0.3, duration: 700, delay: 300, easing: backOut }}><Medal place={gs.rank} size="5rem" /></div>{/if}
+						<p class="place">{gs.rank}.</p><p>{L.place} / {gs.players}</p>
+					{/if}
 					<p class="g-chip">{pts(gs.me.score)} {L.points}</p>
 					{#if gs.state !== 'ended'}
 						<p>{gs.rank === 1 ? L.leader : `${pts(gs.behindBy ?? 0)} ${L.behind}`}</p>
@@ -354,7 +370,7 @@
 		/* Tło na całą szerokość okna; treść w kolumnie (telefon → tablet → komputer). */
 		--col: 560px;
 	}
-	.play > :not(.offline) { width: 100%; max-width: var(--col); margin-inline: auto; }
+	.play > :not(.offline):not(.toast) { width: 100%; max-width: var(--col); margin-inline: auto; }
 	.card { max-width: 480px; }
 	@media (min-width: 700px) {
 		.play { --col: 720px; gap: 16px; padding-top: 28px; padding-bottom: 28px; }
@@ -395,15 +411,14 @@
 	.tiles.text .g-tile { justify-content: flex-start; }
 	.tile-text { word-break: break-word; }
 	.stack { display: flex; flex-direction: column; gap: 12px; }
-	.picked { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; min-height: 20px; }
-	.picked li { padding: 10px 12px; font-weight: 800; }
-	.order-items { display: grid; grid-template-columns: 1fr; gap: 10px; }
-	.order-btn { padding: 14px; min-height: 56px; font-size: 1.1rem; }
 	.row { display: flex; gap: 10px; }
 	.grow { flex: 1; }
 	.result.good :global(.g-box) { background: var(--a3); }
 	.result.bad :global(.g-box) { background: var(--a0); }
 	.plus { align-self: center; font-size: 1.6rem; }
+	.cd { width: 7rem; height: 7rem; border-radius: 50%; display: grid; place-items: center; font-size: 3.4rem; font-weight: 900; background: var(--accent); font-variant-numeric: tabular-nums; }
+	.medal-wrap { display: flex; justify-content: center; }
+	.toast { position: fixed; left: 50%; bottom: max(20px, env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(92vw, 420px); background: #111; color: #fff; padding: 12px 16px; border-radius: 12px; font-weight: 700; text-align: center; z-index: 20; }
 	.place { font-size: 4rem; font-weight: 900; line-height: 1; }
 	.rank { font-weight: 800; }
 	.offline { position: fixed; top: env(safe-area-inset-top); left: 0; right: 0; text-align: center; background: #111; color: #fff; padding: 6px; font-weight: 700; z-index: 10; }

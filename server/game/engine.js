@@ -5,7 +5,13 @@ import { cleanNick, textMatches } from './text.js';
 import { isProfane } from './profanity.js';
 import { randomNick } from './nicks.js';
 
-export const INTRO_MS = 3000;
+/** Domyślne odliczanie przed pytaniem (gdy quiz nie ma ustawienia). */
+export const INTRO_MS = 5000;
+/** Odliczanie z ustawień quizu: 0 (bez odliczania) … 10 s. */
+export const introMs = (settings) => {
+	const s = Number(settings?.countdown);
+	return Number.isInteger(s) && s >= 0 && s <= 10 ? s * 1000 : INTRO_MS;
+};
 const GRACE_MS = 600; // opóźnienie sieci przy odpowiedzi tuż przed końcem
 const MAX_PLAYERS = 300;
 const MAX_GAMES_PER_USER = 3;
@@ -38,7 +44,7 @@ function shuffle(arr) {
  * }} QuestionSnap
  * @typedef {{
  *   quizId: string, title: string, locale: 'pl'|'en'|'uk',
- *   settings: { streakBonus: boolean, nicknameMode: 'random-or-custom'|'random-only', teamMode: boolean, lateJoin: boolean, phoneAnswerText: boolean },
+ *   settings: { countdown?: number, streakBonus: boolean, nicknameMode: 'random-or-custom'|'random-only', teamMode: boolean, lateJoin: boolean, phoneAnswerText: boolean },
  *   theme: any, blockedWords: string[], questions: QuestionSnap[]
  * }} QuizSnapshot
  */
@@ -143,6 +149,13 @@ export class Game {
 			s?.disconnect(true);
 		}
 		this.broadcastLobby();
+		// Wyrzucenie w trakcie pytania: jeśli pozostali już odpowiedzieli, nie czekamy do końca czasu.
+		if (this.state === 'question') {
+			const answered = this.answeredCount();
+			this.io.to(this.hostRoom).emit('answers', { count: answered, total: this.connectedCount() });
+			const waitingFor = this.activePlayers().filter((x) => x.connected || x.answers.has(this.index)).length;
+			if (waitingFor > 0 && answered >= waitingFor) this.closeQuestion();
+		}
 		return true;
 	}
 
@@ -198,9 +211,15 @@ export class Game {
 	startQuestion(i) {
 		this.clearTimer();
 		this.index = i;
+		const ms = introMs(this.quiz.settings);
+		if (ms === 0) {
+			this.openQuestion();
+			return null;
+		}
 		this.state = 'intro';
+		this.introEnds = Date.now() + ms;
 		this.broadcastAll();
-		this.timer = setTimeout(() => this.safely(() => this.openQuestion()), INTRO_MS);
+		this.timer = setTimeout(() => this.safely(() => this.openQuestion()), ms);
 		return null;
 	}
 
@@ -389,6 +408,7 @@ export class Game {
 		if (['intro', 'question', 'reveal'].includes(this.state)) {
 			v.question = this.publicQuestion(true);
 			v.deadline = this.state === 'question' ? this.deadline : null;
+			if (this.state === 'intro') v.introEnds = this.introEnds;
 			v.answered = this.answeredCount();
 		}
 		if (this.state === 'reveal') {
@@ -422,6 +442,7 @@ export class Game {
 			if (current) v.me = { ...v.me, score: current.before.score, streak: current.before.streak };
 			v.question = this.publicQuestion(false);
 			v.deadline = this.state === 'question' ? this.deadline : null;
+			if (this.state === 'intro') v.introEnds = this.introEnds;
 			v.answered = p.answers.has(this.index);
 		}
 		if (this.state === 'reveal' || this.state === 'leaderboard' || this.state === 'ended') {
@@ -445,6 +466,15 @@ export class Game {
 		if (p.socketId) this.io.sockets.get(p.socketId)?.emit('state', this.playerView(p));
 	}
 
+	/** Odświeżenie widoku prowadzącego najwyżej raz na sekundę (np. fala rozłączeń przy 300 graczach). */
+	hostSoon() {
+		if (this.hostTimer) return;
+		this.hostTimer = setTimeout(() => {
+			this.hostTimer = null;
+			this.safely(() => this.broadcastLobby());
+		}, 1000);
+	}
+
 	broadcastLobby() {
 		this.io.to(this.hostRoom).emit('state', this.hostView());
 	}
@@ -456,6 +486,8 @@ export class Game {
 
 	dispose() {
 		this.clearTimer();
+		if (this.hostTimer) clearTimeout(this.hostTimer);
+		this.hostTimer = null;
 		this.io.in(this.playerRoom).disconnectSockets(true);
 		this.io.in(this.hostRoom).disconnectSockets(true);
 	}

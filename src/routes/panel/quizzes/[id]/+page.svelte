@@ -166,6 +166,12 @@
 		<label>{E.defaultTime}
 			<input type="number" min="5" max="240" bind:value={quiz.settings.defaultTimeLimit} />
 		</label>
+		<label>{E.countdown}
+			<select bind:value={quiz.settings.countdown}>
+				<option value={0}>{E.countdownOff}</option>
+				{#each [3, 5, 10] as n}<option value={n}>{E.countdownSec(n)}</option>{/each}
+			</select>
+		</label>
 		<label>{E.nicknames}
 			<select bind:value={quiz.settings.nicknameMode}>
 				<option value="random-or-custom">{E.nickRandomOrCustom}</option>

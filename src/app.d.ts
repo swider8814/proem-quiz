@@ -9,6 +9,10 @@ declare global {
 			/** Język panelu: konto → ciasteczko → przeglądarka. */
 			lang: PanelLang;
 		}
+		interface PageState {
+			/** /play: dodatkowy wpis w historii, żeby „wstecz” nie wyrzucało z gry. */
+			guard?: boolean;
+		}
 	}
 }
 

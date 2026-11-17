@@ -72,7 +72,7 @@ const answerErrors = {};
 for (let q = 0; q < Q; q++) {
 	const sentAt = Date.now();
 	await emit(host, 'host:next', {}); // lobby/leaderboard -> intro
-	// czekamy aż wszyscy dostaną pytanie (po intro 3 s)
+	// czekamy aż wszyscy dostaną pytanie (po odliczaniu, domyślnie 5 s)
 	const deadline = Date.now() + 15_000;
 	while (players.some((p) => !p.gotQuestionAt.has(q)) && Date.now() < deadline) await sleep(20);
 	const opened = Math.min(...players.map((p) => p.gotQuestionAt.get(q) ?? Infinity));

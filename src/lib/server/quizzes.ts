@@ -182,6 +182,7 @@ export const quizSaveSchema = z.object({
 	locale: z.enum(['pl', 'en', 'uk']),
 	settings: z.object({
 		defaultTimeLimit: z.number().int().min(5).max(240),
+		countdown: z.number().int().min(0).max(10).default(5),
 		streakBonus: z.boolean(),
 		nicknameMode: z.enum(['random-or-custom', 'random-only']),
 		teamMode: z.boolean(),

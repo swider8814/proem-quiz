@@ -7,6 +7,10 @@
 	import './game.css';
 	import Shape from './Shape.svelte';
 	import Icon from '#lib/Icon.svelte';
+	import Medal from './Medal.svelte';
+	import Confetti from './Confetti.svelte';
+	import { fly, scale } from 'svelte/transition';
+	import { backOut } from 'svelte/easing';
 	import { ask, gameSocket, keepAwake, remaining } from './client.js';
 	import { t } from './i18n.js';
 	import { shapeColor, themeVars, type GameTheme } from './theme.js';
@@ -38,7 +42,7 @@
 		pin: string; state: 'lobby' | 'intro' | 'question' | 'reveal' | 'leaderboard' | 'ended';
 		title: string; locale: string; theme: GameTheme; settings: { teamMode: boolean };
 		totalQuestions: number; players?: { id: string; nick: string; connected: boolean }[]; playerCount: number;
-		now: number; question?: HQ; deadline?: number | null; answered?: number;
+		now: number; question?: HQ; deadline?: number | null; introEnds?: number | null; answered?: number;
 		solution?: { correct?: number[] | boolean; accepted?: string[]; order?: string[] };
 		distribution?: { counts?: number[]; correct?: number; wrong?: number };
 		ranking?: { id: string; nick: string; score: number; rank: number }[];
@@ -68,6 +72,18 @@
 		return remaining(hs?.deadline, offset);
 	});
 	const q = $derived(hs?.question);
+	/** Odliczanie przed pytaniem: 5, 4, 3, 2, 1. */
+	const introLeft = $derived.by(() => {
+		void now;
+		return Math.max(1, Math.ceil(remaining(hs?.introEnds, offset) / 1000));
+	});
+	/** Nowy widok = animacja wejścia; pytanie → wyniki zostają na tym samym ekranie. */
+	const viewKey = $derived(!hs ? '' : hs.state === 'question' || hs.state === 'reveal' ? `q${q?.index}` : `${hs.state}${q?.index ?? ''}`);
+	// Podium: 3. miejsce, potem 2., na końcu 1. z konfetti i fanfarą (ms od wejścia na ekran).
+	const PODIUM_DELAY: Record<number, number> = { 2: 700, 1: 2300, 0: 4100 };
+	const PODIUM_REST = 5600;
+	let showPlayers = $state(false);
+	const disconnected = $derived(hs?.standings?.filter((r) => !r.connected).length ?? 0);
 
 	function stopAudio() {
 		if (audioStop) clearTimeout(audioStop);
@@ -134,6 +150,56 @@
 			if (sq?.audio?.revealUrl) playReveal();
 		}
 		if (s.state === 'leaderboard' || s.state === 'ended' || s.state === 'lobby') stopAudio();
+		if (s.state === 'ended' && prev && prev.state !== 'ended' && s.ranking?.length) fanfare(PODIUM_DELAY[0]);
+	}
+
+	let fanfareTimer: ReturnType<typeof setTimeout> | null = null;
+	/** Krótka fanfara (syntezator przeglądarki, bez plików) w chwili pokazania 1. miejsca. */
+	function fanfare(delay: number) {
+		if (fanfareTimer) clearTimeout(fanfareTimer);
+		fanfareTimer = setTimeout(() => {
+			try {
+				const ctx = new AudioContext();
+				const notes: [number, number, number][] = [
+					[392, 0, 0.16], [523.25, 0.16, 0.16], [659.25, 0.32, 0.16], [783.99, 0.48, 0.5],
+					[659.25, 0.98, 0.14], [783.99, 1.12, 0.9]
+				];
+				const out = ctx.createGain();
+				out.gain.value = 0.18;
+				const lp = ctx.createBiquadFilter();
+				lp.type = 'lowpass';
+				lp.frequency.value = 2400;
+				lp.connect(out).connect(ctx.destination);
+				for (const [f, at, len] of notes) {
+					for (const detune of [-6, 6]) {
+						const o = ctx.createOscillator();
+						const g = ctx.createGain();
+						o.type = 'sawtooth';
+						o.frequency.value = f;
+						o.detune.value = detune;
+						const t0 = ctx.currentTime + at;
+						g.gain.setValueAtTime(0.0001, t0);
+						g.gain.exponentialRampToValueAtTime(0.5, t0 + 0.03);
+						g.gain.setValueAtTime(0.5, t0 + len * 0.7);
+						g.gain.exponentialRampToValueAtTime(0.0001, t0 + len);
+						o.connect(g).connect(lp);
+						o.start(t0);
+						o.stop(t0 + len + 0.05);
+					}
+				}
+				setTimeout(() => ctx.close().catch(() => {}), 3000);
+			} catch {
+				/* brak Web Audio */
+			}
+		}, delay);
+	}
+
+	function kickPlayer(p: { id: string; nick: string }) {
+		if (confirm(PH.kickConfirm(p.nick))) cmd('host:kick', { playerId: p.id });
+	}
+
+	function endGame() {
+		if (confirm(PH.endConfirm)) cmd('host:end');
 	}
 
 	// ── Okno dla widzów ────────────────────────────────────────────────
@@ -275,6 +341,7 @@
 			clearInterval(tick);
 			unlock();
 			stopAudio();
+			if (fanfareTimer) clearTimeout(fanfareTimer);
 			socket?.disconnect();
 			channel?.close();
 		};
@@ -377,6 +444,8 @@
 
 		<div class="main">
 		<div class="view">
+		{#key viewKey}
+		<div class="stage" in:fly={{ y: 28, duration: 450 }}>
 
 		{#if hs.state === 'lobby'}
 			<section class="lobby">
@@ -398,14 +467,27 @@
 						<span>{p.nick}</span>
 						{#if !isScreen}
 						<button class="mini" onclick={() => cmd('host:rename', { playerId: p.id })} aria-label="{L.randomNick}: {p.nick}" title={L.randomNick}><Icon name="replay" /></button>
-						<button class="mini" onclick={() => cmd('host:kick', { playerId: p.id })} aria-label="{L.removePlayer}: {p.nick}" title={L.removePlayer}><Icon name="close" /></button>
+						<button class="mini" onclick={() => kickPlayer(p)} aria-label="{L.removePlayer}: {p.nick}" title={L.removePlayer}><Icon name="close" /></button>
 						{/if}
 					</li>
 				{:else}
 					<li class="waiting">{L.waitingForPlayers}</li>
 				{/each}
 			</ul>
-		{:else if (hs.state === 'intro' || hs.state === 'question' || hs.state === 'reveal') && q}
+		{:else if hs.state === 'intro' && q}
+			<section class="intro">
+				<div class="g-box promptbox" in:scale={{ start: 0.9, duration: 500, easing: backOut }}>
+					<h1>{q.prompt}</h1>
+					{#if q.promptTranslation}<p class="tr">{q.promptTranslation}</p>{/if}
+				</div>
+				<div class="cd-wrap" aria-live="polite">
+					{#key introLeft}
+						<div class="cd g-box" in:scale={{ start: 1.6, duration: 450, easing: backOut }}>{introLeft}</div>
+					{/key}
+				</div>
+				<p class="listen">{L.getReady}</p>
+			</section>
+		{:else if (hs.state === 'question' || hs.state === 'reveal') && q}
 			<section class="question">
 				<div class="g-box promptbox">
 					<h1>{q.prompt}</h1>
@@ -421,10 +503,9 @@
 							<div class="eq" class:on={playing} aria-hidden="true">
 								{#each Array(24) as _, i}<span style:animation-delay="{(i % 7) * 0.09}s"></span>{/each}
 							</div>
-							{#if hs.state !== 'reveal'}<p class="listen">{hs.state === 'intro' ? L.getReady : L.listen}</p>{/if}
+							{#if hs.state !== 'reveal'}<p class="listen">{L.listen}</p>{/if}
 							{#if !isScreen}<button class="g-btn ghost small" onclick={playClip}><Icon name="replay" /> {L.replay}</button>{/if}
 						{/if}
-						{#if hs.state === 'intro' && !q.audio && !q.imageUrl}<p class="listen big">{L.getReady}</p>{/if}
 						{#if hs.state === 'reveal' && hs.distribution?.counts}
 							<div class="dist">
 								{#each hs.distribution.counts as c, i}
@@ -438,15 +519,12 @@
 							<p class="listen">{hs.distribution.correct} {L.correctCount} · {hs.distribution.wrong} {L.wrongCount}</p>
 						{/if}
 					</div>
-					{#if hs.state !== 'intro'}
-						<div class="count g-box"><span class="n">{answered.count}</span><span>{L.answers}</span></div>
-					{:else}<div class="timer-space"></div>{/if}
+					<div class="count g-box"><span class="n">{answered.count}</span><span>{L.answers}</span></div>
 				</div>
-				{#if hs.state !== 'intro'}
 					{#if q.answers}
 						<div class="answers">
 							{#each q.answers as a, i}
-								<div class="g-tile a{i}" class:dim={hs.state === 'reveal' && !isCorrect(i)}>
+								<div class="g-tile a{i}" class:dim={hs.state === 'reveal' && !isCorrect(i)} in:scale={{ start: 0.85, delay: 120 + i * 90, duration: 350, easing: backOut }}>
 									{#if style === 'calm'}<span class="badge">{String.fromCharCode(65 + i)}</span>
 									{:else}<Shape {i} size={40} color={shapeColor(style)} />{/if}
 									<span>{a}</span>
@@ -456,22 +534,21 @@
 						</div>
 					{:else if q.type === 'truefalse'}
 						<div class="answers">
-							<div class="g-tile a1" class:dim={hs.state === 'reveal' && hs.solution?.correct !== true}><Shape i={1} size={40} color={shapeColor(style)} /><span>{L.true}</span></div>
-							<div class="g-tile a0" class:dim={hs.state === 'reveal' && hs.solution?.correct !== false}><Shape i={0} size={40} color={shapeColor(style)} /><span>{L.false}</span></div>
+							<div class="g-tile a1" class:dim={hs.state === 'reveal' && hs.solution?.correct !== true} in:scale={{ start: 0.85, delay: 120, duration: 350, easing: backOut }}><Shape i={1} size={40} color={shapeColor(style)} /><span>{L.true}</span></div>
+							<div class="g-tile a0" class:dim={hs.state === 'reveal' && hs.solution?.correct !== false} in:scale={{ start: 0.85, delay: 210, duration: 350, easing: backOut }}><Shape i={0} size={40} color={shapeColor(style)} /><span>{L.false}</span></div>
 						</div>
 					{:else if q.type === 'order' && q.items}
 						<div class="answers list">
 							{#if hs.state === 'reveal' && hs.solution?.order}
 								<p class="label">{L.correctOrder}:</p>
-								{#each hs.solution.order as id, i}<div class="g-tile a{i % 4}"><b>{i + 1}.</b> {q.items.find((x) => x.id === id)?.label}</div>{/each}
+								{#each hs.solution.order as id, i}<div class="g-tile a{i % 4}" in:fly={{ x: -30, delay: i * 120, duration: 350 }}><b>{i + 1}.</b> {q.items.find((x) => x.id === id)?.label}</div>{/each}
 							{:else}
-								{#each q.items as it, i}<div class="g-tile a{i % 4}">{it.label}</div>{/each}
+								{#each q.items as it, i}<div class="g-tile a{i % 4}" in:scale={{ start: 0.85, delay: 120 + i * 90, duration: 350, easing: backOut }}>{it.label}</div>{/each}
 							{/if}
 						</div>
 					{:else if q.type === 'text' && hs.state === 'reveal' && hs.solution?.accepted}
-						<div class="answers list"><p class="label">{L.accepted}:</p><div class="g-tile a3">{hs.solution.accepted.join(' / ')}</div></div>
+						<div class="answers list"><p class="label">{L.accepted}:</p><div class="g-tile a3" in:scale={{ start: 0.85, duration: 350, easing: backOut }}>{hs.solution.accepted.join(' / ')}</div></div>
 					{/if}
-				{/if}
 			</section>
 		{:else if hs.state === 'leaderboard' || hs.state === 'ended'}
 			<section class="board">
@@ -480,29 +557,52 @@
 					<div class="podium">
 						{#each [1, 0, 2] as idx}
 							{#if hs.ranking[idx]}
-								<div class="step s{idx + 1}">
+								<div class="step s{idx + 1}" in:fly={{ y: 260, delay: PODIUM_DELAY[idx], duration: 800, easing: backOut }}>
+									<Medal place={idx + 1} size="3.2em" />
 									<span class="who">{hs.ranking[idx].nick}</span>
 									<div class="g-box block"><span class="place">{idx + 1}</span><span>{hs.ranking[idx].score}</span></div>
 								</div>
+							{:else}
+								<div class="step"></div>
 							{/if}
 						{/each}
 					</div>
+					<Confetti delay={PODIUM_DELAY[0] + 150} />
 				{/if}
+				<div class="board-row">
 				<ol class="rank">
-					{#each hs.ranking?.slice(hs.state === 'ended' ? 3 : 0) ?? [] as r (r.id)}
-						<li class="g-box"><span class="pos">{r.rank}.</span><span class="nm">{r.nick}</span><span class="sc">{r.score}</span></li>
+					{#each hs.ranking?.slice(hs.state === 'ended' ? 3 : 0) ?? [] as r, i (r.id)}
+						<li class="g-box" class:top={r.rank <= 3} in:fly={{ x: -50, delay: (hs.state === 'ended' ? PODIUM_REST : 150) + i * 110, duration: 400 }}>
+							{#if r.rank <= 3}<Medal place={r.rank} />{:else}<span class="pos">{r.rank}.</span>{/if}
+							<span class="nm">{r.nick}</span><span class="sc">{r.score}</span>
+						</li>
 					{/each}
 				</ol>
+				{#if hs.state === 'leaderboard'}
+					<!-- Między pytaniami: kod do powrotu dla tych, którzy wypadli z gry (np. „wstecz” na telefonie). -->
+					<div class="rejoin g-box" in:fly={{ y: 20, delay: 500, duration: 400 }}>
+						<img class="qr-sm" src={qr} alt={PH.qrAlt} />
+						<p class="lead">{L.joinAt} <strong>{joinHost}</strong><br />PIN <strong>{pinFmt(hs.pin)}</strong></p>
+						<p class="hint">{L.rejoinHint}</p>
+						{#if disconnected > 0}<p class="g-chip">{L.disconnected(disconnected)}</p>{/if}
+					</div>
+				{/if}
+				</div>
 			</section>
 		{/if}
 
 		</div>
-		{#if screenOn && hs.state !== 'lobby' && hs.standings}
-			<aside class="side g-box" aria-label={PH.liveRanking}>
+		{/key}
+		</div>
+		{#if !isScreen && hs.state !== 'lobby' && hs.standings && (screenOn || showPlayers)}
+			<aside class="side g-box" aria-label={PH.liveRanking} transition:fly={{ x: 60, duration: 300 }}>
 				<h2>{PH.liveRanking}</h2>
 				<ol>
 					{#each hs.standings as r (r.id)}
-						<li class:off={!r.connected}><span class="pos">{r.rank}.</span><span class="nm">{r.nick}</span><span class="sc">{r.score}</span></li>
+						<li class:off={!r.connected}>
+							<span class="pos">{r.rank}.</span><span class="nm">{r.nick}</span><span class="sc">{r.score}</span>
+							<button class="mini" onclick={() => kickPlayer(r)} aria-label="{L.removePlayer}: {r.nick}" title={L.removePlayer}><Icon name="close" /></button>
+						</li>
 					{/each}
 				</ol>
 			</aside>
@@ -514,13 +614,16 @@
 			{#if error}<span class="err" role="alert">{error}</span>{/if}
 			{#if screenOn}<span class="g-chip screen-on"><Icon name="screen" /> {PH.screenConnected}</span>{/if}
 			<span class="spacer"></span>
+			{#if hs.state !== 'lobby' && !screenOn}
+				<button class="g-btn ghost" onclick={() => (showPlayers = !showPlayers)} aria-pressed={showPlayers}>{showPlayers ? PH.hidePlayers : PH.showPlayers}</button>
+			{/if}
 			<button class="g-btn ghost" onclick={openScreen}><Icon name="screen" /> {PH.openScreen}</button>
 			{#if hs.state === 'lobby'}<button class="g-btn ghost" onclick={soundTest}><Icon name="sound" /> {L.soundTest}</button>{/if}
 			<button class="g-btn ghost" onclick={fullscreen} title="F"><Icon name="fullscreen" /> {L.fullscreen}</button>
 			{#if hs.state === 'ended'}
 				<button class="g-btn" onclick={closeGame}>{L.endGame}</button>
 			{:else}
-				<button class="g-btn ghost" onclick={() => cmd('host:end')}>{L.endGame}</button>
+				<button class="g-btn ghost" onclick={endGame}>{L.endGame}</button>
 				<button class="g-btn" onclick={next} title="Spacja">{nextLabel} <Icon name="next" /></button>
 			{/if}
 		</footer>
@@ -562,6 +665,23 @@
 	.player.off { opacity: 0.5; }
 	.mini { border: 0; background: rgba(0, 0, 0, 0.12); color: inherit; border-radius: 50%; width: 1.8em; height: 1.8em; padding: 0; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font: inherit; font-size: 0.8em; }
 	.waiting { font-weight: 800; font-size: 1.3em; opacity: 0.8; }
+	.stage { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 2vh; }
+	.intro { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3vh; text-align: center; }
+	.intro .promptbox { max-width: 90%; }
+	.cd-wrap { height: 9em; display: grid; place-items: center; }
+	.cd { width: 7em; height: 7em; border-radius: 50%; display: grid; place-items: center; font-size: 1.6em; font-weight: 900; background: var(--accent); }
+	.cd { font-size: 3.2em; width: 2.6em; height: 2.6em; font-variant-numeric: tabular-nums; }
+	.side li { align-items: center; }
+	.side .mini { margin-left: 0.2em; }
+	.rank li.top { font-size: 1.3em; }
+	.board-row { display: flex; gap: 2.5vw; align-items: flex-start; justify-content: center; width: 100%; min-height: 0; }
+	.board-row .rank { flex: 0 1 auto; }
+	.rejoin { width: 15em; flex-shrink: 0; padding: 1em; display: flex; flex-direction: column; align-items: center; gap: 0.5em; text-align: center; font-size: 0.85em; }
+	.rejoin p { margin: 0; }
+	.rejoin .hint { font-weight: 700; }
+	.qr-sm { width: 9em; height: 9em; image-rendering: pixelated; background: #fff; padding: 0.3em; }
+	.barv { animation: grow 0.7s cubic-bezier(0.2, 0.8, 0.3, 1.2) both; transform-origin: bottom; }
+	@keyframes grow { from { transform: scaleY(0); } }
 	.question { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 2vh; }
 	.promptbox { padding: 1.5vh 2vw; text-align: center; }
 	.promptbox h1 { margin: 0; font-size: 2.3em; line-height: 1.1; }

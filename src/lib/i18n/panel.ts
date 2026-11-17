@@ -145,6 +145,9 @@ const pl = {
 		theme: 'Motyw',
 		gameLanguage: 'Język gry',
 		defaultTime: 'Domyślny czas na odpowiedź (s)',
+		countdown: 'Odliczanie przed pytaniem',
+		countdownOff: 'Bez odliczania',
+		countdownSec: (n: number) => `${n} s`,
 		nicknames: 'Nicki graczy',
 		nickRandomOrCustom: 'Losowe lub własne (z filtrem)',
 		nickRandomOnly: 'Tylko losowe (młodsze dzieci)',
@@ -247,7 +250,11 @@ const pl = {
 		screenWaiting: 'Ekran dla widzów – czekam na okno prowadzącego…',
 		screenEnded: 'Gra zakończona.',
 		screenHint: 'Przeciągnij to okno na projektor lub telewizor i naciśnij F albo kliknij dwa razy, aby włączyć pełny ekran.',
-		liveRanking: 'Ranking na żywo'
+		liveRanking: 'Ranking na żywo',
+		showPlayers: 'Gracze',
+		hidePlayers: 'Ukryj graczy',
+		kickConfirm: (nick: string) => `Wyrzucić gracza „${nick}” z gry? Nie będzie mógł dołączyć ponownie z tego urządzenia.`,
+		endConfirm: 'Zakończyć grę teraz i pokazać podium?'
 	},
 	share: {
 		title: 'Udostępnianie',
@@ -584,6 +591,9 @@ const en: PanelDict = {
 		theme: 'Theme',
 		gameLanguage: 'Game language',
 		defaultTime: 'Default answer time (s)',
+		countdown: 'Countdown before each question',
+		countdownOff: 'No countdown',
+		countdownSec: (n: number) => `${n} s`,
 		nicknames: 'Player nicknames',
 		nickRandomOrCustom: 'Random or custom (filtered)',
 		nickRandomOnly: 'Random only (younger children)',
@@ -686,7 +696,11 @@ const en: PanelDict = {
 		screenWaiting: 'Audience screen – waiting for the host window…',
 		screenEnded: 'The game has ended.',
 		screenHint: 'Drag this window to the projector or TV and press F or double-click for full screen.',
-		liveRanking: 'Live ranking'
+		liveRanking: 'Live ranking',
+		showPlayers: 'Players',
+		hidePlayers: 'Hide players',
+		kickConfirm: (nick: string) => `Remove “${nick}” from the game? They will not be able to rejoin from this device.`,
+		endConfirm: 'End the game now and show the podium?'
 	},
 	share: {
 		title: 'Sharing',

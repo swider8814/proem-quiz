@@ -162,6 +162,38 @@ await emit(host, 'host:next', {}); // ended (ostatnie pytanie)
 const fin = await endState;
 ok(fin.rank === 1, `koniec gry: Kasia na miejscu ${fin.rank} z ${fin.me.score} pkt`);
 
+// Odliczanie z ustawień quizu: 0 = od razu pytanie, 3 s = intro z czasem końca odliczania
+for (const cd of [0, 3]) {
+	const g = registry().create({ ...quiz, quizId: `cd${cd}`, settings: { ...quiz.settings, countdown: cd } }, 'user1');
+	const h = connect(URL, { auth: { role: 'host', pin: g.pin, token: g.hostToken }, transports: ['websocket'] });
+	await nextState(h);
+	let hostSt = null;
+	h.on('state', (x) => (hostSt = x));
+	const pa = mk();
+	const pb = mk();
+	await emit(pa, 'join', { pin: g.pin, nick: `Ala${cd}`, deviceId: `cda${cd}` });
+	await emit(pb, 'join', { pin: g.pin, nick: `Ola${cd}`, deviceId: `cdb${cd}` });
+	const first = nextState(pa, (st) => st.state === 'intro' || st.state === 'question');
+	const t0 = Date.now();
+	await emit(h, 'host:next', {});
+	const st = await first;
+	if (cd === 0) ok(st.state === 'question', 'bez odliczania: od razu pytanie');
+	else ok(st.state === 'intro' && Math.abs(st.introEnds - t0 - 3000) < 500, `odliczanie 3 s: koniec za ${st.introEnds - t0} ms`);
+	if (cd === 0) {
+		// Wyrzucenie w trakcie pytania: gdy pozostali już odpowiedzieli, pytanie się kończy
+		await emit(pa, 'answer', { index: 0, choice: 1 });
+		const pbId = (hostSt?.standings ?? []).find((x) => x.nick === 'Ola0')?.id;
+		const reveal = nextState(pa, (x) => x.state === 'reveal');
+		const kr = await emit(h, 'host:kick', { playerId: pbId });
+		ok(kr.ok !== false && !kr.error, 'wyrzucenie w trakcie pytania');
+		const rv = await Promise.race([reveal, sleep(2000).then(() => null)]);
+		ok(rv?.state === 'reveal', 'po wyrzuceniu jedynego brakującego gracza od razu wyniki');
+	}
+	h.close();
+	pa.close();
+	pb.close();
+}
+
 // PIN brute force
 const brute = mk();
 let limitedHit = false;

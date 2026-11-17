@@ -145,7 +145,33 @@ try {
 	await host.waitForSelector('.board');
 	await screen.waitForSelector('.board');
 	ok(true, 'spacja w oknie widzów → ranking u prowadzącego i na ekranie');
+	await screen.waitForSelector('.rejoin .qr-sm');
+	ok(true, 'między pytaniami ekran widzów pokazuje kod QR do powrotu');
+
+	// „Wstecz” na telefonie nie wyrzuca z gry
+	await phones[0].goBack();
+	await phones[0].waitForSelector('.toast');
+	ok(new URL(phones[0].url()).pathname === '/play' && (await phones[0].$('text=Jesteś w grze. Aby z niej wyjść')) !== null, 'wstecz w trakcie gry: zostaje w grze i widzi podpowiedź');
+	// Wyjście ze strony i powrót przez kod QR → to samo konto (nick i punkty)
+	const nickBefore = await phones[1].textContent('.g-chip.nick');
+	await phones[1].goto('about:blank');
+	await host.waitForSelector('.side li.off');
+	ok(true, 'prowadzący widzi rozłączonego gracza');
+	await phones[1].goto(`${srv.base}/play?pin=${pin}`);
+	await phones[1].waitForSelector('.g-chip.nick');
+	ok((await phones[1].textContent('.g-chip.nick')) === nickBefore, `po powrocie przez kod QR ten sam gracz: ${nickBefore}`);
+	await host.waitForFunction(() => !document.querySelector('.side li.off'));
+	ok(true, 'gracz znów połączony');
 	await host.keyboard.press('Space');
+	// Odliczanie przed pytaniem (domyślnie 5 s) na ekranie i na telefonie
+	await host.waitForSelector('.intro .cd');
+	const cd1 = Number(await host.textContent('.intro .cd'));
+	await phones[0].waitForSelector('.cd');
+	await snap(host, '09c-prowadzacy-odliczanie');
+	await snap(phones[0], '09d-telefon-odliczanie');
+	await sleep(1300);
+	const cd2 = Number(await host.textContent('.intro .cd'));
+	ok(cd1 >= 4 && cd1 <= 5 && cd2 < cd1, `odliczanie przed pytaniem: ${cd1} → ${cd2}`);
 	await phones[0].waitForSelector('.prompt');
 	await phones[0].waitForFunction(() => !document.body.innerText.includes('Przygotuj się'), null, { timeout: 8000 });
 
@@ -180,8 +206,32 @@ try {
 
 	// ── Pytanie 4: kolejność ──────────────────────────────────────────────
 	await nextQ();
-	for (const p of phones) {
-		for (const w of ['I', 'love', 'Christmas']) await p.locator('.order-btn', { hasText: new RegExp(`^\\s*${w}\\s*$`) }).click();
+	const words = ['I', 'love', 'Christmas'];
+	const orderNow = (p) => p.$$eval('.order .item .label', (els) => els.map((e) => e.textContent.trim()));
+	// Telefon 1: przeciąganie palcem/myszą
+	for (let k = 0; k < words.length; k++) {
+		const cur = await orderNow(phones[0]);
+		const from = cur.indexOf(words[k]);
+		if (from === k) continue;
+		const items = await phones[0].$$('.order .item');
+		const a = await items[from].boundingBox();
+		const b = await items[k].boundingBox();
+		await phones[0].mouse.move(a.x + 40, a.y + a.height / 2);
+		await phones[0].mouse.down();
+		for (let t = 1; t <= 8; t++) await phones[0].mouse.move(a.x + 40, a.y + a.height / 2 + ((b.y - a.y) * t) / 8);
+		await phones[0].mouse.up();
+		await sleep(100);
+	}
+	ok(JSON.stringify(await orderNow(phones[0])) === JSON.stringify(words), `przeciąganie ułożyło kolejność: ${await orderNow(phones[0])}`);
+	// Pozostałe: strzałki (dostępność, klawiatura)
+	for (const p of phones.slice(1)) {
+		for (let k = 0; k < words.length; k++) {
+			let cur = await orderNow(p);
+			while (cur.indexOf(words[k]) > k) {
+				await p.click(`.order .item:nth-child(${cur.indexOf(words[k]) + 1}) .arrow[aria-label^="Wyżej"]`);
+				cur = await orderNow(p);
+			}
+		}
 	}
 	await snap(phones[0], '11-telefon-kolejnosc');
 	for (const p of phones) await p.click('button:has-text("Wyślij")');
@@ -191,6 +241,16 @@ try {
 	// ── Koniec ────────────────────────────────────────────────────────────
 	await host.keyboard.press('Space'); // ranking
 	await host.waitForSelector('.board');
+	// Wyrzucenie gracza w trakcie gry – z potwierdzeniem
+	host.once('dialog', (d) => d.dismiss());
+	await host.click('.side li:has-text("Ola") .mini');
+	await sleep(300);
+	ok((await host.$$('.side li')).length === 3, 'anulowane potwierdzenie → gracz zostaje');
+	host.once('dialog', (d) => d.accept());
+	await host.click('.side li:has-text("Ola") .mini');
+	await phones[2].waitForSelector('text=Prowadzący usunął Cię z gry.');
+	await host.waitForFunction(() => document.querySelectorAll('.side li').length === 2);
+	ok(true, 'wyrzucenie w trakcie gry: gracz dostaje komunikat, znika z rankingu');
 	await host.keyboard.press('Space'); // podium
 	await host.waitForSelector('.podium');
 	await phones[0].waitForSelector('text=Koniec gry!');
@@ -199,6 +259,7 @@ try {
 	const first = await host.textContent('.step.s1 .who');
 	ok(first === 'Kasia', `zwyciężczyni na podium: ${first}`);
 	await screen.waitForSelector('.podium');
+	await sleep(6500); // 3. → 2. → 1. miejsce, konfetti, reszta listy
 	await snap(screen, '12b-ekran-widzow-podium');
 	ok(true, 'ekran widzów pokazuje podium');
 	await footerFits('podium');
