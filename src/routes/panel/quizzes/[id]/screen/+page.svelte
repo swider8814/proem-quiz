@@ -9,7 +9,7 @@
 <svelte:head><title>{H.screenTitle} · Proem Quiz</title></svelte:head>
 
 <div class="overlay">
-	<Host mode="screen" quizId={data.quizId} />
+	<Host mode="screen" quizId={data.quizId} pin={data.pin} />
 </div>
 
 <style>

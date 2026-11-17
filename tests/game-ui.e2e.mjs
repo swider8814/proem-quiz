@@ -94,6 +94,11 @@ try {
 	await screen.setViewportSize({ width: 1920, height: 1080 });
 	await screen.waitForSelector('.pin');
 	ok((await screen.textContent('.pin')).replace(/\s/g, '') === pin, 'ekran widzów pokazuje PIN');
+	ok(new URL(screen.url()).searchParams.get('pin') === pin, 'okno widzów przypięte do PIN-u tej gry (kanał per gra)');
+	// Inna gra tego samego quizu w tej samej przeglądarce nie miesza się z tym ekranem
+	await host.evaluate(([qid]) => new BroadcastChannel(`pq-screen-${qid}-000000`).postMessage({ t: 'closed' }), [quizId]);
+	await sleep(300);
+	ok((await screen.$('.pin')) !== null, 'komunikat z kanału innej gry ignorowany');
 	ok(await screen.$eval('.qr', (i) => i.src.startsWith('data:image/')), 'ekran widzów pokazuje kod QR');
 	ok((await screen.$$('.game .controls, .game .mini, .game button')).length === 0, 'ekran widzów nie ma żadnych przycisków');
 	await screen.waitForFunction(() => document.querySelectorAll('.players .player').length === 3);

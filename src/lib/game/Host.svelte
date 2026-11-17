@@ -203,7 +203,8 @@
 	}
 
 	// ── Okno dla widzów ────────────────────────────────────────────────
-	const channelName = $derived(`pq-screen-${quizId}`);
+	// Kanał konkretnej gry (PIN): ten sam quiz prowadzony równocześnie w dwóch salach się nie miesza.
+	const channelName = $derived(`pq-screen-${quizId}-${pin}`);
 	let channel: BroadcastChannel | null = null;
 	let screenSeen = $state(0);
 	let screenClosed = $state(false);
@@ -234,7 +235,7 @@
 	});
 
 	function openScreen() {
-		const w = window.open(`/panel/quizzes/${quizId}/screen`, channelName, 'popup,width=1280,height=720');
+		const w = window.open(`/panel/quizzes/${quizId}/screen?pin=${pin}`, channelName, 'popup,width=1280,height=720');
 		if (!w) {
 			error = PH.popupBlocked;
 			return;
