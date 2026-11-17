@@ -186,6 +186,13 @@ docker compose ps                   # stan
 Działa na Windows, macOS i Linuksie z **Docker Desktop**. Komputer i telefony muszą być w tej samej sieci Wi-Fi.
 
 1. Pobierz kod: GitHub → repozytorium → **Code → Download ZIP** (rozpakuj) albo sklonuj przez GitHub Desktop.
+
+**Windows – najprościej jednym poleceniem** (sam wykryje adres IP, utworzy `.env.local`, zbuduje, uruchomi,
+założy konto administratora i dwa przykładowe quizy). W PowerShell w folderze z kodem:
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\local-start.ps1 -Admin twoj@email.pl -Name "Imię Nazwisko"
+```
+Kroki 2–6 poniżej robią to samo ręcznie (np. na macOS / Linuksie).
 2. W folderze z kodem skopiuj `.env.local.example` jako `.env.local` i uzupełnij:
    `ORIGIN=http://<adres IP komputera>:3000` oraz `TOTP_ENCRYPTION_KEY` (polecenie w pliku).
 3. W terminalu (Windows: PowerShell) w tym folderze:
