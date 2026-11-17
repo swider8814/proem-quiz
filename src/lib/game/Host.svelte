@@ -649,6 +649,7 @@
 			{/if}
 			<button class="g-btn ghost" onclick={fullscreen} title="F"><Icon name="fullscreen" /> {L.fullscreen}</button>
 			{#if hs.state === 'ended'}
+				<a class="g-btn ghost" href="/panel/quizzes/{quizId}/reports" target="_blank" rel="noopener">{PH.report}</a>
 				<button class="g-btn" onclick={closeGame}>{L.endGame}</button>
 			{:else}
 				<button class="g-btn ghost" onclick={endGame}>{L.endGame}</button>

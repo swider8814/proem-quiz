@@ -9,11 +9,17 @@ import {
 } from '#lib/server/auth/index.js';
 
 import { sweepOrphanMedia } from '#lib/server/media-access.js';
+import { sweepOldReports } from '#lib/server/reports.js';
 import { LANG_COOKIE, resolveLang } from '#lib/server/lang.js';
 
 setInterval(() => {
 	purgeExpiredSessions();
 	sweepOrphanMedia().catch((e) => console.error('[media] sprzątanie nie powiodło się', e));
+	try {
+		sweepOldReports();
+	} catch (e) {
+		console.error('[raporty] sprzątanie nie powiodło się', e);
+	}
 }, 60 * 60 * 1000).unref();
 
 const SETUP_2FA_ROUTE = '/panel/2fa-setup';

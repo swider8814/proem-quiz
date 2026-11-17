@@ -2,7 +2,7 @@
 //   node tests/types-ui.e2e.mjs [katalog-na-zrzuty]   (wymaga npm run build i Chrome)
 import fs from 'node:fs';
 import { chromium, devices } from 'playwright-core';
-import { finish, makeAdmin, ok, sleep, startServer } from './_helpers.mjs';
+import { finish, makeAdmin, makeAuthor, ok, sleep, startServer } from './_helpers.mjs';
 
 const shots = process.argv[2];
 if (shots) fs.mkdirSync(shots, { recursive: true });
@@ -50,6 +50,8 @@ try {
 	const phone = await (await browser.newContext({ ...devices['iPhone 14'] })).newPage();
 	phone.on('pageerror', (e) => errors.push(String(e)));
 	await phone.goto(`${srv.base}/play?pin=${pin}`);
+	await phone.click('text=albo wpisz własny');
+	await phone.fill('input[aria-label="Twój nick"]', '=1+1 Ola');
 	await phone.click('button:has-text("Dołącz do gry")');
 	await phone.waitForSelector('text=Jesteś w grze!');
 
@@ -87,6 +89,29 @@ try {
 	ok((await host.textContent('.slider-res')).includes('31'), 'suwak: poprawna wartość na ekranie');
 	await sleep(700);
 	await snap(host, 'typ-05-suwak-wynik');
+	// ── Raport po grze ──
+	await host.keyboard.press('Space'); // ranking
+	await host.keyboard.press('Space'); // podium
+	await host.waitForSelector('.podium');
+	ok((await host.$('a:has-text("Raport z gry")')) !== null, 'po grze link do raportu');
+	const list = await admin.req(`/panel/quizzes/${quizId}/reports`);
+	const rid = list.text.match(/reports\/(rep_[A-Za-z0-9_-]+)/)?.[1];
+	ok(list.status === 200 && !!rid, 'raport zapisany po zakończeniu gry');
+	const view = await admin.req(`/panel/quizzes/${quizId}/reports/${rid}`);
+	ok(view.status === 200 && view.text.includes('=1+1 Ola') && view.text.includes('Ile dni ma grudzień?'), 'podgląd raportu: gracze i pytania');
+	const csv = await admin.req(`/panel/quizzes/${quizId}/reports/${rid}/csv`, { raw: true });
+	const buf = Buffer.from(await csv.res.arrayBuffer());
+	const csvText = buf.toString('utf8');
+	ok(csv.status === 200 && /attachment/.test(csv.headers.get('content-disposition') ?? ''), 'raport do pobrania jako CSV');
+	ok(buf[0] === 0xef && buf[1] === 0xbb && buf[2] === 0xbf && csvText.includes(';'), 'CSV dla Excela: BOM i średniki');
+	ok(csvText.includes(`"'=1+1 Ola"`) && !csvText.includes(`"=1+1`), 'CSV: nick zaczynający się od „=” zabezpieczony przed formułą');
+	const outsider = await makeAuthor(srv, admin, 'obcy@proem.pl');
+	ok((await outsider.req(`/panel/quizzes/${quizId}/reports/${rid}`)).status === 404 && (await outsider.req(`/panel/quizzes/${quizId}/reports/${rid}/csv`)).status === 404, 'raport niedostępny bez dostępu do quizu');
+	const hostPage = await hostCtx.newPage();
+	await hostPage.goto(`${srv.base}/panel/quizzes/${quizId}/reports/${rid}`);
+	await snap(hostPage, 'typ-06-raport');
+	const del = await admin.req(`/panel/quizzes/${quizId}/reports/${rid}?/delete`, { method: 'POST', form: {} });
+	ok(del.status === 303 && (await admin.req(`/panel/quizzes/${quizId}/reports/${rid}`)).status === 404, 'usunięcie raportu');
 	ok(errors.length === 0, `brak błędów JS ${errors.join(' | ')}`);
 } catch (e) {
 	ok(false, `wyjątek: ${e.stack}`);

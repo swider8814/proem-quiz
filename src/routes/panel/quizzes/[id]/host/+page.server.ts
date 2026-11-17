@@ -3,6 +3,7 @@ import QRCode from 'qrcode';
 import type { Actions, PageServerLoad } from './$types';
 import { buildSnapshot, canHost, loadQuiz, quizAccess } from '#lib/server/quizzes.js';
 import { games } from '#lib/server/games.js';
+import { saveReport } from '#lib/server/reports.js';
 import { panelDict } from '#lib/i18n/panel.js';
 
 export const load: PageServerLoad = ({ params, locals }) => {
@@ -16,7 +17,16 @@ export const actions: Actions = {
 		if (!canHost(quizAccess(locals.user!, params.id))) error(404, panelDict(locals.lang).err.quizNotFound);
 		const snapshot = buildSnapshot(params.id);
 		if (!snapshot || snapshot.questions.length === 0) return fail(400, { error: panelDict(locals.lang).err.noQuestions });
-		const { pin, hostToken } = games().create(snapshot, locals.user!.id);
+		const hostId = locals.user!.id;
+		const { pin, hostToken } = games().create(snapshot, hostId, {
+			onEnd: (report) => {
+				try {
+					saveReport(hostId, report);
+				} catch (e) {
+					console.error('[raporty] zapis nie powiódł się', e);
+				}
+			}
+		});
 		const host = url.host;
 		const joinUrl = `${url.origin}/play?pin=${pin}`;
 		return {

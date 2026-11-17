@@ -77,6 +77,10 @@ export class Game {
 		this.bannedDevices = new Set();
 		this.lastActivity = Date.now();
 		this.endedAt = 0;
+		this.startedAt = 0;
+		/** Wywoływane raz po zakończeniu rozegranej gry z raportem (zapis do bazy po stronie aplikacji). */
+		this.onEnd = null;
+		this.reported = false;
 		// Kolejność elementów w pytaniach "order" – losowe id per gra, żeby id nie zdradzały kolejności.
 		this.orderMaps = new Map();
 		quiz.questions.forEach((q, i) => {
@@ -228,6 +232,7 @@ export class Game {
 	startQuestion(i) {
 		this.clearTimer();
 		this.index = i;
+		if (!this.startedAt) this.startedAt = Date.now();
 		// Slajd: bez odliczania i bez czasu – wisi, aż prowadzący przejdzie dalej.
 		if (this.question.type === 'slide') {
 			this.state = 'question';
@@ -272,7 +277,53 @@ export class Game {
 		this.state = 'ended';
 		this.endedAt = Date.now();
 		this.broadcastAll();
+		if (this.onEnd && this.startedAt && !this.reported) {
+			this.reported = true;
+			this.safely(() => this.onEnd(this.report()));
+		}
 		return null;
+	}
+
+	/** Raport: wyniki graczy (tylko nicki) i trudność rozegranych pytań. */
+	report() {
+		const played = this.quiz.questions.slice(0, this.index + 1);
+		const active = this.activePlayers();
+		const questions = played.map((q, i) => {
+			const ans = active.map((p) => p.answers.get(i)).filter(Boolean);
+			const times = ans.map((a) => a.elapsed);
+			return {
+				prompt: q.prompt,
+				type: q.type,
+				answered: ans.length,
+				correct: ans.filter((a) => a.correct === true).length,
+				wrong: ans.filter((a) => a.correct === false).length,
+				avgMs: times.length ? Math.round(times.reduce((x, y) => x + y, 0) / times.length) : null
+			};
+		});
+		const byId = new Map(active.map((p) => [p.id, p]));
+		const players = this.ranking().map((r) => {
+			const p = byId.get(r.id);
+			const perQuestion = played.map((_, i) => {
+				const a = p.answers.get(i);
+				return a ? { c: a.correct, p: a.points, ms: a.elapsed } : null;
+			});
+			return {
+				nick: r.nick,
+				...(r.members ? { members: r.members } : {}),
+				score: r.score,
+				rank: r.rank,
+				correct: perQuestion.filter((a) => a?.c === true).length,
+				answered: perQuestion.filter(Boolean).length,
+				perQuestion
+			};
+		});
+		return {
+			quizId: this.quiz.quizId,
+			title: this.quiz.title,
+			startedAt: this.startedAt,
+			endedAt: this.endedAt,
+			data: { teamMode: !!this.quiz.settings.teamMode, questions, players }
+		};
 	}
 
 	// ── Odpowiedzi ──────────────────────────────────────────────────────
@@ -590,7 +641,7 @@ export class GameRegistry {
 	}
 
 	/** @param {QuizSnapshot} quiz */
-	create(quiz, ownerId) {
+	create(quiz, ownerId, opts = {}) {
 		if (!this.io) throw new Error('Serwer gry nie jest uruchomiony');
 		const mine = [...this.games.values()].filter((g) => g.ownerId === ownerId && g.state !== 'ended');
 		// Najstarsza gra tego prowadzącego jest zamykana, gdy przekroczy limit.
@@ -599,6 +650,7 @@ export class GameRegistry {
 			this.remove(oldest.pin);
 		}
 		const game = new Game(this.newPin(), quiz, ownerId, this.io);
+		if (typeof opts.onEnd === 'function') game.onEnd = opts.onEnd;
 		this.games.set(game.pin, game);
 		return { pin: game.pin, hostToken: game.issueHostToken() };
 	}

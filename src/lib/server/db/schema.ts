@@ -235,3 +235,37 @@ export const appSettings = sqliteTable('app_settings', {
 	key: text('key').primaryKey(), // np. 'org_name', 'org_logo_media_id'
 	value: text('value').notNull()
 });
+
+/** Raport z rozegranej gry (wyniki i trudność pytań). Tylko nicki – bez danych osobowych dzieci; usuwany po 90 dniach. */
+export type GameReportData = {
+	teamMode: boolean;
+	questions: { prompt: string; type: string; answered: number; correct: number; wrong: number; avgMs: number | null }[];
+	players: {
+		nick: string;
+		members?: string[];
+		score: number;
+		rank: number;
+		correct: number;
+		answered: number;
+		/** Na pytanie: null = brak odpowiedzi; c = poprawna (null w ankiecie/slajdzie), p = punkty, ms = czas. */
+		perQuestion: ({ c: boolean | null; p: number; ms: number } | null)[];
+	}[];
+};
+
+export const gameReports = sqliteTable(
+	'game_reports',
+	{
+		id: text('id').primaryKey(),
+		quizId: text('quiz_id')
+			.notNull()
+			.references(() => quizzes.id, { onDelete: 'cascade' }),
+		hostId: text('host_id'),
+		title: text('title').notNull(),
+		playerCount: integer('player_count').notNull(),
+		startedAt: integer('started_at', { mode: 'timestamp_ms' }).notNull(),
+		endedAt: integer('ended_at', { mode: 'timestamp_ms' }).notNull(),
+		data: text('data', { mode: 'json' }).$type<GameReportData>().notNull(),
+		createdAt: createdAt()
+	},
+	(t) => [index('game_reports_quiz_idx').on(t.quizId, t.endedAt)]
+);

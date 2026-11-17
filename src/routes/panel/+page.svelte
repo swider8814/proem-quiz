@@ -45,6 +45,7 @@
 				<div class="actions">
 					<a class="btn" href="/panel/quizzes/{q.id}/host" aria-disabled={q.questionCount === 0} class:disabled={q.questionCount === 0}>{t.list.run}</a>
 					<a class="btn secondary" href="/panel/quizzes/{q.id}">{t.list.edit}</a>
+					<a class="btn secondary" href="/panel/quizzes/{q.id}/reports">{t.list.reports}</a>
 					{#if q.canEdit}<form method="POST" action="?/duplicate"><input type="hidden" name="id" value={q.id} /><button class="secondary">{t.list.duplicate}</button></form>{/if}
 					{#if q.mine || data.user.role === 'admin'}
 						<form method="POST" action="?/delete" onsubmit={(e) => { if (!confirm(t.list.confirmDelete(q.title))) e.preventDefault(); }}>

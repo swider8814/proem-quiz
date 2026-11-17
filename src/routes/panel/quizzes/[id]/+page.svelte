@@ -212,6 +212,7 @@
 		</span>
 		<button class="secondary" type="button" onclick={() => (showSettings = !showSettings)} aria-expanded={showSettings}>{E.settings}</button>
 		{#if data.canShare}<a class="btn secondary" href="/panel/quizzes/{data.quiz.id}/share">{E.share}</a>{/if}
+		<a class="btn secondary" href="/panel/quizzes/{data.quiz.id}/reports">{E.reports}</a>
 		{#if !ro}<button type="button" onclick={save} disabled={saving || !dirty}>{E.save}</button>{/if}
 		<a class="btn start" href="/panel/quizzes/{data.quiz.id}/host" class:disabled={dirty || questions.length === 0} aria-disabled={dirty || questions.length === 0}>{E.start}</a>
 	</div>
