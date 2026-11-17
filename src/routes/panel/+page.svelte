@@ -61,8 +61,9 @@
 <style>
 	.head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
 	h1 { margin: 0; }
-	.new { display: flex; gap: 0.5rem; flex: 1; max-width: 30rem; }
-	.new input { flex: 1; }
+	.new { display: flex; gap: 0.5rem; flex: 1 1 20rem; max-width: 30rem; min-width: 0; }
+	.new input { flex: 1; min-width: 0; }
+	@media (max-width: 520px) { .new { flex-basis: 100%; max-width: none; } }
 	.search { margin-bottom: 1rem; max-width: 20rem; }
 	.list { list-style: none; padding: 0; display: grid; gap: 0.75rem; }
 	.list li { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; padding: 1rem 1.25rem; }

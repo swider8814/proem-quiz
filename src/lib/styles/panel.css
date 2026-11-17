@@ -65,6 +65,10 @@ button.link { background: none; color: #1368ce; padding: 0; font-weight: 400; te
 .success { background: #e5f4e4; padding: 0.7rem 0.9rem; border-radius: 0.5rem; margin: 0.8rem 0; }
 .muted { color: var(--muted); font-size: 0.9rem; }
 table { width: 100%; border-collapse: collapse; }
+/* Wąskie ekrany: szerokie tabele przewijają się w poziomie zamiast wychodzić poza kartę. */
+@media (max-width: 720px) {
+	table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
 th, td { text-align: left; padding: 0.6rem 0.5rem; border-bottom: 1px solid var(--line); vertical-align: middle; }
 th { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
 .tag { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 1rem; font-size: 0.8rem; background: #efedff; }

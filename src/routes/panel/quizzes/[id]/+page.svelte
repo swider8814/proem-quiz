@@ -205,7 +205,10 @@
 <svelte:head><title>{quiz.title} · {E.title} · Proem Quiz</title></svelte:head>
 
 <div class="bar card">
-	<input class="title" bind:value={quiz.title} maxlength="120" aria-label={E.quizTitle} disabled={ro} />
+	<label class="title-wrap" title={E.quizTitle}>
+		<input class="title" bind:value={quiz.title} maxlength="120" aria-label={E.quizTitle} placeholder={E.quizTitle} disabled={ro} />
+		{#if !ro}<span class="pen" aria-hidden="true"><Icon name="edit" /></span>{/if}
+	</label>
 	<div class="bar-actions">
 		<span class="status muted" aria-live="polite">
 			{#if saving}{E.saving}{:else if saveError}<span class="err">{saveError}</span>{:else if dirty}{E.unsaved}{:else}{E.saved}{/if}
@@ -398,6 +401,9 @@
 				<label>{current.type === 'slide' ? E.slideTitle : E.prompt}
 					<input type="text" bind:value={current.prompt} maxlength="200" placeholder={E.promptPlaceholder} />
 				</label>
+				<label>{E.translation}
+					<input type="text" value={current.promptTranslation ?? ''} oninput={(e) => (current.promptTranslation = (e.currentTarget as HTMLInputElement).value || null)} maxlength="200" placeholder={E.translationPlaceholder} />
+				</label>
 				{#if current.data.type === 'poll'}<p class="muted">{E.pollHint}</p>{/if}
 				{#if current.data.type === 'slide'}
 					{@const d = current.data}
@@ -419,9 +425,6 @@
 						</label>
 					</div>
 				{/if}
-				<label>{E.translation}
-					<input type="text" value={current.promptTranslation ?? ''} oninput={(e) => (current.promptTranslation = (e.currentTarget as HTMLInputElement).value || null)} maxlength="200" placeholder={E.translationPlaceholder} />
-				</label>
 
 				{#if current.data.type === 'audio'}
 					{#key current.key + current.data.audioMediaId}
@@ -530,8 +533,12 @@
 
 <style>
 	.bar { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; padding: 0.75rem 1rem; margin-bottom: 1rem; }
-	.title { flex: 1; min-width: 14rem; font-size: 1.25rem; font-weight: 700; border-color: transparent; }
-	.title:hover, .title:focus { border-color: #c9cbd3; }
+	/* Nazwa quizu: wyraźnie edytowalna (ołówek, przerywana linia), cała szerokość na telefonie. */
+	.title-wrap { flex: 1 1 18rem; min-width: 0; display: flex; align-items: center; gap: 0.4rem; margin: 0; border-bottom: 2px dashed #c9cbd3; }
+	.title-wrap:hover, .title-wrap:focus-within { border-bottom-color: #1368ce; }
+	.title { flex: 1; min-width: 0; width: 100%; font-size: 1.25rem; font-weight: 700; border: 0; border-radius: 0; background: transparent; padding: 0.35rem 0; box-shadow: none; outline: none; }
+	.pen { color: #8a90a6; display: inline-flex; }
+	.title-wrap:focus-within .pen { color: #1368ce; }
 	.bar-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 	.status { min-width: 8rem; text-align: right; }
 	.err { color: var(--danger); }
@@ -571,7 +578,7 @@
 	.q-tools { display: flex; gap: 0.35rem; }
 	.q-tools button { padding: 0.5rem 0.7rem; font-size: 0.85rem; }
 	.slider-set { display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: 0.4rem 0.8rem; }
-	textarea { width: 100%; font: inherit; padding: 0.5rem; border: 1px solid var(--line); border-radius: 0.5rem; box-sizing: border-box; }
+	textarea { width: 100%; font: inherit; font-weight: 400; padding: 0.5rem; border: 1px solid var(--line); border-radius: 0.5rem; box-sizing: border-box; }
 	.ans-img { flex-basis: 100%; display: flex; align-items: center; gap: 0.6rem; }
 	.ans-img img { height: 64px; max-width: 120px; object-fit: contain; border-radius: 0.4rem; background: #fff; border: 1px solid var(--line); }
 	.file-link { position: relative; cursor: pointer; color: #1368ce; text-decoration: underline; font-size: 0.9rem; }
