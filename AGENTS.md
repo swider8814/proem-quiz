@@ -11,6 +11,7 @@ Model zagrożeń: `docs/threat-model.md`.
 - `npm run test:e2e` – testy HTTP i bezpieczeństwa na osobnym procesie serwera
 - `npm run test:ui` – cała gra i edytor w Chrome (prowadzący + telefony); `CHROME_PATH` wskazuje przeglądarkę
 - `npm run test:load` – 300 graczy przez Socket.IO, serwer na jednym rdzeniu (progi opóźnień i RAM)
+- `npm run test:load:media` – pełny serwer na jednym rdzeniu, 300 telefonów naraz pobiera obrazki odpowiedzi
 
 ## Code Review Rules
 - Pisz review **po polsku**.
