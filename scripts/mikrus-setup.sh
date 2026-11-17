@@ -205,6 +205,9 @@ services:
 networks:
   quiz:
     name: proem-quiz-net
+    driver_opts:
+      # Stała nazwa mostka – zapora (scripts/mikrus-firewall.sh) blokuje po niej ruch quizu.
+      com.docker.network.bridge.name: br-proem-quiz
 COMPOSE_EOF
 }
 

@@ -114,18 +114,19 @@ Na Mikrusie działają też inne usługi (np. app.proem.pl), dlatego quiz jest o
    potem `docker compose up -d`. Ponownie otwórz `/panel/api/diag` – `resolvedClientIp` powinien
    pokazywać TWÓJ adres. Nie wpisuj adresów „na zapas”: każdy adres z tej listy może podać dowolne IP klienta.
    Jeśli Mikrus/Cytrus używa kilku adresów albo zmieni adres, `remoteAddress` to pokaże – zaktualizuj listę.
-9. **(Zalecane) Zapora:** port aplikacji jest dostępny z internetu bezpośrednio, z pominięciem Cytrusa.
-   Bez wpisu w `TRUSTED_PROXIES` takie połączenie i tak nie podrobi adresu IP, ale lepiej je zablokować:
+9. **Zapora quizu** (razem z Danielem; zmienia reguły iptables na serwerze z app.proem.pl, ale tylko
+   swoje – osobne łańcuchy `PQ-*`). Kontener quizu nie może wtedy łączyć się z usługami serwera ani
+   z innymi kontenerami, a port quizu przyjmuje połączenia tylko od Cytrusa:
    ```bash
-   # tylko jeśli Mikrus pozwala na iptables; Docker omija ufw, dlatego reguła w łańcuchu DOCKER-USER.
-   # Dopasowanie po PORCIE QUIZU Z .env (--ctorigdstport), nie po porcie w kontenerze (3000) –
-   # inne kontenery (np. app.proem.pl) mogą wewnętrznie też używać 3000 i nie mogą zostać zablokowane.
-   iptables -I DOCKER-USER -p tcp -m conntrack --ctorigdstport <PORT_Z_.env> ! -s <ADRES_CYTRUSA> -j DROP
-   # jeśli Cytrus łączy się po IPv6 (remoteAddress z kroku 8 zawiera „:”), to samo dla ip6tables
+   cd /srv/proem-quiz
+   bash mikrus-firewall.sh plan --cytrus <ADRES_CYTRUSA>     # tylko pokazuje reguły
+   bash mikrus-firewall.sh apply --cytrus <ADRES_CYTRUSA>
+   bash mikrus-firewall.sh test                               # 2× ZABLOKOWANE, internet OTWARTE
    ```
-   Po dodaniu reguły sprawdź, czy app.proem.pl nadal działa.
-   Sprawdzenie z innego komputera: `curl -m 5 http://<adres serwera>:<PORT>/health` powinien
-   się nie połączyć, a `https://quiz.proem.pl/health` – działać.
+   Sprawdź, czy app.proem.pl działa i `https://quiz.proem.pl/health` odpowiada. Wycofanie:
+   `bash mikrus-firewall.sh remove`. Gdy wszystko gra – na stałe (po restarcie serwera):
+   `bash mikrus-firewall.sh install --cytrus <ADRES_CYTRUSA>`. `<ADRES_CYTRUSA>` = `remoteAddress` z kroku 8
+   (kilka po przecinku). Skrypt skopiuj na serwer tak jak `mikrus-setup.sh`.
 
 ## Kopie zapasowe (NAS + Dysk współdzielony Google)
 

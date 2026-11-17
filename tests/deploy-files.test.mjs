@@ -60,6 +60,11 @@ ok(/install -d -m 700 -o root -g root "\$CFG"/.test(bsetup), 'konfiguracja Dysku
 ok(/use_trash = true/.test(bsetup), 'kasowanie na Dysku przez kosz');
 const backupCode = backupSh.split('\n').filter((l) => !/^\s*#/.test(l)).join('\n');
 ok(!/\b(find|rm|mv|mktemp|chmod|chown|install|touch|ln)\b[^\n]*data/.test(backupCode) && !/>\s*"?data\//.test(backupCode), 'backup.sh (root) nie zapisuje ani nie kasuje niczego w katalogu danych');
+{
+	const fw = fs.readFileSync('scripts/mikrus-firewall.sh', 'utf8');
+	const bridge = fw.match(/BRIDGE="\$\{PQ_BRIDGE:-([a-z-]+)\}"/)?.[1];
+	ok(!!bridge && fs.readFileSync('docker-compose.yml', 'utf8').includes(`com.docker.network.bridge.name: ${bridge}`), `zapora i compose: ta sama nazwa mostka (${bridge})`);
+}
 const nas = fs.readFileSync('scripts/nas-pull.sh', 'utf8');
 ok(/StrictHostKeyChecking=yes/.test(nas) && /SERVER_FINGERPRINT/.test(nas), 'NAS weryfikuje odcisk klucza serwera');
 for (const [name, body] of [['mikrus-backup-setup.sh', bsetup], ['backup.sh', backupSh], ['nas-pull.sh', nas]]) {
@@ -72,7 +77,7 @@ for (const [name, body] of [['mikrus-backup-setup.sh', bsetup], ['backup.sh', ba
 }
 
 // Pliki, do których odsyła README, są w repozytorium (nie ignorowane przez .gitignore) – review Codexa #5
-for (const f of ['.env.example', '.env.local.example', 'docker-compose.local.yml', 'scripts/nas-pull.sh', 'scripts/mikrus-backup-setup.sh']) {
+for (const f of ['.env.example', '.env.local.example', 'docker-compose.local.yml', 'scripts/nas-pull.sh', 'scripts/mikrus-backup-setup.sh', 'scripts/mikrus-firewall.sh']) {
 	let tracked = true;
 	try { execFileSync('git', ['ls-files', '--error-unmatch', f], { stdio: 'pipe' }); } catch { tracked = false; }
 	ok(tracked, `${f} jest w repozytorium`);
