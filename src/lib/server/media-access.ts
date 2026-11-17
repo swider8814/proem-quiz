@@ -15,7 +15,9 @@ export function quizzesUsingMedia(mediaId: string): string[] {
 		.where(
 			or(
 				sql`json_extract(${schema.quizzes.settings}, '$.podiumAudio.mediaId') = ${mediaId}`,
-				sql`json_extract(${schema.quizzes.settings}, '$.podiumAudio.clipMediaId') = ${mediaId}`
+				sql`json_extract(${schema.quizzes.settings}, '$.podiumAudio.clipMediaId') = ${mediaId}`,
+				sql`json_extract(${schema.quizzes.settings}, '$.musicAudio.mediaId') = ${mediaId}`,
+				sql`json_extract(${schema.quizzes.settings}, '$.musicAudio.clipMediaId') = ${mediaId}`
 			)
 		)
 		.all()
@@ -82,9 +84,10 @@ function referencedIds(): Set<string> {
 		if (d.clipMediaId) ids.add(d.clipMediaId);
 	}
 	for (const q of db.select({ s: schema.quizzes.settings }).from(schema.quizzes).all()) {
-		const a = q.s?.podiumAudio;
-		if (a?.mediaId) ids.add(a.mediaId);
-		if (a?.clipMediaId) ids.add(a.clipMediaId);
+		for (const a of [q.s?.podiumAudio, q.s?.musicAudio]) {
+			if (a?.mediaId) ids.add(a.mediaId);
+			if (a?.clipMediaId) ids.add(a.clipMediaId);
+		}
 	}
 	for (const t of db.select().from(schema.themes).all()) {
 		for (const v of [t.logoLight, t.logoDark, t.background, t.jingleMediaId, t.lobbyMusicMediaId]) if (v) ids.add(v);

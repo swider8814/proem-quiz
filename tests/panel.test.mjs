@@ -147,6 +147,17 @@ try {
 	const kasiaOwn = JSON.parse((await upload(kasia, makeMp3(3), 'kasia.mp3')).text);
 	const foreign = await author.req(`/panel/api/quizzes/${sq}`, { method: 'PUT', body: withPodium({ podiumSound: 'custom', podiumAudio: { mediaId: kasiaOwn.id, startMs: 0, endMs: 2000 } }), headers: json });
 	ok(foreign.status === 400, 'cudzy plik jako dźwięk na podium odrzucony');
+	// ── Muzyka w tle: własny plik (pętla 5–60 s) ──
+	const shortMusic = await author.req(`/panel/api/quizzes/${sq}`, { method: 'PUT', body: withPodium({ music: 'custom', musicAudio: { mediaId: memMp3.id, startMs: 0, endMs: 3000 } }), headers: json });
+	ok(shortMusic.status === 400 && /od 5 do 60/.test(shortMusic.text), 'muzyka krótsza niż 5 s odrzucona');
+	const noMusicFile = await author.req(`/panel/api/quizzes/${sq}`, { method: 'PUT', body: withPodium({ music: 'custom', musicAudio: null }), headers: json });
+	ok(noMusicFile.status === 400, 'własna muzyka bez pliku odrzucona');
+	const musicOk = await author.req(`/panel/api/quizzes/${sq}`, { method: 'PUT', body: withPodium({ music: 'custom', musicAudio: { mediaId: memMp3.id, startMs: 0, endMs: 6000 }, musicLobby: true, musicQuestions: false }), headers: json });
+	ok(musicOk.status === 200, 'zapis z własną muzyką w tle');
+	const mdb2 = new Database(path.join(srv.dataDir, 'quiz.db'), { readonly: true });
+	const mset = JSON.parse(mdb2.prepare('SELECT settings FROM quizzes WHERE id = ?').get(sq).settings);
+	mdb2.close();
+	ok(mset.music === 'custom' && !!mset.musicAudio?.clipMediaId && mset.musicQuestions === false, 'muzyka: wycięty fragment i ustawienia zapisane');
 	ok((await setShare(kasia, { userId: kasiaId, permission: 'edit' })).status === 403, 'nie można samemu podnieść sobie uprawnień');
 	const delShared = await kasia.req('/panel?/delete', { method: 'POST', form: { id: sq } });
 	ok(delShared.status === 403, 'osoba z dostępem nie usunie cudzego quizu');

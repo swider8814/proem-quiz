@@ -96,12 +96,21 @@ export const themes = sqliteTable('themes', {
 export const PODIUM_SOUNDS = ['fanfare', 'triumph', 'drumroll', 'custom', 'none'] as const;
 export type PodiumSound = (typeof PODIUM_SOUNDS)[number];
 
+export const MUSIC_KINDS = ['calm', 'upbeat', 'custom', 'none'] as const;
+export type MusicKind = (typeof MUSIC_KINDS)[number];
+/** Własny dźwięk: plik + zakres; clipMediaId = wycięty i wyrównany głośnościowo fragment (liczy serwer). */
+export type CustomAudio = { mediaId: string; startMs: number; endMs: number; clipMediaId?: string };
+
 export type QuizSettings = {
 	defaultTimeLimit: number; // sekundy
 	countdown: number; // odliczanie przed każdym pytaniem w sekundach, 0 = bez odliczania
 	podiumSound: PodiumSound; // dźwięk przy 1. miejscu na podium
 	/** Własny dźwięk na podium: plik + zakres; clipMediaId = wycięty i wyrównany głośnościowo fragment. */
-	podiumAudio: { mediaId: string; startMs: number; endMs: number; clipMediaId?: string } | null;
+	podiumAudio: CustomAudio | null;
+	music: MusicKind; // muzyka w tle
+	musicAudio: CustomAudio | null; // własna muzyka (pętla)
+	musicLobby: boolean; // muzyka w poczekalni
+	musicQuestions: boolean; // muzyka w trakcie odliczania i pytań (bez pytań audio)
 	streakBonus: boolean;
 	nicknameMode: 'random-or-custom' | 'random-only';
 	teamMode: boolean;
@@ -114,6 +123,10 @@ export const DEFAULT_QUIZ_SETTINGS: QuizSettings = {
 	countdown: 5,
 	podiumSound: 'fanfare',
 	podiumAudio: null,
+	music: 'calm',
+	musicAudio: null,
+	musicLobby: true,
+	musicQuestions: true,
 	streakBonus: true,
 	nicknameMode: 'random-or-custom',
 	teamMode: false,

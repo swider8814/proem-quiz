@@ -11,7 +11,7 @@
 	import Confetti from './Confetti.svelte';
 	import { fly, scale } from 'svelte/transition';
 	import { backOut } from 'svelte/easing';
-	import { playPodium, type PodiumSound } from './sounds.js';
+	import { Music, playPodium, type MusicKind, type PodiumSound } from './sounds.js';
 	import { ask, gameSocket, keepAwake, remaining } from './client.js';
 	import { t } from './i18n.js';
 	import { shapeColor, themeVars, type GameTheme } from './theme.js';
@@ -41,7 +41,7 @@
 	};
 	type HS = {
 		pin: string; state: 'lobby' | 'intro' | 'question' | 'reveal' | 'leaderboard' | 'ended';
-		title: string; locale: string; theme: GameTheme; settings: { teamMode: boolean; podiumSound?: PodiumSound; podiumUrl?: string | null };
+		title: string; locale: string; theme: GameTheme; settings: { teamMode: boolean; podiumSound?: PodiumSound; podiumUrl?: string | null; music?: MusicKind; musicUrl?: string | null; musicLobby?: boolean; musicQuestions?: boolean };
 		totalQuestions: number; players?: { id: string; nick: string; connected: boolean }[]; playerCount: number;
 		now: number; question?: HQ; deadline?: number | null; introEnds?: number | null; answered?: number;
 		solution?: { correct?: number[] | boolean; accepted?: string[]; order?: string[] };
@@ -152,6 +152,24 @@
 		}
 		if (s.state === 'leaderboard' || s.state === 'ended' || s.state === 'lobby') stopAudio();
 		if (s.state === 'ended' && prev && prev.state !== 'ended' && s.ranking?.length) fanfare();
+		syncMusic();
+	}
+
+	// Muzyka w tle (tylko okno prowadzącego): poczekalnia oraz odliczanie i pytania bez własnego audio.
+	const music = new Music();
+	let musicOff = $state(false);
+	function syncMusic() {
+		const set = hs?.settings;
+		const st = hs?.state;
+		const want =
+			!musicOff && set && set.music !== 'none' &&
+			((st === 'lobby' && set.musicLobby !== false) || ((st === 'intro' || st === 'question') && set.musicQuestions !== false && !hs?.question?.audio));
+		if (want) music.play(set.music ?? 'calm', set.musicUrl, st === 'lobby' ? 1 : 0.7);
+		else music.stop();
+	}
+	function toggleMusic() {
+		musicOff = !musicOff;
+		syncMusic();
 	}
 
 	let stopPodium: (() => void) | null = null;
@@ -310,6 +328,7 @@
 			clearInterval(tick);
 			unlock();
 			stopAudio();
+			music.stop();
 			stopPodium?.();
 			socket?.disconnect();
 			channel?.close();
@@ -359,6 +378,7 @@
 	}
 
 	function onKey(e: KeyboardEvent) {
+		if (!isScreen) music.resume();
 		if ((e.target as HTMLElement)?.closest('input, textarea, select')) return;
 		if (e.key === ' ' || e.key === 'ArrowRight' || e.key === 'PageDown') {
 			e.preventDefault();
@@ -383,7 +403,7 @@
 	);
 </script>
 
-<svelte:window onkeydown={onKey} />
+<svelte:window onkeydown={onKey} onpointerdown={() => !isScreen && music.resume()} />
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
@@ -589,6 +609,9 @@
 			{/if}
 			<button class="g-btn ghost" onclick={openScreen}><Icon name="screen" /> {PH.openScreen}</button>
 			{#if hs.state === 'lobby'}<button class="g-btn ghost" onclick={soundTest}><Icon name="sound" /> {L.soundTest}</button>{/if}
+			{#if hs.settings.music && hs.settings.music !== 'none'}
+				<button class="g-btn ghost" onclick={toggleMusic} aria-pressed={!musicOff}><Icon name="music" /> {musicOff ? PH.musicOn : PH.musicOff}</button>
+			{/if}
 			<button class="g-btn ghost" onclick={fullscreen} title="F"><Icon name="fullscreen" /> {L.fullscreen}</button>
 			{#if hs.state === 'ended'}
 				<button class="g-btn" onclick={closeGame}>{L.endGame}</button>

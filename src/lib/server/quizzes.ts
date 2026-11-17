@@ -6,7 +6,7 @@ import { MediaError, cutClip, mediaUrl } from './media.js';
 import { canUseMedia } from './media-access.js';
 import type { User } from './auth/index.js';
 import type { ErrKey } from '#lib/i18n/panel.js';
-import { DEFAULT_QUIZ_SETTINGS, PODIUM_SOUNDS, type QuestionData, type QuizSettings } from './db/schema.js';
+import { DEFAULT_QUIZ_SETTINGS, MUSIC_KINDS, PODIUM_SOUNDS, type QuestionData, type QuizSettings } from './db/schema.js';
 
 // ── Uprawnienia ──────────────────────────────────────────────────────────
 
@@ -185,6 +185,11 @@ const questionSchema = z
 		}
 	});
 
+const customAudio = z
+	.object({ mediaId, startMs: z.number().int().min(0).max(3 * 60 * 60 * 1000), endMs: z.number().int().min(0).max(3 * 60 * 60 * 1000) })
+	.nullable()
+	.default(null);
+
 export const quizSaveSchema = z.object({
 	title: str(120).min(1, 'giveTitleShort'),
 	description: str(500).nullable().optional(),
@@ -194,10 +199,11 @@ export const quizSaveSchema = z.object({
 		defaultTimeLimit: z.number().int().min(5).max(240),
 		countdown: z.number().int().min(0).max(10).default(5),
 		podiumSound: z.enum(PODIUM_SOUNDS).default('fanfare'),
-		podiumAudio: z
-			.object({ mediaId, startMs: z.number().int().min(0).max(3 * 60 * 60 * 1000), endMs: z.number().int().min(0).max(3 * 60 * 60 * 1000) })
-			.nullable()
-			.default(null),
+		podiumAudio: customAudio,
+		music: z.enum(MUSIC_KINDS).default('calm'),
+		musicAudio: customAudio,
+		musicLobby: z.boolean().default(true),
+		musicQuestions: z.boolean().default(true),
 		streakBonus: z.boolean(),
 		nicknameMode: z.enum(['random-or-custom', 'random-only']),
 		teamMode: z.boolean(),
@@ -209,6 +215,9 @@ export const quizSaveSchema = z.object({
 	const a = q.settings.podiumAudio;
 	if (q.settings.podiumSound === 'custom' && !a) ctx.addIssue({ code: 'custom', message: 'podiumNoFile' });
 	if (a && (a.endMs - a.startMs < 1000 || a.endMs - a.startMs > PODIUM_MAX_MS)) ctx.addIssue({ code: 'custom', message: 'podiumLength' });
+	const mu = q.settings.musicAudio;
+	if (q.settings.music === 'custom' && !mu) ctx.addIssue({ code: 'custom', message: 'musicNoFile' });
+	if (mu && (mu.endMs - mu.startMs < 5000 || mu.endMs - mu.startMs > 60_000)) ctx.addIssue({ code: 'custom', message: 'musicLength' });
 });
 
 /** Najdłuższy własny dźwięk na podium. */
@@ -228,8 +237,7 @@ export async function saveQuiz(user: User, quizId: string, input: QuizSave): Pro
 		if (q.data.type === 'audio') ids.add(q.data.audioMediaId);
 		if (q.data.type === 'choice') for (const im of q.data.images ?? []) if (im) ids.add(im);
 	}
-	const podium = input.settings.podiumAudio;
-	if (podium) ids.add(podium.mediaId);
+	for (const a of [input.settings.podiumAudio, input.settings.musicAudio]) if (a) ids.add(a.mediaId);
 	const media = ids.size ? db.select().from(schema.media).where(inArray(schema.media.id, [...ids])).all() : [];
 	const byId = new Map(media.map((m) => [m.id, m]));
 	// Wolno używać tylko plików, do których ma się dostęp (własne, admin, albo z dostępnego quizu).
@@ -244,22 +252,25 @@ export async function saveQuiz(user: User, quizId: string, input: QuizSave): Pro
 		}
 	}
 	let settings = input.settings as QuizSettings;
-	if (podium) {
-		const m = byId.get(podium.mediaId);
+	// Własne dźwięki (podium, muzyka): wycięcie fragmentu z wyrównaniem głośności; bez zmian = ten sam plik.
+	const prevSettings = db.select({ settings: schema.quizzes.settings }).from(schema.quizzes).where(eq(schema.quizzes.id, quizId)).get()?.settings;
+	for (const key of ['podiumAudio', 'musicAudio'] as const) {
+		const a = input.settings[key];
+		if (!a) continue;
+		const m = byId.get(a.mediaId);
 		if (m?.kind !== 'audio') return { error: 'badAudio' as ErrKey };
-		if (m.durationMs && podium.endMs > m.durationMs + 500) return { error: 'clipBeyond' as ErrKey };
-		const prevQuiz = db.select({ settings: schema.quizzes.settings }).from(schema.quizzes).where(eq(schema.quizzes.id, quizId)).get();
-		const prev = prevQuiz?.settings?.podiumAudio;
-		const reuse = prev && prev.mediaId === podium.mediaId && prev.startMs === podium.startMs && prev.endMs === podium.endMs && prev.clipMediaId;
+		if (m.durationMs && a.endMs > m.durationMs + 500) return { error: 'clipBeyond' as ErrKey };
+		const prev = prevSettings?.[key];
+		const reuse = prev && prev.mediaId === a.mediaId && prev.startMs === a.startMs && prev.endMs === a.endMs && prev.clipMediaId;
 		let clipMediaId: string | null | undefined;
 		try {
-			clipMediaId = reuse ? prev.clipMediaId : await cutClip(user.id, podium.mediaId, podium.startMs, podium.endMs, { normalize: true });
+			clipMediaId = reuse ? prev.clipMediaId : await cutClip(user.id, a.mediaId, a.startMs, a.endMs, { normalize: true });
 		} catch (e) {
 			if (e instanceof MediaError) return { error: e.key };
 			throw e;
 		}
 		if (!clipMediaId) return { error: 'clipCut' as ErrKey };
-		settings = { ...settings, podiumAudio: { ...podium, clipMediaId } };
+		settings = { ...settings, [key]: { ...a, clipMediaId } };
 	}
 
 	const old = new Map(db.select().from(schema.questions).where(eq(schema.questions.quizId, quizId)).all().map((q) => [q.id, q]));
@@ -320,11 +331,18 @@ export function themeView(themeId: string | null) {
 	return { name: t.name, style: t.style, colors: t.colors, headingFont: t.headingFont, logoUrl: mediaUrl(t.logoLight), logoDarkUrl: mediaUrl(t.logoDark) };
 }
 
-/** Do gry: zamiast identyfikatorów plików tylko adres gotowego fragmentu na podium. */
+/** Do gry: zamiast identyfikatorów plików tylko adresy gotowych fragmentów (podium, muzyka). */
 function podiumSettings(s: QuizSettings) {
-	const { podiumAudio, ...rest } = s;
+	const { podiumAudio, musicAudio, ...rest } = s;
 	const podiumUrl = s.podiumSound === 'custom' ? mediaUrl(podiumAudio?.clipMediaId ?? null) : null;
-	return { ...rest, podiumSound: s.podiumSound === 'custom' && !podiumUrl ? 'fanfare' : s.podiumSound, podiumUrl };
+	const musicUrl = s.music === 'custom' ? mediaUrl(musicAudio?.clipMediaId ?? null) : null;
+	return {
+		...rest,
+		podiumSound: s.podiumSound === 'custom' && !podiumUrl ? 'fanfare' : s.podiumSound,
+		podiumUrl,
+		music: s.music === 'custom' && !musicUrl ? 'calm' : s.music,
+		musicUrl
+	};
 }
 
 export function buildSnapshot(quizId: string) {

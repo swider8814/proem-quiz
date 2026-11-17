@@ -85,6 +85,7 @@ try {
 
 	await host.waitForFunction(() => document.querySelectorAll('.players .player').length === 3);
 	ok(true, 'prowadzący widzi 3 graczy');
+	ok((await host.$('button:has-text("Wycisz muzykę")')) !== null, 'muzyka w poczekalni z przyciskiem wyciszenia');
 	await snap(host, '04-prowadzacy-poczekalnia');
 
 	// ── Ekran dla widzów (osobne okno na projektor) ───────────────────────

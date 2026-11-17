@@ -18,8 +18,10 @@ export const load: PageServerLoad = ({ params, locals }) => {
 	}
 	const settings = { ...DEFAULT_QUIZ_SETTINGS, ...loaded.quiz.settings };
 	// Edytor dostaje plik i zakres; wycięty fragment (clipMediaId) serwer liczy sam przy zapisie.
-	const podiumAudio = settings.podiumAudio ? { mediaId: settings.podiumAudio.mediaId, startMs: settings.podiumAudio.startMs, endMs: settings.podiumAudio.endMs } : null;
-	if (podiumAudio) mediaIds.add(podiumAudio.mediaId);
+	const strip = (a: typeof settings.podiumAudio) => (a ? { mediaId: a.mediaId, startMs: a.startMs, endMs: a.endMs } : null);
+	const podiumAudio = strip(settings.podiumAudio);
+	const musicAudio = strip(settings.musicAudio);
+	for (const a of [podiumAudio, musicAudio]) if (a) mediaIds.add(a.mediaId);
 	const media = mediaIds.size
 		? db.select({ id: schema.media.id, name: schema.media.originalName, durationMs: schema.media.durationMs, kind: schema.media.kind })
 				.from(schema.media).where(inArray(schema.media.id, [...mediaIds])).all()
@@ -33,7 +35,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 			description: loaded.quiz.description,
 			themeId: loaded.quiz.themeId,
 			locale: loaded.quiz.locale,
-			settings: { ...settings, podiumAudio }
+			settings: { ...settings, podiumAudio, musicAudio }
 		},
 		questions: loaded.questions.map((q) => {
 			const { clipMediaId: _clip, ...data } = q.data as typeof q.data & { clipMediaId?: string };

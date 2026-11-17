@@ -2,7 +2,7 @@
 	import Icon from '#lib/Icon.svelte';
 	import { beforeNavigate } from '$app/navigation';
 	import AudioClipEditor from '#lib/editor/AudioClipEditor.svelte';
-	import { playPodium, type PodiumSound } from '#lib/game/sounds.js';
+	import { Music, playPodium, type MusicKind, type PodiumSound } from '#lib/game/sounds.js';
 	import {
 		ANSWER_COLORS, QTYPES, changeType, newKey, newQuestion, problems, toPayload, uploadFile,
 		type EditorQuestion, type QType
@@ -61,7 +61,8 @@
 		// Zapamiętujemy DOKŁADNIE to, co wysyłamy – zmiany zrobione w trakcie zapisu zostają niezapisane.
 		const sentQuiz = $state.snapshot(quiz);
 		// Własny dźwięk bez wybranego pliku → serwer zwróci czytelny błąd („wybierz plik”).
-		const body = { ...sentQuiz, settings: { ...sentQuiz.settings, podiumAudio: sentQuiz.settings.podiumAudio?.mediaId ? sentQuiz.settings.podiumAudio : null } };
+		const s = sentQuiz.settings;
+		const body = { ...sentQuiz, settings: { ...s, podiumAudio: s.podiumAudio?.mediaId ? s.podiumAudio : null, musicAudio: s.musicAudio?.mediaId ? s.musicAudio : null } };
 		const sentQuestions = $state.snapshot(questions);
 		const sentPayload = sentQuestions.map(toPayload);
 		try {
@@ -94,6 +95,31 @@
 		if (kind === 'custom') return; // własny plik odsłuchuje się w edytorze fragmentu
 		stopPreview = playPodium(kind, { firstAt: kind === 'drumroll' ? 1800 : 0, secondAt: 0 });
 	}
+	const MUSIC_OPTIONS: MusicKind[] = ['calm', 'upbeat', 'custom', 'none'];
+	const previewMusic = new Music();
+	let musicPlaying = $state(false);
+	let musicTimer: ReturnType<typeof setTimeout> | null = null;
+	function toggleMusicPreview() {
+		if (musicTimer) clearTimeout(musicTimer);
+		if (musicPlaying) {
+			previewMusic.stop();
+			musicPlaying = false;
+			return;
+		}
+		previewMusic.play(quiz.settings.music);
+		musicPlaying = true;
+		musicTimer = setTimeout(() => {
+			previewMusic.stop();
+			musicPlaying = false;
+		}, 12_000);
+	}
+	function chooseMusic() {
+		previewMusic.stop();
+		musicPlaying = false;
+		if (quiz.settings.music === 'custom' && !quiz.settings.musicAudio) quiz.settings.musicAudio = { mediaId: '', startMs: 0, endMs: 30_000 };
+	}
+	$effect(() => () => previewMusic.stop());
+
 	function choosePodium() {
 		if (quiz.settings.podiumSound === 'custom' && !quiz.settings.podiumAudio) {
 			quiz.settings.podiumAudio = { mediaId: '', startMs: 0, endMs: 10_000 };
@@ -243,6 +269,46 @@
 						onMedia={(m) => {
 							media[m.id] = { ...m, kind: 'audio' };
 							pa.mediaId = m.id;
+						}}
+					/>
+				{/key}
+			</div>
+		{/if}
+		<div class="podium-set">
+			<label>{E.music}
+				<select bind:value={quiz.settings.music} onchange={chooseMusic}>
+					{#each MUSIC_OPTIONS as o}<option value={o}>{E.musics[o]}</option>{/each}
+				</select>
+			</label>
+			{#if quiz.settings.music === 'calm' || quiz.settings.music === 'upbeat'}
+				<button type="button" class="secondary" onclick={toggleMusicPreview}>{musicPlaying ? E.stop : E.podiumPreview}</button>
+			{/if}
+		</div>
+		{#if quiz.settings.music !== 'none'}
+			<div class="music-where">
+				<label class="check"><input type="checkbox" bind:checked={quiz.settings.musicLobby} /> {E.musicLobby}</label>
+				<label class="check"><input type="checkbox" bind:checked={quiz.settings.musicQuestions} /> {E.musicQuestions}</label>
+			</div>
+		{/if}
+		{#if quiz.settings.music === 'custom' && quiz.settings.musicAudio}
+			{@const ma = quiz.settings.musicAudio}
+			<div class="podium-clip">
+				<p class="muted">{E.musicCustomHint}</p>
+				{#key ma.mediaId}
+					<AudioClipEditor
+						mediaId={ma.mediaId}
+						mediaName={media[ma.mediaId]?.name ?? null}
+						durationMs={media[ma.mediaId]?.durationMs ?? null}
+						bind:startMs={ma.startMs}
+						bind:endMs={ma.endMs}
+						loop={true}
+						revealEndMs={null}
+						simple
+						maxMs={60_000}
+						disabled={ro}
+						onMedia={(m) => {
+							media[m.id] = { ...m, kind: 'audio' };
+							ma.mediaId = m.id;
 						}}
 					/>
 				{/key}
@@ -438,6 +504,7 @@
 	.podium-set { display: flex; gap: 0.6rem; align-items: flex-end; }
 	.podium-set label { flex: 1; }
 	.podium-clip { grid-column: 1 / -1; }
+	.music-where { display: flex; flex-direction: column; justify-content: flex-end; }
 	.podium-clip p { margin: 0.5rem 0; }
 	.check { display: flex; align-items: center; gap: 0.5rem; font-weight: 400; }
 	.check.small { font-size: 0.8rem; white-space: nowrap; margin: 0; }
