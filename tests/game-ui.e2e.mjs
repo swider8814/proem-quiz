@@ -273,6 +273,13 @@ try {
 	ok(true, 'ekran widzów pokazuje podium');
 	await footerFits('podium');
 
+	// Po końcu gry „wstecz” znów wychodzi ze strony (review Codexa)
+	await phones[0].goBack();
+	await sleep(300);
+	await phones[0].goBack().catch(() => {});
+	await sleep(300);
+	ok(!phones[0].url().includes('/play'), `po zakończeniu gry „wstecz” nie jest blokowane (${phones[0].url()})`);
+
 	// ── Odświeżenie telefonu w trakcie gry nie gubi gracza ───────────────
 	await phones[1].reload();
 	await phones[1].waitForSelector('text=Koniec gry!');

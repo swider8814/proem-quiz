@@ -89,6 +89,31 @@ try {
 	await host.keyboard.press('Space');
 	await phone.waitForSelector('text=Koniec gry!');
 	ok((await anon(`/game-media/${pin}/${imgs[1]}`)).status === 404, 'po pytaniu obrazki znów niedostępne');
+
+	// Tryb drużynowy: podczas narady obrazki odpowiedzi widać na ekranie i telefonie (review Codexa)
+	const c2 = await admin.req('/panel?/create', { method: 'POST', form: { title: 'Drużyny' } });
+	const q2 = c2.loc.split('/').pop();
+	const teamBody = JSON.parse(quiz([q1]));
+	teamBody.settings = { ...teamBody.settings, teamMode: true, teamTalk: 10, countdown: 3 };
+	ok((await admin.req(`/panel/api/quizzes/${q2}`, { method: 'PUT', headers: json, body: JSON.stringify(teamBody) })).status === 200, 'quiz drużynowy zapisany');
+	const host2 = await hostCtx.newPage();
+	await host2.goto(`${srv.base}/panel/quizzes/${q2}/host`);
+	await host2.click('form[action="?/start"] button');
+	await host2.waitForSelector('.pin');
+	const pin2 = (await host2.textContent('.pin')).replace(/\s/g, '');
+	const team = await (await browser.newContext({ ...devices['iPhone 14'] })).newPage();
+	await team.goto(`${srv.base}/play?pin=${pin2}`);
+	await team.fill('input[aria-label="Imię 1"]', 'Ala');
+	await team.click('button:has-text("Dołącz do gry")');
+	await team.waitForSelector('text=Jesteś w grze!');
+	await host2.waitForSelector('.players .members');
+	ok((await host2.textContent('.players')).includes('Ala'), 'członek drużyny widoczny w poczekalni');
+	await host2.keyboard.press('Space');
+	await host2.waitForSelector('.answers.talk');
+	await host2.waitForFunction(() => [...document.querySelectorAll('.answers.talk img')].filter((i) => i.naturalWidth > 0).length === 4);
+	await team.waitForFunction(() => [...document.querySelectorAll('.talk-img')].filter((i) => i.naturalWidth > 0).length === 4);
+	ok(true, 'narada: obrazki odpowiedzi na ekranie i telefonie');
+	await snap(team, 'img-03-narada-telefon');
 } catch (e) {
 	ok(false, `wyjątek: ${e.stack}`);
 } finally {

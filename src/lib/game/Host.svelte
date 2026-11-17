@@ -484,7 +484,10 @@
 					<p class="listen">{L.teamTalk}</p>
 					<div class="answers talk">
 						{#each q.answers ?? q.items?.map((x) => x.label) ?? [] as a, i}
-							<div class="g-tile a{i % 4}" in:scale={{ start: 0.85, delay: 200 + i * 90, duration: 350, easing: backOut }}>{a}</div>
+							<div class="g-tile a{i % 4}" in:scale={{ start: 0.85, delay: 200 + i * 90, duration: 350, easing: backOut }}>
+								{#if q.answerImages?.[i]}<img class="ans-img" src={q.answerImages[i]} alt={a || String.fromCharCode(65 + i)} />{/if}
+								{a}
+							</div>
 						{/each}
 					</div>
 				{:else}

@@ -75,7 +75,8 @@
 	// (płytka nawigacja SvelteKit), a po cofnięciu przywracamy go i pokazujemy podpowiedź.
 	let guardArmed = false;
 	$effect(() => {
-		if (phase !== 'game') return;
+		// Po zakończeniu gry „wstecz” znowu działa normalnie (review Codexa).
+		if (phase !== 'game' || gs?.state === 'ended') return;
 		if (page.state.guard) return;
 		if (guardArmed) {
 			toast = L.stayInGame;
@@ -315,13 +316,18 @@
 			<h1 class="prompt">{q.prompt}</h1>
 			{#if q.promptTranslation}<p class="translation">{q.promptTranslation}</p>{/if}
 
-			{#if gs.state === 'intro' && team && (q.answers || q.items)}
+			{#if gs.state === 'intro' && team && (q.answers || q.items || q.answerImages)}
 				<!-- Narada drużyny: odpowiedzi widać, ale jeszcze nie można odpowiadać. -->
 				<main class="center talk" in:fly={{ y: 24, duration: 380 }}>
 					<p class="huge">{L.teamTalk}</p>
 					{#key introLeft}<div class="cd g-box" in:scale={{ start: 1.6, duration: 450, easing: backOut }}>{introLeft}</div>{/key}
 					<ul class="talk-list">
-						{#each q.answers ?? q.items?.map((x) => x.label) ?? [] as a, i}<li class="g-tile a{i % 4}">{a}</li>{/each}
+						{#each q.answers ?? q.items?.map((x) => x.label) ?? q.answerImages?.map(() => '') ?? [] as a, i}
+							<li class="g-tile a{i % 4}">
+								{#if q.answerImages?.[i]}<img class="talk-img" src={q.answerImages[i]} alt="" />{/if}
+								{a}
+							</li>
+						{/each}
 					</ul>
 				</main>
 			{:else if gs.state === 'intro'}
@@ -493,6 +499,7 @@
 	.small-label { font-size: 1rem; }
 	.member { font-size: 1.05rem; }
 	.talk-list { list-style: none; margin: 0; padding: 0; width: 100%; display: grid; gap: 8px; }
+	.talk-img { height: 56px; max-width: 40%; object-fit: contain; background: #fff; border-radius: 6px; margin-right: 10px; }
 	.talk-list li { padding: 10px 14px; font-weight: 800; justify-content: flex-start; min-height: 0; cursor: default; }
 	.slider-q { gap: 20px; }
 	.slider-val { font-size: 2.6rem; font-weight: 900; padding: 8px 24px; margin: 0; font-variant-numeric: tabular-nums; }
