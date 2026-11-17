@@ -94,6 +94,16 @@ try {
 	await p.locator('.list .item').nth(4).click();
 	await p.click('button[aria-label="Przesuń w górę"]');
 	ok(/Ułóż zdanie/.test(await p.locator('.list .item').nth(3).textContent()), 'przesunięcie pytania w górę');
+	// Przeciąganie myszą: ostatnie na początek i z powrotem
+	{
+		const names = async () => (await p.locator('.list .item .t').allTextContents()).map((t) => t.trim());
+		const before = await names();
+		await p.locator('.list li').nth(4).dragTo(p.locator('.list li').nth(0));
+		const after = await names();
+		ok(after[0] === before[4] && after.length === 5, `przeciąganie pytania na liście (${after[0]})`);
+		await p.locator('.list li').nth(0).dragTo(p.locator('.list li').nth(4));
+		ok(JSON.stringify(await names()) === JSON.stringify(before), 'przeciąganie z powrotem przywraca kolejność');
+	}
 
 	// Zapis (Ctrl+S)
 	await p.keyboard.press('Control+s');

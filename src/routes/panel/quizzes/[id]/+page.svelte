@@ -146,6 +146,19 @@
 		[questions[i], questions[j]] = [questions[j], questions[i]];
 		selected = j;
 	}
+	// Przeciąganie pytań na liście (mysz). Strzałki ↑↓ zostają – dla klawiatury i telefonu.
+	let dragFrom = $state<number | null>(null);
+	let dragOver = $state<number | null>(null);
+	function dropAt(to: number) {
+		const from = dragFrom;
+		dragFrom = null;
+		dragOver = null;
+		if (from === null || from === to || ro) return;
+		const cur = questions[selected];
+		const [q] = questions.splice(from, 1);
+		questions.splice(to, 0, q);
+		selected = questions.indexOf(cur);
+	}
 	function setType(t: QType) {
 		questions[selected] = changeType(current, t);
 	}
@@ -345,7 +358,16 @@
 	<aside class="card list">
 		<ol>
 			{#each questions as q, i (q.key)}
-				<li>
+				<li
+					draggable={!ro}
+					class:drag-over={dragOver === i && dragFrom !== i}
+					class:dragging={dragFrom === i}
+					ondragstart={(e) => { dragFrom = i; e.dataTransfer?.setData('text/plain', String(i)); if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'; }}
+					ondragover={(e) => { if (dragFrom !== null) { e.preventDefault(); dragOver = i; } }}
+					ondragleave={() => { if (dragOver === i) dragOver = null; }}
+					ondrop={(e) => { e.preventDefault(); dropAt(i); }}
+					ondragend={() => { dragFrom = null; dragOver = null; }}
+				>
 					<button type="button" class="item" class:active={i === selected} onclick={() => (selected = i)}>
 						<span class="n">{i + 1}</span>
 						<span class="t">{q.prompt || E.noPrompt}</span>
@@ -557,6 +579,9 @@
 	.layout { display: flex; gap: 1rem; align-items: flex-start; flex-wrap: wrap; }
 	.list { flex: 0 1 18rem; padding: 0.75rem; position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow: auto; }
 	.list ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.3rem; }
+	li[draggable='true'] { cursor: grab; }
+	li.dragging { opacity: 0.4; }
+	li.drag-over { box-shadow: 0 -3px 0 #1368ce; }
 	.item { width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: 0.5rem; padding: 0.55rem; background: #fff; color: var(--text); border: 1px solid var(--line); font-weight: 400; font-size: 0.9rem; text-align: left; }
 	.item.active { border-color: #1368ce; background: #eef4fd; }
 	.n { width: 1.4rem; color: var(--muted); font-weight: 600; }
