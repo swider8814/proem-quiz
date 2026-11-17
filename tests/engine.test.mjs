@@ -252,6 +252,11 @@ for (const cd of [0, 3]) {
 	await emit(b, 'answer', { index: 1, choice: 1 });
 	const prv = await pr;
 	ok(prv.result.poll && prv.result.voted && prv.me.score === 0, 'ankieta: bez punktów, głos policzony');
+	{
+		const gg = registry().get(g.pin);
+		const times = [...gg.players.values()].map((p) => p.totalTime);
+		ok(times.every((t) => t === 0), `ankieta nie zmienia czasu rozstrzygającego remisy (review Codexa): ${times}`);
+	}
 	await sleep(50);
 	ok(JSON.stringify(hs.distribution.counts) === '[0,2]', `ankieta: rozkład głosów ${JSON.stringify(hs.distribution.counts)}`);
 	await emit(h, 'host:next', {}); // ranking
@@ -261,6 +266,7 @@ for (const cd of [0, 3]) {
 	ok(sv.question.slider?.max === 100 && sv.question.slider.unit === 'dni' && sv.question.correct === undefined, 'suwak: zakres bez poprawnej wartości');
 	ok((await emit(a, 'answer', { index: 2, value: 101 })).error === 'invalid', 'suwak: wartość spoza zakresu odrzucona');
 	ok((await emit(a, 'answer', { index: 2, value: '31' })).error === 'invalid', 'suwak: tekst zamiast liczby odrzucony');
+	ok((await emit(a, 'answer', { index: 2, value: 30.5 })).error === 'invalid', 'suwak: wartość poza krokiem odrzucona (review Codexa)');
 	const rr = nextState(a, (x) => x.state === 'reveal');
 	const rb = nextState(b, (x) => x.state === 'reveal');
 	await emit(a, 'answer', { index: 2, value: 31 });

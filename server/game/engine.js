@@ -390,7 +390,8 @@ export class Game {
 		}
 		player.answers.set(this.index, { value: check.value, correct, points: points + bonus, bonus, elapsed, before });
 		player.score += points + bonus;
-		player.totalTime += elapsed;
+		// Czas rozstrzyga remisy – ankieta (bez oceny) nie może go zmieniać (review Codexa).
+		if (!ungraded) player.totalTime += elapsed;
 		this.touch();
 
 		const answered = this.answeredCount();
@@ -438,6 +439,9 @@ export class Game {
 			case 'slider': {
 				const v = payload.value;
 				if (typeof v !== 'number' || !Number.isFinite(v) || v < d.min || v > d.max) return null;
+				// Tylko wartości na kroku suwaka (jak w interfejsie), z tolerancją na zaokrąglenia (review Codexa).
+				const steps = (v - d.min) / d.step;
+				if (Math.abs(steps - Math.round(steps)) > 1e-6) return null;
 				// Punkty: dokładnie = pełne; w granicach tolerancji – od 50% do 100% zależnie od odległości.
 				const dist = Math.abs(v - d.correct);
 				const margin = sliderMargin(d);
