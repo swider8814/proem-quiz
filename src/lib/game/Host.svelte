@@ -37,7 +37,7 @@
 	type HQ = {
 		index: number; total: number; type: string; timeLimit: number; multiplier: number;
 		prompt: string; promptTranslation: string | null; answers?: string[]; items?: { id: string; label: string }[];
-		thumbs?: boolean; imageUrl?: string | null; audio?: { url: string; loop: boolean; revealUrl: string | null };
+		thumbs?: boolean; answerImages?: (string | null)[]; imageUrl?: string | null; audio?: { url: string; loop: boolean; revealUrl: string | null };
 	};
 	type HS = {
 		pin: string; state: 'lobby' | 'intro' | 'question' | 'reveal' | 'leaderboard' | 'ended';
@@ -491,12 +491,13 @@
 					<div class="count g-box"><span class="n">{answered.count}</span><span>{L.answers}</span></div>
 				</div>
 					{#if q.answers}
-						<div class="answers">
+						<div class="answers" class:with-images={!!q.answerImages}>
 							{#each q.answers as a, i}
 								<div class="g-tile a{i}" class:dim={hs.state === 'reveal' && !isCorrect(i)} in:scale={{ start: 0.85, delay: 120 + i * 90, duration: 350, easing: backOut }}>
 									{#if style === 'calm'}<span class="badge">{String.fromCharCode(65 + i)}</span>
 									{:else}<Shape {i} size={40} color={shapeColor(style)} />{/if}
-									<span>{a}</span>
+									{#if q.answerImages?.[i]}<img class="ans-img" src={q.answerImages[i]} alt={a || String.fromCharCode(65 + i)} />{/if}
+									{#if a}<span>{a}</span>{/if}
 									{#if hs.state === 'reveal' && isCorrect(i)}<span class="tick"><Icon name="check" /></span>{/if}
 								</div>
 							{/each}
@@ -616,6 +617,8 @@
 	.screen-wait { text-align: center; padding: 2em; }
 	.screen-on { font-size: 0.8em; display: inline-flex; align-items: center; gap: 0.4em; }
 	.tick { display: inline-flex; }
+	.answers.with-images .g-tile { min-height: 0; padding: 0.6vh 1.2vw; }
+	.ans-img { height: 13vh; max-width: 40%; object-fit: contain; background: #fff; border-radius: 0.3em; }
 	.thumb { display: flex; justify-content: center; flex: 1; }
 	.center { margin: auto; }
 	.big { font-size: 2em; font-weight: 900; }

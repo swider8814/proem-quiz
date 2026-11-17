@@ -144,7 +144,12 @@ const questionSchema = z
 		timeLimit: z.number().int().min(5).max(240),
 		pointsMultiplier: z.union([z.literal(0), z.literal(1), z.literal(2)]),
 		data: z.discriminatedUnion('type', [
-			z.object({ type: z.literal('choice'), answers: answerList, correct: correctList }),
+			z.object({
+				type: z.literal('choice'),
+				answers: z.array(str(80)).min(2).max(4),
+				correct: correctList,
+				images: z.array(mediaId.nullable()).max(4).optional()
+			}),
 			z.object({ type: z.literal('truefalse'), correct: z.boolean(), thumbs: z.boolean().optional() }),
 			z.object({
 				type: z.literal('audio'),
@@ -165,6 +170,11 @@ const questionSchema = z
 		const d = q.data;
 		if ((d.type === 'choice' || d.type === 'audio') && d.correct.some((c) => c >= d.answers.length)) {
 			ctx.addIssue({ code: 'custom', message: 'correctOutOfRange' });
+		}
+		if (d.type === 'choice') {
+			if (d.images && d.images.length !== d.answers.length) ctx.addIssue({ code: 'custom', message: 'emptyAnswer' });
+			// Odpowiedź = podpis albo obrazek (albo oba).
+			if (d.answers.some((a, i) => !a.trim() && !d.images?.[i])) ctx.addIssue({ code: 'custom', message: 'emptyAnswer' });
 		}
 		if (q.data.type === 'audio') {
 			const len = q.data.endMs - q.data.startMs;
@@ -216,6 +226,7 @@ export async function saveQuiz(user: User, quizId: string, input: QuizSave): Pro
 	for (const q of input.questions) {
 		if (q.imageMediaId) ids.add(q.imageMediaId);
 		if (q.data.type === 'audio') ids.add(q.data.audioMediaId);
+		if (q.data.type === 'choice') for (const im of q.data.images ?? []) if (im) ids.add(im);
 	}
 	const podium = input.settings.podiumAudio;
 	if (podium) ids.add(podium.mediaId);
@@ -225,6 +236,7 @@ export async function saveQuiz(user: User, quizId: string, input: QuizSave): Pro
 	for (const m of media) if (!canUseMedia(user, m)) return { error: 'mediaAccess' as ErrKey };
 	for (const q of input.questions) {
 		if (q.imageMediaId && byId.get(q.imageMediaId)?.kind !== 'image') return { error: 'badImage' as ErrKey };
+		if (q.data.type === 'choice' && (q.data.images ?? []).some((im) => im && byId.get(im)?.kind !== 'image')) return { error: 'badImage' as ErrKey };
 		if (q.data.type === 'audio') {
 			const m = byId.get(q.data.audioMediaId);
 			if (m?.kind !== 'audio') return { error: 'badAudio' as ErrKey };

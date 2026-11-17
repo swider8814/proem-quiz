@@ -1,7 +1,7 @@
 export type QType = 'choice' | 'truefalse' | 'audio' | 'text' | 'order';
 
 export type QData =
-	| { type: 'choice'; answers: string[]; correct: number[] }
+	| { type: 'choice'; answers: string[]; correct: number[]; images?: (string | null)[] }
 	| { type: 'truefalse'; correct: boolean; thumbs?: boolean }
 	| { type: 'audio'; answers: string[]; correct: number[]; audioMediaId: string; startMs: number; endMs: number; loop: boolean; revealEndMs: number | null }
 	| { type: 'text'; accepted: string[]; typoTolerance: 0 | 1 | 2 }
@@ -58,6 +58,7 @@ export function changeType(q: EditorQuestion, type: QType): EditorQuestion {
 	if ((q.data.type === 'choice' || q.data.type === 'audio') && (d.type === 'choice' || d.type === 'audio')) {
 		d.answers = [...q.data.answers];
 		d.correct = [...q.data.correct];
+		if (q.data.type === 'choice' && d.type === 'choice' && q.data.images) d.images = [...q.data.images];
 	}
 	return { ...q, type, data: d };
 }
@@ -70,8 +71,9 @@ export function problems(q: EditorQuestion): Problem[] {
 	if (!q.prompt.trim()) out.push('prompt');
 	const d = q.data;
 	if (d.type === 'choice' || d.type === 'audio') {
-		if (d.answers.filter((a) => a.trim()).length < 2) out.push('answers');
-		if (d.answers.some((a, i) => !a.trim() && d.correct.includes(i))) out.push('emptyCorrect');
+		const has = (i: number) => !!d.answers[i]?.trim() || (d.type === 'choice' && !!d.images?.[i]);
+		if (d.answers.filter((_, i) => has(i)).length < 2) out.push('answers');
+		if (d.answers.some((_, i) => !has(i) && d.correct.includes(i))) out.push('emptyCorrect');
 	}
 	if (d.type === 'audio' && !d.audioMediaId) out.push('audio');
 	if (d.type === 'text' && !d.accepted.some((a) => a.trim())) out.push('accepted');
@@ -83,9 +85,15 @@ export function problems(q: EditorQuestion): Problem[] {
 export function toPayload(q: EditorQuestion) {
 	let data: QData = q.data;
 	if (data.type === 'choice' || data.type === 'audio') {
-		const keep = data.answers.map((a, i) => ({ a: a.trim(), i })).filter((x) => x.a);
+		const imgs = data.type === 'choice' ? data.images : undefined;
+		const keep = data.answers.map((a, i) => ({ a: a.trim(), i, img: imgs?.[i] ?? null })).filter((x) => x.a || x.img);
 		const correct = keep.map((x, newIdx) => ((data as { correct: number[] }).correct.includes(x.i) ? newIdx : -1)).filter((i) => i >= 0);
 		data = { ...data, answers: keep.map((x) => x.a), correct };
+		if (data.type === 'choice') {
+			// Obrazki tylko gdy jakikolwiek jest (stare quizy bez pola „images” zostają bez zmian).
+			if (keep.some((x) => x.img)) data.images = keep.map((x) => x.img);
+			else delete data.images;
+		}
 	}
 	if (data.type === 'text') data = { ...data, accepted: data.accepted.map((a) => a.trim()).filter(Boolean) };
 	if (data.type === 'order') data = { ...data, items: data.items.map((a) => a.trim()).filter(Boolean) };

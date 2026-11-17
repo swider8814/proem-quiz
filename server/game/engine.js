@@ -338,6 +338,13 @@ export class Game {
 			.map((p, i) => ({ id: p.id, nick: p.nick, score: p.score, rank: i + 1 }));
 	}
 
+	/** Pliki, które gracze widzą w bieżącym pytaniu (obrazki odpowiedzi) – trasa /game-media udostępnia tylko je. */
+	currentPublicMedia() {
+		if (!['intro', 'question', 'reveal'].includes(this.state)) return [];
+		const imgs = this.question?.data?.images;
+		return Array.isArray(imgs) ? imgs.filter((x) => typeof x === 'string') : [];
+	}
+
 	/** Pytanie BEZ poprawnych odpowiedzi. forHost = pełna treść; dla gracza – tylko to, czego potrzebuje. */
 	publicQuestion(forHost) {
 		const q = this.question;
@@ -355,6 +362,10 @@ export class Game {
 		// Tekst odpowiedzi na telefonie – zależnie od ustawienia quizu (prowadzący zawsze widzi).
 		if ((q.type === 'choice' || q.type === 'audio') && (forHost || this.quiz.settings.phoneAnswerText)) base.answers = d.answers;
 		if ((q.type === 'choice' || q.type === 'audio') && !base.answers) base.answerCount = d.answers.length;
+		// Obrazki odpowiedzi: zawsze (to one są odpowiedzią), przez trasę gry dostępną z PIN-em.
+		if (q.type === 'choice' && Array.isArray(d.images) && d.images.some(Boolean)) {
+			base.answerImages = d.images.map((id) => (id ? `/game-media/${this.pin}/${id}` : null));
+		}
 		if (q.type === 'order') base.items = this.orderMaps.get(this.index).shuffled;
 		if (q.type === 'truefalse' && d.thumbs) base.thumbs = true;
 		if (forHost) {

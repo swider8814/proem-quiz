@@ -147,6 +147,31 @@
 		}
 	}
 
+	let answerImageError = $state('');
+	async function pickAnswerImage(e: Event, i: number) {
+		const input = e.currentTarget as HTMLInputElement;
+		const file = input.files?.[0];
+		input.value = '';
+		if (!file || current.data.type !== 'choice') return;
+		answerImageError = '';
+		try {
+			const m = await uploadFile(file, E.uploadFailed);
+			if (m.kind !== 'image') throw new Error(E.notImage);
+			media[m.id] = { id: m.id, name: m.name, durationMs: null, kind: 'image' };
+			const d = current.data;
+			const imgs = d.images ?? d.answers.map(() => null);
+			imgs[i] = m.id;
+			d.images = imgs;
+		} catch (x) {
+			answerImageError = (x as Error).message;
+		}
+	}
+	function removeAnswerImage(i: number) {
+		if (current.data.type !== 'choice' || !current.data.images) return;
+		current.data.images[i] = null;
+		if (!current.data.images.some(Boolean)) delete current.data.images;
+	}
+
 	const shapes = ['M20 4 L37 34 L3 34 Z', 'M20 2 L38 20 L20 38 L2 20 Z', 'circle', 'square'];
 </script>
 
@@ -327,11 +352,22 @@
 										{:else}<path d={shapes[i]} fill="#111" />{/if}
 									</svg>
 								</span>
-								<input type="text" bind:value={d.answers[i]} maxlength="80" placeholder={E.answer(String.fromCharCode(65 + i)) + (i >= 2 ? E.optional : '')} aria-label={E.answer(String.fromCharCode(65 + i))} />
+								<input type="text" bind:value={d.answers[i]} maxlength="80" placeholder={(d.type === 'choice' && d.images?.[i] ? E.caption : E.answer(String.fromCharCode(65 + i))) + (i >= 2 || (d.type === 'choice' && d.images?.[i]) ? E.optional : '')} aria-label={E.answer(String.fromCharCode(65 + i))} />
 								<label class="check small"><input type="checkbox" checked={d.correct.includes(i)} onchange={() => toggleCorrect(i)} /> {E.correct}</label>
+								{#if d.type === 'choice'}
+									<div class="ans-img">
+										{#if d.images?.[i]}
+											<img src="/media/{d.images[i]}" alt={E.answerImage(String.fromCharCode(65 + i))} />
+											<button type="button" class="link" onclick={() => removeAnswerImage(i)} disabled={ro}>{E.removeImage}</button>
+										{:else if !ro}
+											<label class="link file-link">{E.addAnswerImage}<input type="file" accept="image/*" onchange={(e) => pickAnswerImage(e, i)} /></label>
+										{/if}
+									</div>
+								{/if}
 							</div>
 						{/each}
 					</div>
+					{#if answerImageError}<p class="error">{answerImageError}</p>{/if}
 				{:else if current.data.type === 'truefalse'}
 					{@const d = current.data}
 					<div class="tf" role="radiogroup" aria-label={E.correctAnswer}>
@@ -429,8 +465,12 @@
 	.grow { flex: 1; min-width: 12rem; }
 	.q-tools { display: flex; gap: 0.35rem; }
 	.q-tools button { padding: 0.5rem 0.7rem; font-size: 0.85rem; }
+	.ans-img { flex-basis: 100%; display: flex; align-items: center; gap: 0.6rem; }
+	.ans-img img { height: 64px; max-width: 120px; object-fit: contain; border-radius: 0.4rem; background: #fff; border: 1px solid var(--line); }
+	.file-link { position: relative; cursor: pointer; color: #1368ce; text-decoration: underline; font-size: 0.9rem; }
+	.file-link input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 	.answers { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: 0.6rem; margin-top: 0.5rem; }
-	.answer { display: flex; align-items: center; gap: 0.6rem; background: #fff; border: 2px solid var(--line); border-radius: 0.6rem; padding: 0.35rem 0.6rem; }
+	.answer { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; background: #fff; border: 2px solid var(--line); border-radius: 0.6rem; padding: 0.35rem 0.6rem; }
 	.answer.correct { border-color: #26890c; }
 	.answer input[type='text'] { border: 0; padding: 0.4rem 0; }
 	.shape { width: 2rem; height: 2rem; border-radius: 0.4rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: 2px solid #111; }

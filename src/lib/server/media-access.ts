@@ -31,7 +31,8 @@ function questionsUsing(mediaId: string): string[] {
 			or(
 				eq(schema.questions.imageMediaId, mediaId),
 				sql`json_extract(${schema.questions.data}, '$.audioMediaId') = ${mediaId}`,
-				sql`json_extract(${schema.questions.data}, '$.clipMediaId') = ${mediaId}`
+				sql`json_extract(${schema.questions.data}, '$.clipMediaId') = ${mediaId}`,
+				sql`EXISTS (SELECT 1 FROM json_each(${schema.questions.data}, '$.images') WHERE json_each.value = ${mediaId})`
 			)
 		)
 		.all()
@@ -75,8 +76,9 @@ function referencedIds(): Set<string> {
 	const ids = new Set<string>();
 	for (const q of db.select({ img: schema.questions.imageMediaId, data: schema.questions.data }).from(schema.questions).all()) {
 		if (q.img) ids.add(q.img);
-		const d = q.data as { audioMediaId?: string; clipMediaId?: string };
+		const d = q.data as { audioMediaId?: string; clipMediaId?: string; images?: (string | null)[] };
 		if (d.audioMediaId) ids.add(d.audioMediaId);
+		for (const im of d.images ?? []) if (im) ids.add(im);
 		if (d.clipMediaId) ids.add(d.clipMediaId);
 	}
 	for (const q of db.select({ s: schema.quizzes.settings }).from(schema.quizzes).all()) {

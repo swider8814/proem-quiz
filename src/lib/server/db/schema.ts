@@ -168,7 +168,7 @@ export type QuestionType = 'choice' | 'truefalse' | 'audio' | 'text' | 'order';
 // Pytanie "z obrazkiem" to dowolny typ z ustawionym imageMediaId.
 
 export type QuestionData =
-	| { type: 'choice'; answers: string[]; correct: number[] }
+	| { type: 'choice'; answers: string[]; correct: number[]; images?: (string | null)[] } // images: obrazek odpowiedzi (podpis może być pusty)
 	| { type: 'truefalse'; correct: boolean; thumbs?: boolean } // thumbs: kciuk w górę/w dół zamiast słów
 	| {
 			type: 'audio';

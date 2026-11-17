@@ -16,7 +16,7 @@
 
 	type Item = { id: string; label: string };
 	type Q = {
-		index: number; total: number; type: 'choice' | 'truefalse' | 'audio' | 'text' | 'order'; thumbs?: boolean;
+		index: number; total: number; type: 'choice' | 'truefalse' | 'audio' | 'text' | 'order'; thumbs?: boolean; answerImages?: (string | null)[];
 		timeLimit: number; prompt: string; promptTranslation: string | null;
 		answers?: string[]; answerCount?: number; items?: Item[];
 	};
@@ -303,12 +303,17 @@
 					</div>
 				</main>
 			{:else if q.type === 'choice' || q.type === 'audio'}
-				<main class="tiles" class:two={answerCount <= 2} class:text={!!q.answers}>
+				<main class="tiles" class:two={answerCount <= 2} class:text={!!q.answers && !q.answerImages} class:pics={!!q.answerImages}>
 					{#each Array(answerCount) as _, i}
-						<button class="g-tile a{i}" in:scale={{ start: 0.8, delay: i * 70, duration: 320, easing: backOut }} onclick={() => answer({ choice: i })} aria-label={q.answers?.[i] ?? `${i + 1}`}>
-							{#if style === 'calm'}<span class="badge">{String.fromCharCode(65 + i)}</span>
-							{:else}<Shape {i} size={q.answers ? 34 : 72} color={shapeColor(style)} />{/if}
-							{#if q.answers}<span class="tile-text">{q.answers[i]}</span>{/if}
+						<button class="g-tile a{i}" in:scale={{ start: 0.8, delay: i * 70, duration: 320, easing: backOut }} onclick={() => answer({ choice: i })} aria-label={q.answers?.[i] || String.fromCharCode(65 + i)}>
+							{#if q.answerImages?.[i]}
+								<img class="pic" src={q.answerImages[i]} alt="" />
+								{#if q.answers?.[i]}<span class="tile-text">{q.answers[i]}</span>{/if}
+							{:else}
+								{#if style === 'calm'}<span class="badge">{String.fromCharCode(65 + i)}</span>
+								{:else}<Shape {i} size={q.answers ? 34 : 72} color={shapeColor(style)} />{/if}
+								{#if q.answers}<span class="tile-text">{q.answers[i]}</span>{/if}
+							{/if}
 						</button>
 					{/each}
 				</main>
@@ -423,6 +428,8 @@
 	.plus { align-self: center; font-size: 1.6rem; }
 	.cd { width: 7rem; height: 7rem; border-radius: 50%; display: grid; place-items: center; font-size: 3.4rem; font-weight: 900; background: var(--accent); font-variant-numeric: tabular-nums; }
 	.tiles .g-tile.thumb { justify-content: center; }
+	.tiles.pics .g-tile { flex-direction: column; justify-content: center; gap: 6px; padding: 8px; }
+	.pic { width: 100%; flex: 1; min-height: 0; max-height: 22vh; object-fit: contain; background: #fff; border-radius: 6px; }
 	.medal-wrap { display: flex; justify-content: center; }
 	.toast { position: fixed; left: 50%; bottom: max(20px, env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(92vw, 420px); background: #111; color: #fff; padding: 12px 16px; border-radius: 12px; font-weight: 700; text-align: center; z-index: 20; }
 	.place { font-size: 4rem; font-weight: 900; line-height: 1; }

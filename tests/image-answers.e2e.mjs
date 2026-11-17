@@ -1,0 +1,98 @@
+// Obrazki jako odpowiedzi: edytor → gra (telefon i ekran) + dostęp do plików tylko w trakcie pytania.
+//   node tests/image-answers.e2e.mjs [katalog-na-zrzuty]   (wymaga npm run build i Chrome)
+import fs from 'node:fs';
+import { chromium, devices } from 'playwright-core';
+import { finish, makeAdmin, ok, sleep, startServer, upload } from './_helpers.mjs';
+
+const shots = process.argv[2];
+if (shots) fs.mkdirSync(shots, { recursive: true });
+const snap = async (p, name) => shots && p.screenshot({ path: `${shots}/${name}.png` });
+const srv = await startServer();
+const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH ?? '/usr/bin/google-chrome', args: ['--no-sandbox'] });
+
+// Kolorowe obrazki 2×2 PNG (różne pliki → różne media).
+const zlib = await import('node:zlib');
+const png = (r, g, b) => {
+	const raw = Buffer.alloc(2 * (1 + 2 * 3));
+	for (let y = 0; y < 2; y++) {
+		raw[y * 7] = 0;
+		for (let x = 0; x < 2; x++) raw.set([r, g, b], y * 7 + 1 + x * 3);
+	}
+	const chunk = (type, data) => {
+		const len = Buffer.alloc(4);
+		len.writeUInt32BE(data.length);
+		const td = Buffer.concat([Buffer.from(type), data]);
+		const crc = Buffer.alloc(4);
+		crc.writeUInt32BE(zlib.crc32(td) >>> 0);
+		return Buffer.concat([len, td, crc]);
+	};
+	const ihdr = Buffer.alloc(13);
+	ihdr.writeUInt32BE(2, 0);
+	ihdr.writeUInt32BE(2, 4);
+	ihdr.set([8, 2, 0, 0, 0], 8);
+	return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', zlib.deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]);
+};
+
+try {
+	const { browser: admin } = await makeAdmin(srv, 'obrazki@proem.pl');
+	const imgs = [];
+	for (const [r, g, b] of [[230, 0, 40], [20, 100, 220], [250, 200, 0], [0, 160, 80]]) imgs.push(JSON.parse((await upload(admin, png(r, g, b), 'x.png')).text).id);
+	const secret = JSON.parse((await upload(admin, png(9, 9, 9), 'tajny.png')).text).id;
+	ok(imgs.every(Boolean) && !!secret, 'obrazki wgrane');
+	const c = await admin.req('/panel?/create', { method: 'POST', form: { title: 'Zwierzęta' } });
+	const quizId = c.loc.split('/').pop();
+	const base = { promptTranslation: null, timeLimit: 20, pointsMultiplier: 1 };
+	const quiz = (questions) => JSON.stringify({
+		title: 'Zwierzęta', description: null, themeId: 'theme_proem', locale: 'pl',
+		settings: { defaultTimeLimit: 20, countdown: 3, streakBonus: true, nicknameMode: 'random-or-custom', teamMode: false, lateJoin: true, phoneAnswerText: true },
+		questions
+	});
+	const json = { 'content-type': 'application/json', accept: 'application/json' };
+	const q1 = { ...base, imageMediaId: secret, type: 'choice', prompt: 'Który to osioł?', data: { type: 'choice', answers: ['', 'Owca', '', ''], correct: [0], images: imgs } };
+	const bad = await admin.req(`/panel/api/quizzes/${quizId}`, { method: 'PUT', headers: json, body: quiz([{ ...q1, data: { ...q1.data, images: [imgs[0], null, null, null], answers: ['', 'Owca', '', 'x'] } }]) });
+	ok(bad.status === 400, 'odpowiedź bez podpisu i bez obrazka odrzucona');
+	const save = await admin.req(`/panel/api/quizzes/${quizId}`, { method: 'PUT', headers: json, body: quiz([q1]) });
+	ok(save.status === 200, 'quiz z obrazkami jako odpowiedziami zapisany');
+
+	const hostCtx = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+	await hostCtx.addCookies([{ name: 'pq_session', value: admin.jar.pq_session, url: srv.base }]);
+	const host = await hostCtx.newPage();
+	await host.goto(`${srv.base}/panel/quizzes/${quizId}/host`);
+	await host.click('form[action="?/start"] button');
+	await host.waitForSelector('.pin');
+	const pin = (await host.textContent('.pin')).replace(/\s/g, '');
+	const anon = (p) => fetch(`${srv.base}${p}`);
+	ok((await anon(`/game-media/${pin}/${imgs[0]}`)).status === 404, 'w poczekalni obrazki odpowiedzi niedostępne');
+
+	const phone = await (await browser.newContext({ ...devices['iPhone 14'] })).newPage();
+	await phone.goto(`${srv.base}/play?pin=${pin}`);
+	await phone.click('button:has-text("Dołącz do gry")');
+	await phone.waitForSelector('text=Jesteś w grze!');
+	await host.keyboard.press('Space');
+	await phone.waitForSelector('.tiles.pics img.pic', { timeout: 10000 });
+	await phone.waitForFunction(() => [...document.querySelectorAll('img.pic')].every((i) => i.complete && i.naturalWidth > 0));
+	ok((await phone.$$('img.pic')).length === 4, 'telefon pokazuje 4 obrazki odpowiedzi');
+	ok((await phone.textContent('.tiles')).includes('Owca'), 'podpis pod obrazkiem, gdy jest');
+	await host.waitForFunction(() => [...document.querySelectorAll('.answers img.ans-img')].filter((i) => i.naturalWidth > 0).length === 4);
+	ok(true, 'ekran prowadzącego pokazuje obrazki odpowiedzi');
+	ok((await anon(`/game-media/${pin}/${imgs[1]}`)).status === 200, 'w trakcie pytania obrazek odpowiedzi dostępny z PIN-em');
+	ok((await anon(`/game-media/${pin}/${secret}`)).status === 404, 'obrazek do pytania (nie odpowiedzi) nie jest dostępny przez trasę gry');
+	ok((await anon(`/game-media/000000/${imgs[1]}`)).status === 404, 'zły PIN → 404');
+	ok((await anon(`/media/${imgs[1]}`)).status === 404, 'bez logowania /media dalej prywatne');
+	await snap(phone, 'img-01-telefon');
+	await snap(host, 'img-02-ekran');
+	await phone.click('.g-tile.a0');
+	await phone.waitForSelector('text=Dobrze!');
+	ok(true, 'odpowiedź obrazkiem przyjęta');
+	await host.keyboard.press('Space'); // podium (jedyne pytanie) / ranking
+	await sleep(500);
+	await host.keyboard.press('Space');
+	await phone.waitForSelector('text=Koniec gry!');
+	ok((await anon(`/game-media/${pin}/${imgs[1]}`)).status === 404, 'po pytaniu obrazki znów niedostępne');
+} catch (e) {
+	ok(false, `wyjątek: ${e.stack}`);
+} finally {
+	await browser.close();
+	srv.stop();
+}
+process.exit(finish() ? 1 : 0);

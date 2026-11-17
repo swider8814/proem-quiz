@@ -1,7 +1,7 @@
 // Dostęp do rejestru gier (ten sam obiekt, którego używa serwer Socket.IO – globalThis).
 type Registry = {
 	create(quiz: unknown, ownerId: string): { pin: string; hostToken: string };
-	get(pin: string): { ownerId: string; state: string } | null;
+	get(pin: string): { ownerId: string; state: string; currentPublicMedia(): string[] } | null;
 };
 
 export function games(): Registry {
