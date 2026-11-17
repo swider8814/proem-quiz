@@ -12,6 +12,9 @@ const MAX_AUDIO_MS = 15 * 60 * 1000; // dłuższe utwory odrzucamy
 const MAX_OUTPUT_BYTES = 25 * 1024 * 1024; // twardy limit pliku wynikowego ffmpeg
 const QUOTA_BYTES = Number(process.env.MEDIA_QUOTA_BYTES) || 4 * 1024 ** 3; // suma wszystkich mediów
 const MIN_FREE_BYTES = Number(process.env.MEDIA_MIN_FREE_BYTES) || 1024 ** 3; // zapas wolnego miejsca
+const MAX_IMAGE_SIDE = 1600; // większe zdjęcia z telefonu są zmniejszane (ekran i tak ma ~1920 px)
+const THUMB_SIDE = 480; // miniatura dla telefonów (obrazki odpowiedzi) – kilkadziesiąt KB zamiast MB
+const MAX_IMAGE_PIXELS = 40_000_000; // „bomby” z ogromnymi wymiarami odrzucamy przed dekodowaniem
 const FFMPEG_CONCURRENCY = 1;
 const FFMPEG_MAX_PENDING = 8;
 
@@ -104,6 +107,45 @@ async function probeDuration(file: string): Promise<number | null> {
 	}
 }
 
+/** Miniatura obrazka: obok pliku, <id>_t.webp (pasuje do wzorca plików mediów – trafia do kopii). */
+export function thumbPath(file: string) {
+	return path.join(mediaDir, path.basename(file).replace(/\.[a-z0-9]+$/, '') + '_t.webp');
+}
+
+/**
+ * Obrazek: sprawdzenie wymiarów (bez dekodowania), zmniejszenie do 1600 px, usunięcie metadanych
+ * (np. GPS ze zdjęć z telefonu) i miniatura 480 px WebP dla telefonów. GIF zostaje jak był (animacja),
+ * miniatura z pierwszej klatki.
+ */
+async function processImage(src: string, out: string, thumb: string, ext: string) {
+	let w = 0;
+	let h = 0;
+	try {
+		const dims = await run('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'csv=p=0:s=x', src], 15_000);
+		[w, h] = dims.trim().split('x').map(Number);
+	} catch {
+		throw new MediaError('imageRead');
+	}
+	if (!(w > 0 && h > 0)) throw new MediaError('imageRead');
+	if (w * h > MAX_IMAGE_PIXELS) throw new MediaError('imageHuge');
+	const fit = (side: number) => `scale='min(${side},iw)':'min(${side},ih)':force_original_aspect_ratio=decrease`;
+	const base = ['-nostdin', '-hide_banner', '-loglevel', 'error', '-y', '-i', src, '-map_metadata', '-1', '-frames:v', '1'];
+	try {
+		if (ext === 'gif') await fs.copyFile(src, out);
+		else {
+			const codec = ext === 'png' ? ['-c:v', 'png', '-f', 'image2'] : ext === 'webp' ? ['-c:v', 'libwebp', '-quality', '85', '-f', 'webp'] : ['-c:v', 'mjpeg', '-q:v', '3', '-f', 'image2'];
+			await run('ffmpeg', [...base, '-vf', fit(MAX_IMAGE_SIDE), ...codec, out], 60_000);
+		}
+		await run('ffmpeg', [...base, '-vf', fit(THUMB_SIDE), '-c:v', 'libwebp', '-quality', '75', '-f', 'webp', `${thumb}.part`], 60_000);
+		await fs.chmod(`${thumb}.part`, 0o640);
+		await fs.rename(`${thumb}.part`, thumb);
+	} catch {
+		await fs.rm(`${thumb}.part`, { force: true });
+		await fs.rm(thumb, { force: true });
+		throw new MediaError('imageProcess');
+	}
+}
+
 async function sizeOf(file: string) {
 	return (await fs.stat(file)).size;
 }
@@ -147,7 +189,8 @@ export async function saveUpload(ownerId: string, originalName: string, data: Ui
 				return probeDuration(part);
 			});
 		} else {
-			await fs.writeFile(part, data, { mode: 0o640 });
+			await fs.writeFile(tmp, data, { mode: 0o640 });
+			await inQueue(() => processImage(tmp, part, thumbPath(out), type.ext));
 		}
 		const size = await sizeOf(part);
 		if (size === 0 || size >= MAX_OUTPUT_BYTES) throw new MediaError('outputBad');
@@ -171,7 +214,10 @@ export async function saveUpload(ownerId: string, originalName: string, data: Ui
 	} finally {
 		await fs.rm(tmp, { force: true });
 		await fs.rm(part, { force: true });
-		if (!ok) await fs.rm(out, { force: true });
+		if (!ok) {
+			await fs.rm(out, { force: true });
+			await fs.rm(thumbPath(out), { force: true });
+		}
 	}
 }
 
@@ -217,6 +263,7 @@ export async function deleteMedia(id: string) {
 	if (!m) return;
 	db.delete(schema.media).where(eq(schema.media.id, id)).run();
 	await fs.rm(path.join(mediaDir, path.basename(m.file)), { force: true });
+	await fs.rm(thumbPath(m.file), { force: true });
 }
 
 export const mediaUrl = (id: string | null | undefined) => (id ? `/media/${id}` : null);

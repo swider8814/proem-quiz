@@ -75,7 +75,9 @@ try {
 	ok((await phone.textContent('.tiles')).includes('Owca'), 'podpis pod obrazkiem, gdy jest');
 	await host.waitForFunction(() => [...document.querySelectorAll('.answers img.ans-img')].filter((i) => i.naturalWidth > 0).length === 4);
 	ok(true, 'ekran prowadzącego pokazuje obrazki odpowiedzi');
-	ok((await anon(`/game-media/${pin}/${imgs[1]}`)).status === 200, 'w trakcie pytania obrazek odpowiedzi dostępny z PIN-em');
+	const gm = await anon(`/game-media/${pin}/${imgs[1]}`);
+	ok(gm.status === 200, 'w trakcie pytania obrazek odpowiedzi dostępny z PIN-em');
+	ok(gm.headers.get('content-type') === 'image/webp', `telefony dostają lekką miniaturę WebP (${gm.headers.get('content-type')})`);
 	ok((await anon(`/game-media/${pin}/${secret}`)).status === 404, 'obrazek do pytania (nie odpowiedzi) nie jest dostępny przez trasę gry');
 	ok((await anon(`/game-media/000000/${imgs[1]}`)).status === 404, 'zły PIN → 404');
 	ok((await anon(`/media/${imgs[1]}`)).status === 404, 'bez logowania /media dalej prywatne');

@@ -3,6 +3,7 @@ import path from 'node:path';
 import { eq, lt, or, sql } from 'drizzle-orm';
 import { db, mediaDir, schema } from './db/index.js';
 import { quizAccess } from './quizzes.js';
+import { thumbPath } from './media.js';
 import type { User } from './auth/index.js';
 
 type Media = typeof schema.media.$inferSelect;
@@ -114,6 +115,7 @@ export async function sweepOrphanMedia(): Promise<number> {
 		if (used.has(m.id)) continue;
 		db.delete(schema.media).where(eq(schema.media.id, m.id)).run();
 		await fs.rm(path.join(mediaDir, path.basename(m.file)), { force: true });
+		await fs.rm(thumbPath(m.file), { force: true });
 		removed++;
 	}
 	return removed;

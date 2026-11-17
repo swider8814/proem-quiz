@@ -2,7 +2,9 @@ import { error } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import type { RequestHandler } from './$types';
 import { db, schema } from '#lib/server/db/index.js';
+import fs from 'node:fs';
 import { serveMedia } from '#lib/server/media-serve.js';
+import { thumbPath } from '#lib/server/media.js';
 import { games } from '#lib/server/games.js';
 
 /**
@@ -16,5 +18,7 @@ export const GET: RequestHandler = async ({ params, request }) => {
 	if (!g || !g.currentPublicMedia().includes(params.id)) error(404, 'Nie znaleziono');
 	const m = db.select().from(schema.media).where(eq(schema.media.id, params.id)).get();
 	if (!m || m.kind !== 'image') error(404, 'Nie znaleziono');
-	return serveMedia(m, request, 'private, max-age=600');
+	// Miniatura (480 px WebP), gdy jest – 300 telefonów naraz nie pobiera pełnych zdjęć.
+	const thumb = thumbPath(m.file);
+	return serveMedia(m, request, 'private, max-age=600', fs.existsSync(thumb) ? thumb : undefined);
 };

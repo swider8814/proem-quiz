@@ -63,6 +63,9 @@ jobs:
         run: |
           docker compose exec -T app ffmpeg -nostdin -hide_banner -loglevel error -f lavfi -i sine=duration=1 -y /data/media/smoke.mp3
           docker compose exec -T app ffprobe -v error -show_entries format=duration -of csv=p=0 /data/media/smoke.mp3
+          # Obrazki: miniatury WebP (libwebp) w obrazie produkcyjnym
+          docker compose exec -T app ffmpeg -nostdin -hide_banner -loglevel error -f lavfi -i testsrc=size=640x480 -frames:v 1 -c:v libwebp -quality 75 -f webp -y /data/media/smoke.webp
+          docker compose exec -T app ffprobe -v error -show_entries stream=codec_name -of csv=p=0 /data/media/smoke.webp | grep -q webp
           ! docker compose exec -T app sh -c 'touch /app/x' 2>/dev/null
           ! docker compose exec -T app sh -c 'touch /etc/x' 2>/dev/null
       - name: Próba lokalna (docker-compose.local.yml) też startuje

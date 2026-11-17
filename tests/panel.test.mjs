@@ -84,6 +84,27 @@ try {
 	const st = await adm2.req('/panel/settings', { method: 'POST', form: { orgName: 'Fundacja Proem', orgLogo: logo.id } });
 	ok(st.status === 200, 'zapis ustawień organizacji');
 	ok((await B().req(`/media/${logo.id}`, { raw: true })).status === 200, 'logo organizacji jest publiczne');
+
+	// Zdjęcia: zmniejszane do 1600 px, bez metadanych, z miniaturą 480 px; ogromne wymiary odrzucane
+	{
+		const { execFileSync: ff } = await import('node:child_process');
+		const tmp = fs.mkdtempSync(path.join((await import('node:os')).tmpdir(), 'pq-img-'));
+		ff('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'testsrc=size=3000x2000', '-frames:v', '1', '-metadata', 'comment=TAJNE-GPS-52.1', path.join(tmp, 'big.jpg')]);
+		ff('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'color=c=red:size=8000x6000', '-frames:v', '1', path.join(tmp, 'huge.png')]);
+		const bigUp = JSON.parse((await upload(adm2, fs.readFileSync(path.join(tmp, 'big.jpg')), 'zdjecie.jpg')).text);
+		const pdb3 = new Database(path.join(srv.dataDir, 'quiz.db'), { readonly: true });
+		const row = pdb3.prepare('SELECT file FROM media WHERE id = ?').get(bigUp.id);
+		pdb3.close();
+		const dim = (f) => ff('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'csv=p=0:s=x', f], { encoding: 'utf8' }).trim();
+		const stored = path.join(srv.dataDir, 'media', row.file);
+		const thumb = stored.replace(/\.[a-z]+$/, '_t.webp');
+		ok(dim(stored) === '1600x1067', `zdjęcie zmniejszone do 1600 px (${dim(stored)})`);
+		ok(!fs.readFileSync(stored).includes('TAJNE-GPS'), 'metadane zdjęcia usunięte');
+		ok(fs.existsSync(thumb) && dim(thumb) === '480x320', `miniatura 480 px WebP (${fs.existsSync(thumb) ? dim(thumb) : 'brak'})`);
+		const hugeUp = await upload(adm2, fs.readFileSync(path.join(tmp, 'huge.png')), 'bomba.png');
+		ok(hugeUp.status === 400 && /megapikseli/.test(hugeUp.text), 'obrazek 48 Mpx odrzucony przed dekodowaniem');
+		fs.rmSync(tmp, { recursive: true, force: true });
+	}
 	const panel = await adm2.req('/panel');
 	ok(panel.text.includes(`/media/${logo.id}`), 'logo w nagłówku panelu');
 

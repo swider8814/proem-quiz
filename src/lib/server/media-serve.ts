@@ -8,15 +8,15 @@ import { MIME } from './media.js';
 type Media = typeof schema.media.$inferSelect;
 
 /** Odpowiedź z plikiem (z zakresami bajtów – wymagane przez Safari na iOS przy audio). */
-export function serveMedia(m: Media, request: Request, cacheControl: string): Response {
-	const file = path.join(mediaDir, path.basename(m.file));
+export function serveMedia(m: Media, request: Request, cacheControl: string, fileOverride?: string): Response {
+	const file = fileOverride ?? path.join(mediaDir, path.basename(m.file));
 	let stat: fs.Stats;
 	try {
 		stat = fs.statSync(file);
 	} catch {
 		error(404, 'Nie znaleziono');
 	}
-	const ext = path.extname(m.file).slice(1);
+	const ext = path.extname(file).slice(1);
 	const headers: Record<string, string> = {
 		'Content-Type': MIME[ext] ?? 'application/octet-stream',
 		'Accept-Ranges': 'bytes',
