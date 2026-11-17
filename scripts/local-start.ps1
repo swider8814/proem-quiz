@@ -19,8 +19,8 @@ if ($LASTEXITCODE -ne 0) { throw 'Docker nie odpowiada – uruchom Docker Deskto
 Write-Host 'Docker działa.'
 
 Step 'Adres komputera w sieci Wi-Fi'
-$ip = (Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway -and $_.NetAdapter.Status -eq 'Up' } |
-	Select-Object -First 1).IPv4Address.IPAddress
+$cfg = Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway -and $_.NetAdapter.Status -eq 'Up' } | Select-Object -First 1
+$ip = if ($cfg) { @($cfg.IPv4Address)[0].IPAddress } else { $null }
 if (-not $ip) { $ip = Read-Host 'Nie wykryłem adresu – podaj go (ipconfig → Adres IPv4)' }
 Write-Host "Adres: $ip  (telefony muszą być w tej samej sieci)"
 
