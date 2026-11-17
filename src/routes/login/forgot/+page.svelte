@@ -26,5 +26,5 @@
 			<p><a href="/login">{t.auth.backToLogin}</a></p>
 		{/if}
 	</div>
-	<p><LangSwitch /></p>
+	<div class="lang-row"><LangSwitch /></div>
 </main>

@@ -23,5 +23,5 @@
 		<p class="muted"><a href="/login/forgot">{t.auth.forgot}</a></p>
 	</div>
 	<p class="muted">{t.auth.noAccount}</p>
-	<p><LangSwitch /></p>
+	<div class="lang-row"><LangSwitch /></div>
 </main>

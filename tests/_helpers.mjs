@@ -26,15 +26,16 @@ const freePort = () =>
 	});
 
 /** Uruchamia zbudowany serwer (npm run build) w osobnym procesie. */
-export async function startServer(extraEnv = {}) {
+export async function startServer(extraEnv = {}, opts = {}) {
 	const port = await freePort();
 	const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pq-test-'));
-	const base = `http://127.0.0.1:${port}`;
+	const host = opts.host ?? '127.0.0.1'; // adres inny niż localhost = jak w sieci Wi-Fi (niezaufany origin http)
+	const base = `http://${host}:${port}`;
 	const env = {
 		...process.env,
 		NODE_ENV: 'production',
 		PORT: String(port),
-		HOST: '127.0.0.1',
+		HOST: host === '127.0.0.1' ? '127.0.0.1' : '0.0.0.0',
 		ORIGIN: base,
 		DATA_DIR: dataDir,
 		TOTP_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64'),
