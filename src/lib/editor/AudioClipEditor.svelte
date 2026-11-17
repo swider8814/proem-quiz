@@ -17,6 +17,10 @@
 		loop: boolean;
 		revealEndMs: number | null;
 		disabled?: boolean;
+		/** Bez opcji pytania (zapętlenie, dłuższy fragment po odpowiedzi) – np. dźwięk na podium. */
+		simple?: boolean;
+		/** Najdłuższy fragment (ms). */
+		maxMs?: number;
 		onMedia: (m: { id: string; name: string; durationMs: number | null }) => void;
 	};
 	let {
@@ -28,6 +32,8 @@
 		loop = $bindable(),
 		revealEndMs = $bindable(),
 		disabled = false,
+		simple = false,
+		maxMs = 60_000,
 		onMedia
 	}: Props = $props();
 
@@ -82,7 +88,7 @@
 				drag: !disabled,
 				resize: !disabled,
 				minLength: 1,
-				maxLength: 60
+				maxLength: maxMs / 1000
 			});
 			region.on('update-end', () => {
 				startMs = Math.round(region!.start * 1000);
@@ -115,7 +121,7 @@
 		if (which === 'start') startMs = v;
 		else endMs = v;
 		if (endMs - startMs < 1000) endMs = startMs + 1000;
-		if (endMs - startMs > 60_000) endMs = startMs + 60_000;
+		if (endMs - startMs > maxMs) endMs = startMs + maxMs;
 		syncRegion();
 	}
 
@@ -143,7 +149,7 @@
 			const m = await uploadFile(file, uploadFailed);
 			if (m.kind !== 'audio') throw new Error(A.notAudio);
 			startMs = 0;
-			endMs = Math.min(10_000, m.durationMs ?? 10_000);
+			endMs = Math.min(10_000, maxMs, m.durationMs ?? 10_000);
 			revealEndMs = null;
 			onMedia({ id: m.id, name: m.name, durationMs: m.durationMs });
 			await build(m.id);
@@ -195,6 +201,7 @@
 			</label>
 			<span class="muted len">{A.clip(clipLen)}</span>
 		</div>
+		{#if !simple}
 		<div class="row opts">
 			<label class="check"><input type="checkbox" bind:checked={loop} {disabled} /> {A.loop}</label>
 			<label class="check">
@@ -210,6 +217,7 @@
 				<span class="muted">{A.until(fmtTime(revealEndMs))}</span>
 			{/if}
 		</div>
+		{/if}
 	{/if}
 </div>
 

@@ -7,8 +7,23 @@ import type { User } from './auth/index.js';
 
 type Media = typeof schema.media.$inferSelect;
 
-/** Quizy, których pytania używają danego pliku (obrazek, utwór albo wycięty fragment). */
+/** Quizy, których pytania (obrazek, utwór, wycięty fragment) albo dźwięk na podium używają danego pliku. */
 export function quizzesUsingMedia(mediaId: string): string[] {
+	const podium = db
+		.select({ quizId: schema.quizzes.id })
+		.from(schema.quizzes)
+		.where(
+			or(
+				sql`json_extract(${schema.quizzes.settings}, '$.podiumAudio.mediaId') = ${mediaId}`,
+				sql`json_extract(${schema.quizzes.settings}, '$.podiumAudio.clipMediaId') = ${mediaId}`
+			)
+		)
+		.all()
+		.map((r) => r.quizId);
+	return [...podium, ...questionsUsing(mediaId)];
+}
+
+function questionsUsing(mediaId: string): string[] {
 	return db
 		.select({ quizId: schema.questions.quizId })
 		.from(schema.questions)
@@ -63,6 +78,11 @@ function referencedIds(): Set<string> {
 		const d = q.data as { audioMediaId?: string; clipMediaId?: string };
 		if (d.audioMediaId) ids.add(d.audioMediaId);
 		if (d.clipMediaId) ids.add(d.clipMediaId);
+	}
+	for (const q of db.select({ s: schema.quizzes.settings }).from(schema.quizzes).all()) {
+		const a = q.s?.podiumAudio;
+		if (a?.mediaId) ids.add(a.mediaId);
+		if (a?.clipMediaId) ids.add(a.clipMediaId);
 	}
 	for (const t of db.select().from(schema.themes).all()) {
 		for (const v of [t.logoLight, t.logoDark, t.background, t.jingleMediaId, t.lobbyMusicMediaId]) if (v) ids.add(v);

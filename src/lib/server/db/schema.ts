@@ -93,9 +93,15 @@ export const themes = sqliteTable('themes', {
 
 // ── Quizy ────────────────────────────────────────────────────────────────
 
+export const PODIUM_SOUNDS = ['fanfare', 'triumph', 'drumroll', 'custom', 'none'] as const;
+export type PodiumSound = (typeof PODIUM_SOUNDS)[number];
+
 export type QuizSettings = {
 	defaultTimeLimit: number; // sekundy
 	countdown: number; // odliczanie przed każdym pytaniem w sekundach, 0 = bez odliczania
+	podiumSound: PodiumSound; // dźwięk przy 1. miejscu na podium
+	/** Własny dźwięk na podium: plik + zakres; clipMediaId = wycięty i wyrównany głośnościowo fragment. */
+	podiumAudio: { mediaId: string; startMs: number; endMs: number; clipMediaId?: string } | null;
 	streakBonus: boolean;
 	nicknameMode: 'random-or-custom' | 'random-only';
 	teamMode: boolean;
@@ -106,6 +112,8 @@ export type QuizSettings = {
 export const DEFAULT_QUIZ_SETTINGS: QuizSettings = {
 	defaultTimeLimit: 20,
 	countdown: 5,
+	podiumSound: 'fanfare',
+	podiumAudio: null,
 	streakBonus: true,
 	nicknameMode: 'random-or-custom',
 	teamMode: false,
@@ -161,7 +169,7 @@ export type QuestionType = 'choice' | 'truefalse' | 'audio' | 'text' | 'order';
 
 export type QuestionData =
 	| { type: 'choice'; answers: string[]; correct: number[] }
-	| { type: 'truefalse'; correct: boolean }
+	| { type: 'truefalse'; correct: boolean; thumbs?: boolean } // thumbs: kciuk w górę/w dół zamiast słów
 	| {
 			type: 'audio';
 			answers: string[];

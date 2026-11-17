@@ -4,7 +4,7 @@
 	 * systemu (Windows, Android, iOS rysują je inaczej i w innej wysokości), więc w przyciskach
 	 * potrafiły się rozjeżdżać. SVG ma stały rozmiar 1em i jest wyśrodkowane.
 	 */
-	type Name = 'replay' | 'close' | 'check' | 'fullscreen' | 'next' | 'back' | 'up' | 'down' | 'screen' | 'sound' | 'dice';
+	type Name = 'replay' | 'close' | 'check' | 'fullscreen' | 'next' | 'back' | 'up' | 'down' | 'screen' | 'sound' | 'dice' | 'thumbUp' | 'thumbDown';
 	let { name, size = '1em' }: { name: Name; size?: string } = $props();
 </script>
 
@@ -29,6 +29,10 @@
 		<rect x="2.5" y="4" width="19" height="12.5" rx="1.5" /><path d="M8 20.5h8M12 16.5v4" />
 	{:else if name === 'sound'}
 		<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" /><path d="M16 9a4.2 4.2 0 0 1 0 6M18.6 6.5a8 8 0 0 1 0 11" />
+	{:else if name === 'thumbUp'}
+		<path d="M7 10v11H3V10z" /><path d="M7 10l4-8a2.5 2.5 0 0 1 3 2.6L13.4 9H19a2 2 0 0 1 2 2.3l-1.3 7.7A2.5 2.5 0 0 1 17.2 21H7" />
+	{:else if name === 'thumbDown'}
+		<path d="M17 14V3h4v11z" /><path d="M17 14l-4 8a2.5 2.5 0 0 1-3-2.6l.6-4.4H5a2 2 0 0 1-2-2.3L4.3 5A2.5 2.5 0 0 1 6.8 3H17" />
 	{:else if name === 'dice'}
 		<rect x="3.5" y="3.5" width="17" height="17" rx="3" /><circle cx="8.5" cy="8.5" r="0.6" fill="currentColor" /><circle cx="15.5" cy="15.5" r="0.6" fill="currentColor" /><circle cx="12" cy="12" r="0.6" fill="currentColor" /><circle cx="15.5" cy="8.5" r="0.6" fill="currentColor" /><circle cx="8.5" cy="15.5" r="0.6" fill="currentColor" />
 	{/if}

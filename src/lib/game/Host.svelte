@@ -11,6 +11,7 @@
 	import Confetti from './Confetti.svelte';
 	import { fly, scale } from 'svelte/transition';
 	import { backOut } from 'svelte/easing';
+	import { playPodium, type PodiumSound } from './sounds.js';
 	import { ask, gameSocket, keepAwake, remaining } from './client.js';
 	import { t } from './i18n.js';
 	import { shapeColor, themeVars, type GameTheme } from './theme.js';
@@ -36,11 +37,11 @@
 	type HQ = {
 		index: number; total: number; type: string; timeLimit: number; multiplier: number;
 		prompt: string; promptTranslation: string | null; answers?: string[]; items?: { id: string; label: string }[];
-		imageUrl?: string | null; audio?: { url: string; loop: boolean; revealUrl: string | null };
+		thumbs?: boolean; imageUrl?: string | null; audio?: { url: string; loop: boolean; revealUrl: string | null };
 	};
 	type HS = {
 		pin: string; state: 'lobby' | 'intro' | 'question' | 'reveal' | 'leaderboard' | 'ended';
-		title: string; locale: string; theme: GameTheme; settings: { teamMode: boolean };
+		title: string; locale: string; theme: GameTheme; settings: { teamMode: boolean; podiumSound?: PodiumSound; podiumUrl?: string | null };
 		totalQuestions: number; players?: { id: string; nick: string; connected: boolean }[]; playerCount: number;
 		now: number; question?: HQ; deadline?: number | null; introEnds?: number | null; answered?: number;
 		solution?: { correct?: number[] | boolean; accepted?: string[]; order?: string[] };
@@ -150,48 +151,15 @@
 			if (sq?.audio?.revealUrl) playReveal();
 		}
 		if (s.state === 'leaderboard' || s.state === 'ended' || s.state === 'lobby') stopAudio();
-		if (s.state === 'ended' && prev && prev.state !== 'ended' && s.ranking?.length) fanfare(PODIUM_DELAY[0]);
+		if (s.state === 'ended' && prev && prev.state !== 'ended' && s.ranking?.length) fanfare();
 	}
 
-	let fanfareTimer: ReturnType<typeof setTimeout> | null = null;
-	/** Krótka fanfara (syntezator przeglądarki, bez plików) w chwili pokazania 1. miejsca. */
-	function fanfare(delay: number) {
-		if (fanfareTimer) clearTimeout(fanfareTimer);
-		fanfareTimer = setTimeout(() => {
-			try {
-				const ctx = new AudioContext();
-				const notes: [number, number, number][] = [
-					[392, 0, 0.16], [523.25, 0.16, 0.16], [659.25, 0.32, 0.16], [783.99, 0.48, 0.5],
-					[659.25, 0.98, 0.14], [783.99, 1.12, 0.9]
-				];
-				const out = ctx.createGain();
-				out.gain.value = 0.18;
-				const lp = ctx.createBiquadFilter();
-				lp.type = 'lowpass';
-				lp.frequency.value = 2400;
-				lp.connect(out).connect(ctx.destination);
-				for (const [f, at, len] of notes) {
-					for (const detune of [-6, 6]) {
-						const o = ctx.createOscillator();
-						const g = ctx.createGain();
-						o.type = 'sawtooth';
-						o.frequency.value = f;
-						o.detune.value = detune;
-						const t0 = ctx.currentTime + at;
-						g.gain.setValueAtTime(0.0001, t0);
-						g.gain.exponentialRampToValueAtTime(0.5, t0 + 0.03);
-						g.gain.setValueAtTime(0.5, t0 + len * 0.7);
-						g.gain.exponentialRampToValueAtTime(0.0001, t0 + len);
-						o.connect(g).connect(lp);
-						o.start(t0);
-						o.stop(t0 + len + 0.05);
-					}
-				}
-				setTimeout(() => ctx.close().catch(() => {}), 3000);
-			} catch {
-				/* brak Web Audio */
-			}
-		}, delay);
+	let stopPodium: (() => void) | null = null;
+	/** Dźwięk na podium (z ustawień quizu) w chwili pokazania 1. miejsca. */
+	function fanfare() {
+		stopPodium?.();
+		const set = hs?.settings;
+		stopPodium = playPodium(set?.podiumSound ?? 'fanfare', { firstAt: PODIUM_DELAY[0], secondAt: PODIUM_DELAY[1], url: set?.podiumUrl });
 	}
 
 	function kickPlayer(p: { id: string; nick: string }) {
@@ -342,7 +310,7 @@
 			clearInterval(tick);
 			unlock();
 			stopAudio();
-			if (fanfareTimer) clearTimeout(fanfareTimer);
+			stopPodium?.();
 			socket?.disconnect();
 			channel?.close();
 		};
@@ -535,8 +503,8 @@
 						</div>
 					{:else if q.type === 'truefalse'}
 						<div class="answers">
-							<div class="g-tile a1" class:dim={hs.state === 'reveal' && hs.solution?.correct !== true} in:scale={{ start: 0.85, delay: 120, duration: 350, easing: backOut }}><Shape i={1} size={40} color={shapeColor(style)} /><span>{L.true}</span></div>
-							<div class="g-tile a0" class:dim={hs.state === 'reveal' && hs.solution?.correct !== false} in:scale={{ start: 0.85, delay: 210, duration: 350, easing: backOut }}><Shape i={0} size={40} color={shapeColor(style)} /><span>{L.false}</span></div>
+							<div class="g-tile a1" class:dim={hs.state === 'reveal' && hs.solution?.correct !== true} in:scale={{ start: 0.85, delay: 120, duration: 350, easing: backOut }}>{#if q.thumbs}<span class="thumb" aria-label={L.true}><Icon name="thumbUp" size="2.6em" /></span>{:else}<Shape i={1} size={40} color={shapeColor(style)} /><span>{L.true}</span>{/if}</div>
+							<div class="g-tile a0" class:dim={hs.state === 'reveal' && hs.solution?.correct !== false} in:scale={{ start: 0.85, delay: 210, duration: 350, easing: backOut }}>{#if q.thumbs}<span class="thumb" aria-label={L.false}><Icon name="thumbDown" size="2.6em" /></span>{:else}<Shape i={0} size={40} color={shapeColor(style)} /><span>{L.false}</span>{/if}</div>
 						</div>
 					{:else if q.type === 'order' && q.items}
 						<div class="answers list">
@@ -648,6 +616,7 @@
 	.screen-wait { text-align: center; padding: 2em; }
 	.screen-on { font-size: 0.8em; display: inline-flex; align-items: center; gap: 0.4em; }
 	.tick { display: inline-flex; }
+	.thumb { display: flex; justify-content: center; flex: 1; }
 	.center { margin: auto; }
 	.big { font-size: 2em; font-weight: 900; }
 	.bar { display: flex; align-items: center; justify-content: space-between; gap: 1em; }

@@ -2,7 +2,7 @@ export type QType = 'choice' | 'truefalse' | 'audio' | 'text' | 'order';
 
 export type QData =
 	| { type: 'choice'; answers: string[]; correct: number[] }
-	| { type: 'truefalse'; correct: boolean }
+	| { type: 'truefalse'; correct: boolean; thumbs?: boolean }
 	| { type: 'audio'; answers: string[]; correct: number[]; audioMediaId: string; startMs: number; endMs: number; loop: boolean; revealEndMs: number | null }
 	| { type: 'text'; accepted: string[]; typoTolerance: 0 | 1 | 2 }
 	| { type: 'order'; items: string[]; partialCredit: boolean };

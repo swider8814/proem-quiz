@@ -1,7 +1,8 @@
 // Reset hasła, e-maile, motywy i ustawienia (osobny proces serwera).   node tests/panel.test.mjs
 import fs from 'node:fs';
 import path from 'node:path';
-import { Browser, finish, makeAdmin, makeAuthor, ok, startServer, upload } from './_helpers.mjs';
+import Database from 'better-sqlite3';
+import { Browser, finish, makeAdmin, makeAuthor, makeMp3, ok, startServer, upload } from './_helpers.mjs';
 
 const srv = await startServer({ MAIL_TEST_OUTBOX: '1' });
 const B = () => new Browser(srv.base);
@@ -121,6 +122,31 @@ try {
 	ok((await kasia.req(`/panel/quizzes/${sq}/host`)).status === 200, 'osoba z dostępem „prowadzenie” otwiera ekran gry');
 	ok((await kasia.req(`/panel/api/quizzes/${sq}`, { method: 'PUT', body: quizBody('Przejęty'), headers: json })).status === 403, 'dostęp „prowadzenie” nie pozwala edytować');
 	ok((await kasia.req(`/panel/quizzes/${sq}/share`)).status === 403, 'osoba z dostępem nie zarządza udostępnianiem');
+
+	// ── Dźwięk na podium: własny plik (fragment, wyrównana głośność), dostępny dla prowadzących ──
+	const memMp3 = JSON.parse((await upload(author, makeMp3(6), 'mem.mp3')).text);
+	const withPodium = (settings) => {
+		const b = JSON.parse(quizBody('Quiz autora'));
+		b.settings = { ...b.settings, ...settings };
+		return JSON.stringify(b);
+	};
+	const noFile = await author.req(`/panel/api/quizzes/${sq}`, { method: 'PUT', body: withPodium({ podiumSound: 'custom', podiumAudio: null }), headers: json });
+	ok(noFile.status === 400 && /Wybierz plik/.test(noFile.text), 'własny dźwięk bez pliku → czytelny błąd');
+	const tooLong = await author.req(`/panel/api/quizzes/${sq}`, { method: 'PUT', body: withPodium({ podiumSound: 'custom', podiumAudio: { mediaId: memMp3.id, startMs: 0, endMs: 25_000 } }), headers: json });
+	ok(tooLong.status === 400 && /20 sekund/.test(tooLong.text), 'dźwięk na podium dłuższy niż 20 s odrzucony');
+	const savedPodium = await author.req(`/panel/api/quizzes/${sq}`, { method: 'PUT', body: withPodium({ podiumSound: 'custom', podiumAudio: { mediaId: memMp3.id, startMs: 500, endMs: 4500 } }), headers: json });
+	ok(savedPodium.status === 200, 'zapis quizu z własnym dźwiękiem na podium');
+	const pdb = new Database(path.join(srv.dataDir, 'quiz.db'), { readonly: true });
+	const pset = JSON.parse(pdb.prepare('SELECT settings FROM quizzes WHERE id = ?').get(sq).settings);
+	const clip = pdb.prepare('SELECT * FROM media WHERE id = ?').get(pset.podiumAudio?.clipMediaId ?? '');
+	pdb.close();
+	ok(pset.podiumSound === 'custom' && clip && clip.duration_ms >= 3500 && clip.duration_ms <= 4500, `wycięty fragment na podium: ${clip?.duration_ms} ms`);
+	ok((await kasia.req(`/media/${clip.id}`)).status === 200, 'osoba prowadząca quiz może pobrać dźwięk na podium');
+	const editorPage = await author.req(`/panel/quizzes/${sq}`);
+	ok(!editorPage.text.includes(clip.id), 'edytor nie dostaje identyfikatora wyciętego fragmentu');
+	const kasiaOwn = JSON.parse((await upload(kasia, makeMp3(3), 'kasia.mp3')).text);
+	const foreign = await author.req(`/panel/api/quizzes/${sq}`, { method: 'PUT', body: withPodium({ podiumSound: 'custom', podiumAudio: { mediaId: kasiaOwn.id, startMs: 0, endMs: 2000 } }), headers: json });
+	ok(foreign.status === 400, 'cudzy plik jako dźwięk na podium odrzucony');
 	ok((await setShare(kasia, { userId: kasiaId, permission: 'edit' })).status === 403, 'nie można samemu podnieść sobie uprawnień');
 	const delShared = await kasia.req('/panel?/delete', { method: 'POST', form: { id: sq } });
 	ok(delShared.status === 403, 'osoba z dostępem nie usunie cudzego quizu');
@@ -145,8 +171,8 @@ try {
 	// Udostępnienie „prowadzenie” administratorowi nie odbiera mu prawa edycji (review Codexa #3)
 	const sp = (await author.req(`/panel/quizzes/${sq}/share`)).text;
 	ok(!/admin2@proem\.pl|Test Admin \(/.test(sp.match(/<select name="userId"[\s\S]*?<\/select>/)?.[0] ?? ''), 'administratorzy nie są na liście do udostępnienia');
-	const { default: Database } = await import('better-sqlite3');
-	const sdb = new Database(path.join(srv.dataDir, 'quiz.db'), { readonly: true });
+	const Database1 = Database;
+	const sdb = new Database1(path.join(srv.dataDir, 'quiz.db'), { readonly: true });
 	const adminId = sdb.prepare('SELECT id FROM users WHERE email = ?').get('admin2@proem.pl')?.id;
 	sdb.close();
 	if (adminId) await setShare(author, { userId: adminId, permission: 'host' });

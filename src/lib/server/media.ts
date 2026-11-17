@@ -176,7 +176,7 @@ export async function saveUpload(ownerId: string, originalName: string, data: Ui
 }
 
 /** Wycina fragment [startMs, endMs] z łagodnym wejściem/wyjściem. Zwraca id nowego media. */
-export async function cutClip(ownerId: string, sourceId: string, startMs: number, endMs: number) {
+export async function cutClip(ownerId: string, sourceId: string, startMs: number, endMs: number, opts: { normalize?: boolean } = {}) {
 	const src = db.select().from(schema.media).where(eq(schema.media.id, sourceId)).get();
 	if (!src || src.kind !== 'audio') return null;
 	const start = Math.max(0, startMs) / 1000;
@@ -191,7 +191,8 @@ export async function cutClip(ownerId: string, sourceId: string, startMs: number
 	try {
 		await inQueue(() =>
 			run('ffmpeg', ['-nostdin', '-hide_banner', '-loglevel', 'error', '-y', '-ss', String(start), '-t', String(dur), '-i', path.join(mediaDir, path.basename(src.file)),
-				'-af', `afade=t=in:st=0:d=${fade},afade=t=out:st=${(dur - fade).toFixed(3)}:d=${fade}`, '-b:a', '160k', '-fs', String(4 * 1024 * 1024), '-f', 'mp3', part], 60_000)
+				// normalize: wyrównanie głośności (np. wgrany mem nie jest dwa razy głośniejszy niż reszta gry)
+				'-af', `${opts.normalize ? 'loudnorm=I=-16:TP=-1.5:LRA=11,' : ''}afade=t=in:st=0:d=${fade},afade=t=out:st=${(dur - fade).toFixed(3)}:d=${fade}`, '-b:a', '160k', '-fs', String(4 * 1024 * 1024), '-f', 'mp3', part], 60_000)
 		);
 		const size = await sizeOf(part);
 		if (size === 0) return null;

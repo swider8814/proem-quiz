@@ -16,7 +16,7 @@
 
 	type Item = { id: string; label: string };
 	type Q = {
-		index: number; total: number; type: 'choice' | 'truefalse' | 'audio' | 'text' | 'order';
+		index: number; total: number; type: 'choice' | 'truefalse' | 'audio' | 'text' | 'order'; thumbs?: boolean;
 		timeLimit: number; prompt: string; promptTranslation: string | null;
 		answers?: string[]; answerCount?: number; items?: Item[];
 	};
@@ -315,8 +315,13 @@
 				{#if !q.answers}<p class="hint">{L.lookAtScreen}</p>{/if}
 			{:else if q.type === 'truefalse'}
 				<main class="tiles two text">
-					<button class="g-tile a1" onclick={() => answer({ choice: true })}><Shape i={1} size={34} color={shapeColor(style)} /><span class="tile-text">{L.true}</span></button>
-					<button class="g-tile a0" onclick={() => answer({ choice: false })}><Shape i={0} size={34} color={shapeColor(style)} /><span class="tile-text">{L.false}</span></button>
+					{#if q.thumbs}
+						<button class="g-tile a1 thumb" aria-label={L.true} onclick={() => answer({ choice: true })} in:scale={{ start: 0.8, duration: 320, easing: backOut }}><Icon name="thumbUp" size="5rem" /></button>
+						<button class="g-tile a0 thumb" aria-label={L.false} onclick={() => answer({ choice: false })} in:scale={{ start: 0.8, delay: 70, duration: 320, easing: backOut }}><Icon name="thumbDown" size="5rem" /></button>
+					{:else}
+						<button class="g-tile a1" onclick={() => answer({ choice: true })}><Shape i={1} size={34} color={shapeColor(style)} /><span class="tile-text">{L.true}</span></button>
+						<button class="g-tile a0" onclick={() => answer({ choice: false })}><Shape i={0} size={34} color={shapeColor(style)} /><span class="tile-text">{L.false}</span></button>
+					{/if}
 				</main>
 			{:else if q.type === 'text'}
 				<form class="stack" onsubmit={(e) => { e.preventDefault(); if (textAnswer.trim()) answer({ text: textAnswer.trim() }); }}>
@@ -417,6 +422,7 @@
 	.result.bad :global(.g-box) { background: var(--a0); }
 	.plus { align-self: center; font-size: 1.6rem; }
 	.cd { width: 7rem; height: 7rem; border-radius: 50%; display: grid; place-items: center; font-size: 3.4rem; font-weight: 900; background: var(--accent); font-variant-numeric: tabular-nums; }
+	.tiles .g-tile.thumb { justify-content: center; }
 	.medal-wrap { display: flex; justify-content: center; }
 	.toast { position: fixed; left: 50%; bottom: max(20px, env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(92vw, 420px); background: #111; color: #fff; padding: 12px 16px; border-radius: 12px; font-weight: 700; text-align: center; z-index: 20; }
 	.place { font-size: 4rem; font-weight: 900; line-height: 1; }

@@ -2,6 +2,7 @@
 	import Icon from '#lib/Icon.svelte';
 	import { beforeNavigate } from '$app/navigation';
 	import AudioClipEditor from '#lib/editor/AudioClipEditor.svelte';
+	import { playPodium, type PodiumSound } from '#lib/game/sounds.js';
 	import {
 		ANSWER_COLORS, QTYPES, changeType, newKey, newQuestion, problems, toPayload, uploadFile,
 		type EditorQuestion, type QType
@@ -59,13 +60,15 @@
 		saveError = '';
 		// Zapamiętujemy DOKŁADNIE to, co wysyłamy – zmiany zrobione w trakcie zapisu zostają niezapisane.
 		const sentQuiz = $state.snapshot(quiz);
+		// Własny dźwięk bez wybranego pliku → serwer zwróci czytelny błąd („wybierz plik”).
+		const body = { ...sentQuiz, settings: { ...sentQuiz.settings, podiumAudio: sentQuiz.settings.podiumAudio?.mediaId ? sentQuiz.settings.podiumAudio : null } };
 		const sentQuestions = $state.snapshot(questions);
 		const sentPayload = sentQuestions.map(toPayload);
 		try {
 			const res = await fetch(`/panel/api/quizzes/${data.quiz.id}`, {
 				method: 'PUT',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ ...sentQuiz, questions: sentPayload })
+				body: JSON.stringify({ ...body, questions: sentPayload })
 			});
 			const out = await res.json().catch(() => ({}));
 			if (!res.ok) throw new Error(out.error ?? out.message ?? E.saveFailed);
@@ -80,6 +83,20 @@
 			saveError = (e as Error).message;
 		} finally {
 			saving = false;
+		}
+	}
+
+	const PODIUM_OPTIONS: PodiumSound[] = ['fanfare', 'triumph', 'drumroll', 'custom', 'none'];
+	let stopPreview: (() => void) | null = null;
+	function previewPodium() {
+		stopPreview?.();
+		const kind = quiz.settings.podiumSound;
+		if (kind === 'custom') return; // własny plik odsłuchuje się w edytorze fragmentu
+		stopPreview = playPodium(kind, { firstAt: kind === 'drumroll' ? 1800 : 0, secondAt: 0 });
+	}
+	function choosePodium() {
+		if (quiz.settings.podiumSound === 'custom' && !quiz.settings.podiumAudio) {
+			quiz.settings.podiumAudio = { mediaId: '', startMs: 0, endMs: 10_000 };
 		}
 	}
 
@@ -172,6 +189,40 @@
 				{#each [3, 5, 10] as n}<option value={n}>{E.countdownSec(n)}</option>{/each}
 			</select>
 		</label>
+		<div class="podium-set">
+			<label>{E.podiumSound}
+				<select bind:value={quiz.settings.podiumSound} onchange={choosePodium}>
+					{#each PODIUM_OPTIONS as o}<option value={o}>{E.podiumSounds[o]}</option>{/each}
+				</select>
+			</label>
+			{#if quiz.settings.podiumSound !== 'custom' && quiz.settings.podiumSound !== 'none'}
+				<button type="button" class="secondary" onclick={previewPodium}>{E.podiumPreview}</button>
+			{/if}
+		</div>
+		{#if quiz.settings.podiumSound === 'custom' && quiz.settings.podiumAudio}
+			{@const pa = quiz.settings.podiumAudio}
+			<div class="podium-clip">
+				<p class="muted">{E.podiumCustomHint}</p>
+				{#key pa.mediaId}
+					<AudioClipEditor
+						mediaId={pa.mediaId}
+						mediaName={media[pa.mediaId]?.name ?? null}
+						durationMs={media[pa.mediaId]?.durationMs ?? null}
+						bind:startMs={pa.startMs}
+						bind:endMs={pa.endMs}
+						loop={false}
+						revealEndMs={null}
+						simple
+						maxMs={20_000}
+						disabled={ro}
+						onMedia={(m) => {
+							media[m.id] = { ...m, kind: 'audio' };
+							pa.mediaId = m.id;
+						}}
+					/>
+				{/key}
+			</div>
+		{/if}
 		<label>{E.nicknames}
 			<select bind:value={quiz.settings.nicknameMode}>
 				<option value="random-or-custom">{E.nickRandomOrCustom}</option>
@@ -287,6 +338,7 @@
 						<label class="check"><input type="radio" checked={d.correct} onchange={() => (d.correct = true)} /> {E.trueCorrect}</label>
 						<label class="check"><input type="radio" checked={!d.correct} onchange={() => (d.correct = false)} /> {E.falseCorrect}</label>
 					</div>
+					<label class="check thumbs"><input type="checkbox" checked={!!d.thumbs} onchange={(e) => (d.thumbs = (e.currentTarget as HTMLInputElement).checked || undefined)} /> <Icon name="thumbUp" /> <Icon name="thumbDown" /> {E.thumbs}</label>
 				{:else if current.data.type === 'text'}
 					{@const d = current.data}
 					<p class="muted">{E.acceptedIntro}</p>
@@ -347,6 +399,10 @@
 	.start.disabled { opacity: 0.4; pointer-events: none; }
 	.settings { display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: 0.25rem 1.5rem; margin: 0 0 1rem; border: 1px solid var(--line); }
 	.settings label { margin-top: 0.5rem; }
+	.podium-set { display: flex; gap: 0.6rem; align-items: flex-end; }
+	.podium-set label { flex: 1; }
+	.podium-clip { grid-column: 1 / -1; }
+	.podium-clip p { margin: 0.5rem 0; }
 	.check { display: flex; align-items: center; gap: 0.5rem; font-weight: 400; }
 	.check.small { font-size: 0.8rem; white-space: nowrap; margin: 0; }
 	.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }

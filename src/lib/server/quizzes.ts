@@ -6,7 +6,7 @@ import { MediaError, cutClip, mediaUrl } from './media.js';
 import { canUseMedia } from './media-access.js';
 import type { User } from './auth/index.js';
 import type { ErrKey } from '#lib/i18n/panel.js';
-import { DEFAULT_QUIZ_SETTINGS, type QuestionData, type QuizSettings } from './db/schema.js';
+import { DEFAULT_QUIZ_SETTINGS, PODIUM_SOUNDS, type QuestionData, type QuizSettings } from './db/schema.js';
 
 // ── Uprawnienia ──────────────────────────────────────────────────────────
 
@@ -145,7 +145,7 @@ const questionSchema = z
 		pointsMultiplier: z.union([z.literal(0), z.literal(1), z.literal(2)]),
 		data: z.discriminatedUnion('type', [
 			z.object({ type: z.literal('choice'), answers: answerList, correct: correctList }),
-			z.object({ type: z.literal('truefalse'), correct: z.boolean() }),
+			z.object({ type: z.literal('truefalse'), correct: z.boolean(), thumbs: z.boolean().optional() }),
 			z.object({
 				type: z.literal('audio'),
 				answers: answerList,
@@ -183,6 +183,11 @@ export const quizSaveSchema = z.object({
 	settings: z.object({
 		defaultTimeLimit: z.number().int().min(5).max(240),
 		countdown: z.number().int().min(0).max(10).default(5),
+		podiumSound: z.enum(PODIUM_SOUNDS).default('fanfare'),
+		podiumAudio: z
+			.object({ mediaId, startMs: z.number().int().min(0).max(3 * 60 * 60 * 1000), endMs: z.number().int().min(0).max(3 * 60 * 60 * 1000) })
+			.nullable()
+			.default(null),
 		streakBonus: z.boolean(),
 		nicknameMode: z.enum(['random-or-custom', 'random-only']),
 		teamMode: z.boolean(),
@@ -190,7 +195,14 @@ export const quizSaveSchema = z.object({
 		phoneAnswerText: z.boolean()
 	}),
 	questions: z.array(questionSchema).max(100)
+}).superRefine((q, ctx) => {
+	const a = q.settings.podiumAudio;
+	if (q.settings.podiumSound === 'custom' && !a) ctx.addIssue({ code: 'custom', message: 'podiumNoFile' });
+	if (a && (a.endMs - a.startMs < 1000 || a.endMs - a.startMs > PODIUM_MAX_MS)) ctx.addIssue({ code: 'custom', message: 'podiumLength' });
 });
+
+/** Najdłuższy własny dźwięk na podium. */
+export const PODIUM_MAX_MS = 20_000;
 
 export type QuizSave = z.infer<typeof quizSaveSchema>;
 
@@ -205,6 +217,8 @@ export async function saveQuiz(user: User, quizId: string, input: QuizSave): Pro
 		if (q.imageMediaId) ids.add(q.imageMediaId);
 		if (q.data.type === 'audio') ids.add(q.data.audioMediaId);
 	}
+	const podium = input.settings.podiumAudio;
+	if (podium) ids.add(podium.mediaId);
 	const media = ids.size ? db.select().from(schema.media).where(inArray(schema.media.id, [...ids])).all() : [];
 	const byId = new Map(media.map((m) => [m.id, m]));
 	// Wolno używać tylko plików, do których ma się dostęp (własne, admin, albo z dostępnego quizu).
@@ -216,6 +230,24 @@ export async function saveQuiz(user: User, quizId: string, input: QuizSave): Pro
 			if (m?.kind !== 'audio') return { error: 'badAudio' as ErrKey };
 			if (m.durationMs && q.data.endMs > m.durationMs + 500) return { error: 'clipBeyond' as ErrKey, detail: q.prompt };
 		}
+	}
+	let settings = input.settings as QuizSettings;
+	if (podium) {
+		const m = byId.get(podium.mediaId);
+		if (m?.kind !== 'audio') return { error: 'badAudio' as ErrKey };
+		if (m.durationMs && podium.endMs > m.durationMs + 500) return { error: 'clipBeyond' as ErrKey };
+		const prevQuiz = db.select({ settings: schema.quizzes.settings }).from(schema.quizzes).where(eq(schema.quizzes.id, quizId)).get();
+		const prev = prevQuiz?.settings?.podiumAudio;
+		const reuse = prev && prev.mediaId === podium.mediaId && prev.startMs === podium.startMs && prev.endMs === podium.endMs && prev.clipMediaId;
+		let clipMediaId: string | null | undefined;
+		try {
+			clipMediaId = reuse ? prev.clipMediaId : await cutClip(user.id, podium.mediaId, podium.startMs, podium.endMs, { normalize: true });
+		} catch (e) {
+			if (e instanceof MediaError) return { error: e.key };
+			throw e;
+		}
+		if (!clipMediaId) return { error: 'clipCut' as ErrKey };
+		settings = { ...settings, podiumAudio: { ...podium, clipMediaId } };
 	}
 
 	const old = new Map(db.select().from(schema.questions).where(eq(schema.questions.quizId, quizId)).all().map((q) => [q.id, q]));
@@ -250,7 +282,7 @@ export async function saveQuiz(user: User, quizId: string, input: QuizSave): Pro
 	}
 	db.transaction((tx) => {
 		tx.update(schema.quizzes)
-			.set({ title: input.title, description: input.description ?? null, themeId: input.themeId, locale: input.locale, settings: input.settings as QuizSettings, updatedAt: new Date() })
+			.set({ title: input.title, description: input.description ?? null, themeId: input.themeId, locale: input.locale, settings, updatedAt: new Date() })
 			.where(eq(schema.quizzes.id, quizId))
 			.run();
 		tx.delete(schema.questions).where(eq(schema.questions.quizId, quizId)).run();
@@ -276,6 +308,13 @@ export function themeView(themeId: string | null) {
 	return { name: t.name, style: t.style, colors: t.colors, headingFont: t.headingFont, logoUrl: mediaUrl(t.logoLight), logoDarkUrl: mediaUrl(t.logoDark) };
 }
 
+/** Do gry: zamiast identyfikatorów plików tylko adres gotowego fragmentu na podium. */
+function podiumSettings(s: QuizSettings) {
+	const { podiumAudio, ...rest } = s;
+	const podiumUrl = s.podiumSound === 'custom' ? mediaUrl(podiumAudio?.clipMediaId ?? null) : null;
+	return { ...rest, podiumSound: s.podiumSound === 'custom' && !podiumUrl ? 'fanfare' : s.podiumSound, podiumUrl };
+}
+
 export function buildSnapshot(quizId: string) {
 	const loaded = loadQuiz(quizId);
 	if (!loaded) return null;
@@ -285,7 +324,7 @@ export function buildSnapshot(quizId: string) {
 		quizId: quiz.id,
 		title: quiz.title,
 		locale: quiz.locale,
-		settings: { ...DEFAULT_QUIZ_SETTINGS, ...quiz.settings },
+		settings: podiumSettings({ ...DEFAULT_QUIZ_SETTINGS, ...quiz.settings }),
 		theme: themeView(quiz.themeId),
 		blockedWords,
 		questions: questions.map((q) => {

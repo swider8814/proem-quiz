@@ -25,7 +25,7 @@ try {
 		settings: { defaultTimeLimit: 20, streakBonus: true, nicknameMode: 'random-or-custom', teamMode: false, lateJoin: true, phoneAnswerText: true },
 		questions: [
 			{ ...base, type: 'audio', prompt: 'Jaka to kolęda?', promptTranslation: 'Which carol is this?', data: { type: 'audio', answers: ['Cicha noc', 'Wśród nocnej ciszy', 'Lulajże, Jezuniu', 'Dzisiaj w Betlejem'], correct: [0], audioMediaId: audio.id, startMs: 500, endMs: 3500, loop: false, revealEndMs: null } },
-			{ ...base, type: 'truefalse', prompt: 'Boże Narodzenie jest 25 grudnia', data: { type: 'truefalse', correct: true } },
+			{ ...base, type: 'truefalse', prompt: 'Boże Narodzenie jest 25 grudnia', data: { type: 'truefalse', correct: true, thumbs: true } },
 			{ ...base, type: 'text', prompt: 'Jak ma na imię renifer z czerwonym nosem?', data: { type: 'text', accepted: ['Rudolf', 'Rudolph'], typoTolerance: 1 } },
 			{ ...base, type: 'order', prompt: 'Ułóż zdanie', data: { type: 'order', items: ['I', 'love', 'Christmas'], partialCredit: false } }
 		]
@@ -189,7 +189,10 @@ try {
 	};
 
 	// ── Pytanie 2: prawda/fałsz ───────────────────────────────────────────
-	for (const p of phones) await p.click('button:has-text("Prawda")');
+	await phones[0].waitForSelector('button.thumb[aria-label="Prawda"] svg');
+	ok((await host.$$('.answers .thumb svg')).length === 2, 'prawda/fałsz jako kciuki: telefon i ekran');
+	await snap(phones[0], '09e-telefon-kciuki');
+	for (const p of phones) await p.click('button[aria-label="Prawda"]');
 	await phones[0].waitForSelector('text=Dobrze!');
 	ok(true, 'prawda/fałsz działa');
 	await host.waitForSelector('.dist .barv');

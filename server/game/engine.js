@@ -356,6 +356,7 @@ export class Game {
 		if ((q.type === 'choice' || q.type === 'audio') && (forHost || this.quiz.settings.phoneAnswerText)) base.answers = d.answers;
 		if ((q.type === 'choice' || q.type === 'audio') && !base.answers) base.answerCount = d.answers.length;
 		if (q.type === 'order') base.items = this.orderMaps.get(this.index).shuffled;
+		if (q.type === 'truefalse' && d.thumbs) base.thumbs = true;
 		if (forHost) {
 			base.imageUrl = q.imageUrl ?? null;
 			if (q.type === 'audio') {
