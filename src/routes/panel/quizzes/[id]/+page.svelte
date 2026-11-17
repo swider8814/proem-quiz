@@ -321,6 +321,14 @@
 			</select>
 		</label>
 		<label class="check"><input type="checkbox" bind:checked={quiz.settings.teamMode} /> {E.teamMode}</label>
+		{#if quiz.settings.teamMode}
+			<label>{E.teamTalk}
+				<select bind:value={quiz.settings.teamTalk}>
+					<option value={0}>{E.countdownOff}</option>
+					{#each [5, 10, 15, 20] as n}<option value={n}>{E.countdownSec(n)}</option>{/each}
+				</select>
+			</label>
+		{/if}
 		<label class="check"><input type="checkbox" bind:checked={quiz.settings.lateJoin} /> {E.lateJoin}</label>
 		<label class="check"><input type="checkbox" bind:checked={quiz.settings.phoneAnswerText} /> {E.phoneText}</label>
 		<label class="check"><input type="checkbox" bind:checked={quiz.settings.streakBonus} /> {E.streak}</label>

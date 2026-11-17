@@ -42,11 +42,11 @@
 	type HS = {
 		pin: string; state: 'lobby' | 'intro' | 'question' | 'reveal' | 'leaderboard' | 'ended';
 		title: string; locale: string; theme: GameTheme; settings: { teamMode: boolean; podiumSound?: PodiumSound; podiumUrl?: string | null; music?: MusicKind; musicUrl?: string | null; musicLobby?: boolean; musicQuestions?: boolean };
-		totalQuestions: number; players?: { id: string; nick: string; connected: boolean }[]; playerCount: number;
+		totalQuestions: number; players?: { id: string; nick: string; connected: boolean; members?: string[] }[]; playerCount: number;
 		now: number; question?: HQ; deadline?: number | null; introEnds?: number | null; answered?: number;
 		solution?: { correct?: number[] | boolean; accepted?: string[]; order?: string[] };
 		distribution?: { counts?: number[]; correct?: number; wrong?: number };
-		ranking?: { id: string; nick: string; score: number; rank: number }[];
+		ranking?: { id: string; nick: string; score: number; rank: number; members?: string[] }[];
 		standings?: { id: string; nick: string; score: number; rank: number; connected: boolean }[];
 	};
 	type ScreenMsg =
@@ -452,8 +452,8 @@
 			</section>
 			<ul class="players">
 				{#each hs.players ?? [] as p (p.id)}
-					<li class="g-chip player" class:off={!p.connected}>
-						<span>{p.nick}</span>
+					<li class="g-chip player" class:off={!p.connected} in:scale={{ start: 0.6, duration: 300, easing: backOut }}>
+						<span>{p.nick}{#if p.members?.length}<small class="members"> · {p.members.join(', ')}</small>{/if}</span>
 						{#if !isScreen}
 						<button class="mini" onclick={() => cmd('host:rename', { playerId: p.id })} aria-label="{L.randomNick}: {p.nick}" title={L.randomNick}><Icon name="replay" /></button>
 						<button class="mini" onclick={() => kickPlayer(p)} aria-label="{L.removePlayer}: {p.nick}" title={L.removePlayer}><Icon name="close" /></button>
@@ -474,7 +474,16 @@
 						<div class="cd g-box" in:scale={{ start: 1.6, duration: 450, easing: backOut }}>{introLeft}</div>
 					{/key}
 				</div>
-				<p class="listen">{L.getReady}</p>
+				{#if hs.settings.teamMode && (q.answers || q.items)}
+					<p class="listen">{L.teamTalk}</p>
+					<div class="answers talk">
+						{#each q.answers ?? q.items?.map((x) => x.label) ?? [] as a, i}
+							<div class="g-tile a{i % 4}" in:scale={{ start: 0.85, delay: 200 + i * 90, duration: 350, easing: backOut }}>{a}</div>
+						{/each}
+					</div>
+				{:else}
+					<p class="listen">{L.getReady}</p>
+				{/if}
 			</section>
 		{:else if (hs.state === 'question' || hs.state === 'reveal') && q}
 			<section class="question">
@@ -550,6 +559,7 @@
 								<div class="step s{idx + 1}" in:fly={{ y: 260, delay: PODIUM_DELAY[idx], duration: 800, easing: backOut }}>
 									<Medal place={idx + 1} size="3.2em" />
 									<span class="who">{hs.ranking[idx].nick}</span>
+									{#if hs.ranking[idx].members?.length}<span class="members">{hs.ranking[idx].members?.join(', ')}</span>{/if}
 									<div class="g-box block"><span class="place">{idx + 1}</span><span>{hs.ranking[idx].score}</span></div>
 								</div>
 							{:else}
@@ -564,7 +574,7 @@
 					{#each hs.ranking?.slice(hs.state === 'ended' ? 3 : 0) ?? [] as r, i (r.id)}
 						<li class="g-box" class:top={r.rank <= 3} in:fly={{ x: -50, delay: (hs.state === 'ended' ? PODIUM_REST : 150) + i * 110, duration: 400 }}>
 							{#if r.rank <= 3}<Medal place={r.rank} />{:else}<span class="pos">{r.rank}.</span>{/if}
-							<span class="nm">{r.nick}</span><span class="sc">{r.score}</span>
+							<span class="nm">{r.nick}{#if r.members?.length}<small class="members"> · {r.members.join(', ')}</small>{/if}</span><span class="sc">{r.score}</span>
 						</li>
 					{/each}
 				</ol>
@@ -642,6 +652,9 @@
 	.tick { display: inline-flex; }
 	.answers.with-images .g-tile { min-height: 0; padding: 0.6vh 1.2vw; }
 	.ans-img { height: 13vh; max-width: 40%; object-fit: contain; background: #fff; border-radius: 0.3em; }
+	.members { font-weight: 600; opacity: 0.75; font-size: 0.8em; }
+	.answers.talk { width: 100%; }
+	.answers.talk .g-tile { min-height: 7vh; font-size: 1.2em; }
 	.thumb { display: flex; justify-content: center; flex: 1; }
 	.center { margin: auto; }
 	.big { font-size: 2em; font-weight: 900; }

@@ -292,10 +292,13 @@ function playerConnection(socket, games) {
 		}
 		const nick = arg.nick === undefined ? '' : str(arg.nick, 100);
 		if (nick === null) return reply(ack, { error: 'invalid' });
+		// Członkowie drużyny: tylko tablica krótkich napisów (resztę odrzucamy po cichu).
+		const members = Array.isArray(arg.members) ? arg.members.slice(0, 20).map((m) => str(m, 40)).filter((m) => m !== null) : [];
 		const res = game.addPlayer({
 			nick,
 			random: arg.random === true,
-			deviceId: str(arg.deviceId, 64)
+			deviceId: str(arg.deviceId, 64),
+			members
 		});
 		if ('error' in res) return reply(ack, { error: res.error });
 		reply(ack, { ok: true, token: res.token, pin: game.pin });

@@ -10,8 +10,12 @@ export const INTRO_MS = 5000;
 /** Odliczanie z ustawień quizu: 0 (bez odliczania) … 10 s. */
 export const introMs = (settings) => {
 	const s = Number(settings?.countdown);
-	return Number.isInteger(s) && s >= 0 && s <= 10 ? s * 1000 : INTRO_MS;
+	const base = Number.isInteger(s) && s >= 0 && s <= 10 ? s * 1000 : INTRO_MS;
+	// Tryb drużynowy: dodatkowy czas na naradę (pytanie i odpowiedzi już widać, odpowiadać jeszcze nie można).
+	const talk = Number(settings?.teamTalk);
+	return base + (settings?.teamMode && Number.isInteger(talk) && talk > 0 && talk <= 30 ? talk * 1000 : 0);
 };
+export const MAX_MEMBERS = 6;
 const GRACE_MS = 600; // opóźnienie sieci przy odpowiedzi tuż przed końcem
 const MAX_PLAYERS = 300;
 const MAX_GAMES_PER_USER = 3;
@@ -96,7 +100,7 @@ export class Game {
 	}
 
 	/** @returns {{ error: string } | { player: any, token: string }} */
-	addPlayer({ nick, random, deviceId }) {
+	addPlayer({ nick, random, deviceId, members }) {
 		if (this.state === 'ended') return { error: 'game-ended' };
 		if (this.state !== 'lobby' && !this.quiz.settings.lateJoin) return { error: 'started' };
 		if (deviceId && this.bannedDevices.has(deviceId)) return { error: 'removed' };
@@ -112,12 +116,19 @@ export class Game {
 			if (isProfane(finalNick, this.quiz.blockedWords)) return { error: 'nick-blocked' };
 			if (this.takenNicks().has(finalNick.toLowerCase())) return { error: 'nick-taken' };
 		}
+		// Drużyna: opcjonalne imiona członków (tylko w trybie drużynowym), te same zasady co nicki.
+		let team = [];
+		if (this.quiz.settings.teamMode && Array.isArray(members)) {
+			team = members.slice(0, 20).map(cleanNick).filter((m) => m.length > 0).slice(0, MAX_MEMBERS);
+			if (team.some((m) => isProfane(m, this.quiz.blockedWords))) return { error: 'nick-blocked' };
+		}
 		const t = token();
 		const player = {
 			id: shortId(),
 			tokenHash: sha(t),
 			deviceId: typeof deviceId === 'string' ? deviceId.slice(0, 64) : null,
 			nick: finalNick,
+			members: team,
 			score: 0,
 			streak: 0,
 			totalTime: 0,
@@ -335,7 +346,7 @@ export class Game {
 	ranking() {
 		return this.activePlayers()
 			.sort((a, b) => b.score - a.score || a.totalTime - b.totalTime || a.joinedAt - b.joinedAt)
-			.map((p, i) => ({ id: p.id, nick: p.nick, score: p.score, rank: i + 1 }));
+			.map((p, i) => ({ id: p.id, nick: p.nick, score: p.score, rank: i + 1, ...(p.members?.length ? { members: p.members } : {}) }));
 	}
 
 	/** Pliki, które gracze widzą w bieżącym pytaniu (obrazki odpowiedzi) – trasa /game-media udostępnia tylko je. */
@@ -413,7 +424,7 @@ export class Game {
 			theme: this.quiz.theme,
 			settings: this.quiz.settings,
 			totalQuestions: this.quiz.questions.length,
-			players: this.state === 'lobby' ? this.activePlayers().map((p) => ({ id: p.id, nick: p.nick, connected: p.connected })) : undefined,
+			players: this.state === 'lobby' ? this.activePlayers().map((p) => ({ id: p.id, nick: p.nick, connected: p.connected, ...(p.members?.length ? { members: p.members } : {}) })) : undefined,
 			playerCount: this.activePlayers().length,
 			now: Date.now()
 		};
@@ -444,7 +455,7 @@ export class Game {
 			locale: this.quiz.locale,
 			theme: this.quiz.theme,
 			teamMode: this.quiz.settings.teamMode,
-			me: { id: p.id, nick: p.nick, score: p.score, streak: p.streak },
+			me: { id: p.id, nick: p.nick, score: p.score, streak: p.streak, members: p.members ?? [] },
 			now: Date.now()
 		};
 		if (this.state === 'intro' || this.state === 'question') {

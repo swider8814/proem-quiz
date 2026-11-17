@@ -46,6 +46,7 @@
 	let sent = $state(false); // odpowiedź wysłana w bieżącym pytaniu
 	let textAnswer = $state('');
 	let picked = $state<string[]>([]);
+	let members = $state<string[]>(['']);
 	let toast = $state('');
 	let toastTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -183,7 +184,8 @@
 			nick: useOwn ? nick : suggestion,
 			// Podpowiedź z serwera traktujemy jak własny nick (żeby gracz dostał dokładnie to, co widzi).
 			random: false,
-			deviceId: deviceId()
+			deviceId: deviceId(),
+			members: team ? members.map((m) => m.trim()).filter(Boolean) : undefined
 		});
 		busy = false;
 		if (!r.ok || !r.token || !r.pin) {
@@ -255,6 +257,15 @@
 					<input class="g-input" maxlength="20" bind:value={nick} autocomplete="off" autocapitalize="words" aria-label={team ? L.teamName : L.yourNick} />
 					<button type="button" class="linkish" onclick={() => (ownNick = false)}><Icon name="dice" /> {L.drawAgain}</button>
 				{/if}
+				{#if team}
+					<span class="big-label small-label">{L.members}</span>
+					{#each members as _, i}
+						<input class="g-input member" maxlength="20" bind:value={members[i]} autocomplete="off" autocapitalize="words" placeholder={L.memberName(i + 1)} aria-label={L.memberName(i + 1)} />
+					{/each}
+					{#if members.length < 6}
+						<button type="button" class="linkish" onclick={() => members.push('')}>+ {L.addMember}</button>
+					{/if}
+				{/if}
 				{#if error}<p class="err" role="alert">{error}</p>{/if}
 				<button class="g-btn wide" disabled={busy || (ownNick && nick.trim().length < 2)}>{L.join}</button>
 			</form>
@@ -290,7 +301,16 @@
 			<h1 class="prompt">{q.prompt}</h1>
 			{#if q.promptTranslation}<p class="translation">{q.promptTranslation}</p>{/if}
 
-			{#if gs.state === 'intro'}
+			{#if gs.state === 'intro' && team && (q.answers || q.items)}
+				<!-- Narada drużyny: odpowiedzi widać, ale jeszcze nie można odpowiadać. -->
+				<main class="center talk" in:fly={{ y: 24, duration: 380 }}>
+					<p class="huge">{L.teamTalk}</p>
+					{#key introLeft}<div class="cd g-box" in:scale={{ start: 1.6, duration: 450, easing: backOut }}>{introLeft}</div>{/key}
+					<ul class="talk-list">
+						{#each q.answers ?? q.items?.map((x) => x.label) ?? [] as a, i}<li class="g-tile a{i % 4}">{a}</li>{/each}
+					</ul>
+				</main>
+			{:else if gs.state === 'intro'}
 				<main class="center" in:fly={{ y: 24, duration: 380 }}>
 					<p class="huge">{L.getReady}</p>
 					{#key introLeft}<div class="cd g-box" in:scale={{ start: 1.6, duration: 450, easing: backOut }}>{introLeft}</div>{/key}
@@ -430,6 +450,10 @@
 	.tiles .g-tile.thumb { justify-content: center; }
 	.tiles.pics .g-tile { flex-direction: column; justify-content: center; gap: 6px; padding: 8px; }
 	.pic { width: 100%; flex: 1; min-height: 0; max-height: 22vh; object-fit: contain; background: #fff; border-radius: 6px; }
+	.small-label { font-size: 1rem; }
+	.member { font-size: 1.05rem; }
+	.talk-list { list-style: none; margin: 0; padding: 0; width: 100%; display: grid; gap: 8px; }
+	.talk-list li { padding: 10px 14px; font-weight: 800; justify-content: flex-start; min-height: 0; cursor: default; }
 	.medal-wrap { display: flex; justify-content: center; }
 	.toast { position: fixed; left: 50%; bottom: max(20px, env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(92vw, 420px); background: #111; color: #fff; padding: 12px 16px; border-radius: 12px; font-weight: 700; text-align: center; z-index: 20; }
 	.place { font-size: 4rem; font-weight: 900; line-height: 1; }

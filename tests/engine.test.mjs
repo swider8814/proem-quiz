@@ -194,6 +194,30 @@ for (const cd of [0, 3]) {
 	pb.close();
 }
 
+// Tryb drużynowy: członkowie drużyny, filtr imion, czas na naradę wydłuża odliczanie
+{
+	const g = registry().create({ ...quiz, quizId: 'team', settings: { ...quiz.settings, teamMode: true, countdown: 3, teamTalk: 5 } }, 'user1');
+	const h = connect(URL, { auth: { role: 'host', pin: g.pin, token: g.hostToken }, transports: ['websocket'] });
+	let hostSt = null;
+	h.on('state', (x) => (hostSt = x));
+	await nextState(h);
+	const ta = mk();
+	let jr = await emit(ta, 'join', { pin: g.pin, nick: 'Stolik 1', deviceId: 'team1', members: ['Ala', 'zakazane'] });
+	ok(jr.error === 'nick-blocked', 'drużyna: niecenzuralne imię członka odrzucone');
+	jr = await emit(ta, 'join', { pin: g.pin, nick: 'Stolik 1', deviceId: 'team1', members: ['Ala', '  Ola ', { x: 1 }, 'B'.repeat(500), '', 'Jan', 'Ewa', 'Iza', 'Kuba', 'Zosia'] });
+	ok(jr.ok, 'drużyna dołączyła z członkami');
+	await sleep(100);
+	const tm = hostSt.players?.find((p) => p.nick === 'Stolik 1')?.members ?? [];
+	ok(JSON.stringify(tm) === JSON.stringify(['Ala', 'Ola', 'Jan', 'Ewa', 'Iza', 'Kuba']), `członkowie oczyszczeni i ograniczeni do 6: ${tm}`);
+	const intro = nextState(ta, (x) => x.state === 'intro');
+	const t0 = Date.now();
+	await emit(h, 'host:next', {});
+	const st = await intro;
+	ok(Math.abs(st.introEnds - t0 - 8000) < 500 && st.question.answers?.length === 4, `narada: odliczanie 3 s + 5 s, odpowiedzi widoczne (${st.introEnds - t0} ms)`);
+	h.close();
+	ta.close();
+}
+
 // PIN brute force
 const brute = mk();
 let limitedHit = false;

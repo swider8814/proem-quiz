@@ -114,6 +114,7 @@ export type QuizSettings = {
 	streakBonus: boolean;
 	nicknameMode: 'random-or-custom' | 'random-only';
 	teamMode: boolean;
+	teamTalk: number; // tryb drużynowy: sekundy na naradę przed odpowiedzią (0–30)
 	lateJoin: boolean; // dołączanie po starcie gry
 	phoneAnswerText: boolean; // tekst odpowiedzi na telefonie (nie tylko kształty)
 };
@@ -130,6 +131,7 @@ export const DEFAULT_QUIZ_SETTINGS: QuizSettings = {
 	streakBonus: true,
 	nicknameMode: 'random-or-custom',
 	teamMode: false,
+	teamTalk: 10,
 	lateJoin: true,
 	phoneAnswerText: true
 };
