@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash, randomBytes } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
+import zlib from 'node:zlib';
 import Database from 'better-sqlite3';
 
 const DATA_DIR = process.env.DATA_DIR ?? path.resolve('data');
@@ -91,6 +92,48 @@ function demoMelody(ownerId) {
 	return { id: mediaId, clipId, durationMs };
 }
 
+/** Obrazek PNG 128×128: bombka w danym kolorze (do przykładowego pytania z obrazkami). */
+function demoBauble(ownerId, name, [r, g, b]) {
+	const W = 128;
+	const raw = Buffer.alloc(W * (1 + W * 4));
+	for (let y = 0; y < W; y++) {
+		raw[y * (1 + W * 4)] = 0;
+		for (let x = 0; x < W; x++) {
+			const o = y * (1 + W * 4) + 1 + x * 4;
+			const dx = x - 64, dy = y - 74;
+			const d = Math.sqrt(dx * dx + dy * dy);
+			let px = [255, 255, 255, 0];
+			if (x >= 54 && x <= 74 && y >= 18 && y <= 32) px = [190, 160, 60, 255]; // zawieszka
+			if (d <= 44) {
+				const shine = Math.max(0, 1 - Math.hypot(x - 48, y - 58) / 22); // odblask
+				px = [Math.min(255, r + shine * 140), Math.min(255, g + shine * 140), Math.min(255, b + shine * 140), 255];
+			}
+			raw.set(px, o);
+		}
+	}
+	const chunk = (type, data) => {
+		const len = Buffer.alloc(4);
+		len.writeUInt32BE(data.length);
+		const td = Buffer.concat([Buffer.from(type), data]);
+		const crc = Buffer.alloc(4);
+		crc.writeUInt32BE(zlib.crc32(td) >>> 0);
+		return Buffer.concat([len, td, crc]);
+	};
+	const ihdr = Buffer.alloc(13);
+	ihdr.writeUInt32BE(W, 0);
+	ihdr.writeUInt32BE(W, 4);
+	ihdr.set([8, 6, 0, 0, 0], 8);
+	const png = Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', zlib.deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]);
+	const mediaId = id('med');
+	const file = `${mediaId}.png`;
+	const dir = path.join(DATA_DIR, 'media');
+	fs.mkdirSync(dir, { recursive: true });
+	fs.writeFileSync(path.join(dir, `${file}.part`), png, { mode: 0o640 });
+	fs.renameSync(path.join(dir, `${file}.part`), path.join(dir, file));
+	db.prepare('INSERT INTO media (id, owner_id, kind, original_name, file, duration_ms, size_bytes) VALUES (?, ?, ?, ?, ?, ?, ?)').run(mediaId, ownerId, 'image', name, file, null, png.length);
+	return mediaId;
+}
+
 const STAMPED = /^quiz-\d{4}-\d{2}-\d{2}_\d{4}\.db$/;
 const MEDIA_FILE = /^med_[A-Za-z0-9_-]{10,20}\.(mp3|png|jpe?g|webp|gif)$/;
 
@@ -145,7 +188,7 @@ switch (cmd) {
 		break;
 	}
 	case 'demo-quiz': {
-		// Dwa przykładowe quizy (PL i EN z polskim drugim wierszem) do próby – bez plików audio.
+		// Przykładowe quizy do próby: PL i EN (z polskim drugim wierszem) oraz pokaz nowych typów pytań.
 		const user = emailArg && findUser(emailArg);
 		if (!user) throw new Error('Użycie: demo-quiz <email istniejącego konta>');
 		const theme = db.prepare('SELECT id FROM themes WHERE is_default = 1').get()?.id ?? null;
@@ -180,6 +223,19 @@ switch (cmd) {
 			{ prompt: 'What animals did the shepherds look after?', tr: 'Jakimi zwierzętami opiekowali się pasterze?', time: 30, data: { type: 'text', accepted: ['sheep', 'lambs'], typoTolerance: 1 } },
 			{ prompt: 'Put in order, from the earliest', tr: 'Ułóż od najwcześniejszego', time: 30, data: { type: 'order', items: ['Advent', 'Christmas Eve', 'Christmas Day', 'Epiphany'], partialCredit: true } },
 			{ prompt: 'Which colour is NOT usually used for Christmas decorations?', tr: 'Który kolor zwykle NIE jest kolorem świątecznych ozdób?', data: { type: 'choice', answers: ['Red', 'Green', 'Gold', 'Brown'], correct: [3] } }
+		]);
+		const baubles = [
+			['czerwona', [200, 20, 40]],
+			['zielona', [20, 140, 60]],
+			['niebieska', [30, 80, 200]],
+			['złota', [200, 150, 20]]
+		].map(([n, c]) => demoBauble(user.id, `Bombka ${n}.png`, c));
+		make('Przykład – nowe typy pytań', 'pl', [
+			{ prompt: 'Witajcie na świątecznym quizie!', data: { type: 'slide', text: 'Zeskanujcie kod QR telefonem i wybierzcie swoją postać.\nZaczynamy za chwilę!' } },
+			{ prompt: 'Która bombka jest zielona?', data: { type: 'choice', answers: ['', '', '', ''], correct: [1], images: baubles } },
+			{ prompt: 'Święty Mikołaj nosi czerwony strój.', data: { type: 'truefalse', correct: true, thumbs: true } },
+			{ prompt: 'Ile dni ma grudzień?', time: 25, data: { type: 'slider', min: 0, max: 60, step: 1, correct: 31, margin: 'low', unit: 'dni' } },
+			{ prompt: 'Która kolęda podoba Ci się najbardziej?', data: { type: 'poll', answers: ['Cicha noc', 'Wśród nocnej ciszy', 'Lulajże, Jezuniu', 'Bóg się rodzi'] } }
 		]);
 		console.log('Pytanie audio: melodia „Cicha noc” (F. X. Gruber, 1818 – domena publiczna), wygenerowana syntezatorem.');
 		break;

@@ -192,7 +192,7 @@ try {
 	// ── Przykładowe quizy do próby (cli demo-quiz) ──
 	const demoOut = srv.cli('demo-quiz', 'admin2@proem.pl');
 	const demoIds = [...demoOut.matchAll(/\/panel\/quizzes\/(quiz_[A-Za-z0-9_-]+)/g)].map((m) => m[1]);
-	ok(demoIds.length === 2, 'demo-quiz tworzy dwa quizy');
+	ok(demoIds.length === 3, 'demo-quiz tworzy trzy quizy');
 	for (const qid of demoIds) {
 		const ed = await adm2.req(`/panel/quizzes/${qid}`);
 		ok(ed.status === 200, `przykładowy quiz otwiera się w edytorze (${qid})`);
@@ -211,6 +211,23 @@ try {
 	};
 	const ds = await adm2.req(`/panel/api/quizzes/${demoIds[1]}`, { method: 'PUT', body: JSON.stringify(demoSave), headers: { 'content-type': 'application/json', accept: 'application/json' } });
 	ok(ds.status === 200, `przykładowe pytania przechodzą walidację edytora (${ds.text.slice(0, 120)})`);
+	// Pokaz nowych typów (slajd, obrazki, kciuki, suwak, ankieta) też przechodzi walidację edytora
+	{
+		const ndb = new Database2(path.join(srv.dataDir, 'quiz.db'), { readonly: true });
+		const nq = ndb.prepare('SELECT type, prompt, prompt_translation, time_limit, points_multiplier, data FROM questions WHERE quiz_id = ? ORDER BY position').all(demoIds[2]);
+		const imgs = JSON.parse(nq[1].data).images;
+		const imgRow = ndb.prepare('SELECT kind, file FROM media WHERE id = ?').get(imgs[0]);
+		ndb.close();
+		ok(nq.map((q) => q.type).join() === 'slide,choice,truefalse,slider,poll', `nowe typy w przykładzie: ${nq.map((q) => q.type)}`);
+		ok(imgRow?.kind === 'image' && fs.readFileSync(path.join(srv.dataDir, 'media', imgRow.file)).subarray(1, 4).toString() === 'PNG', 'obrazki bombek to poprawne pliki PNG');
+		const save = {
+			title: 'Przykład – nowe typy pytań', description: null, themeId: null, locale: 'pl',
+			settings: { defaultTimeLimit: 20, streakBonus: true, nicknameMode: 'random-or-custom', teamMode: false, lateJoin: true, phoneAnswerText: true },
+			questions: nq.map((q) => ({ type: q.type, prompt: q.prompt, promptTranslation: q.prompt_translation, imageMediaId: null, timeLimit: q.time_limit, pointsMultiplier: q.points_multiplier, data: JSON.parse(q.data) }))
+		};
+		const ns = await adm2.req(`/panel/api/quizzes/${demoIds[2]}`, { method: 'PUT', body: JSON.stringify(save), headers: { 'content-type': 'application/json', accept: 'application/json' } });
+		ok(ns.status === 200, `pokaz nowych typów przechodzi walidację edytora (${ns.text.slice(0, 160)})`);
+	}
 	const audioQ = JSON.parse(dq[0].data);
 	ok(dq[0].type === 'audio' && audioQ.audioMediaId, 'przykładowy quiz ma pytanie audio');
 	const mp3 = await adm2.req(`/media/${audioQ.audioMediaId}`, { raw: true });
