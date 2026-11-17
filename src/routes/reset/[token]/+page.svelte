@@ -6,7 +6,7 @@
 	const t = $derived(panelDict(page.data.lang));
 </script>
 
-<svelte:head><title>{t.auth.newPasswordTitle} · Proem Quiz</title><meta name="referrer" content="no-referrer" /></svelte:head>
+<svelte:head><title>{t.auth.newPasswordTitle} · Proem Quiz</title><!-- strict-origin: token z adresu nie wycieka, a formularz wysyła poprawny nagłówek Origin (przy no-referrer przeglądarka wysyła „Origin: null” i ochrona CSRF odrzuca formularz) --><meta name="referrer" content="strict-origin" /></svelte:head>
 
 <main class="auth">
 	<div class="card">

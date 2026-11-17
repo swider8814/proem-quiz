@@ -8,7 +8,7 @@ import { finish, makeAdmin, ok, startServer } from './_helpers.mjs';
 // Adres sieciowy maszyny (nie localhost) – przeglądarka traktuje go jak niezaufany origin (http).
 const lan = Object.values(os.networkInterfaces()).flat().find((a) => a && a.family === 'IPv4' && !a.internal)?.address ?? '127.0.0.1';
 const srv = await startServer({}, { host: lan });
-const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/usr/bin/google-chrome', args: ['--no-sandbox'] });
+const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || '/usr/bin/google-chrome', args: ['--no-sandbox', '--no-proxy-server'] }); // bez proxy środowiska: łączymy się z adresem w sieci lokalnej
 try {
 	const { browser: admin } = await makeAdmin(srv, 'ui@proem.pl');
 	const invite = srv.cli('create-admin', 'nowy@proem.pl', 'Nowy Admin').match(/\/invite\/[A-Za-z0-9_-]+/)[0];
@@ -33,6 +33,26 @@ try {
 		ok(lang === (locale === 'pl-PL' ? 'en' : 'pl'), `${locale}: przełącznik języka na stronie logowania (${lang})`);
 		await ctx.close();
 	}
+	// Formularze w prawdziwej przeglądarce (nagłówek Origin, ochrona CSRF): aktywacja konta i logowanie
+	{
+		const ctx = await browser.newContext({ locale: 'pl-PL' });
+		const page = await ctx.newPage();
+		const link = srv.cli('create-admin', 'formularz@proem.pl', 'Formularz').match(/\/invite\/[A-Za-z0-9_-]+/)[0];
+		await page.goto(srv.base + link);
+		await page.fill('#password', 'BardzoTajne123!');
+		await page.fill('#repeat', 'BardzoTajne123!');
+		await Promise.all([page.waitForNavigation(), page.click('button.block')]);
+		const body = await page.textContent('body');
+		ok(page.url().endsWith('/panel/2fa-setup') && !/Cross-site POST/.test(body ?? ''), `aktywacja konta w przeglądarce działa (${page.url().replace(srv.base, '')})`);
+		const page2 = await (await browser.newContext()).newPage();
+		await page2.goto(srv.base + '/login');
+		await page2.fill('#email', 'formularz@proem.pl');
+		await page2.fill('#password', 'BardzoTajne123!');
+		await Promise.all([page2.waitForNavigation(), page2.click('button.block')]);
+		ok(page2.url().includes('/panel/2fa-setup') && !/Cross-site POST/.test((await page2.textContent('body')) ?? ''), `logowanie w przeglądarce działa (${page2.url().replace(srv.base, '')})`);
+		await ctx.close();
+	}
+
 	// Panel po zalogowaniu (ciasteczko sesji) – też bez błędów
 	const ctx = await browser.newContext();
 	await ctx.addCookies([{ name: 'pq_session', value: admin.jar.pq_session, url: srv.base }]);
