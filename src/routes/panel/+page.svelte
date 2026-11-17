@@ -67,6 +67,8 @@
 	.search { margin-bottom: 1rem; max-width: 20rem; }
 	.list { list-style: none; padding: 0; display: grid; gap: 0.75rem; }
 	.list li { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; padding: 1rem 1.25rem; }
+	.list li { border-left: 4px solid #f5b700; transition: box-shadow 0.15s, transform 0.15s; }
+	.list li:hover { box-shadow: 0 2px 4px rgba(20, 22, 40, 0.06), 0 10px 24px rgba(20, 22, 40, 0.09); transform: translateY(-1px); }
 	.info { flex: 1; min-width: 14rem; display: flex; flex-direction: column; gap: 0.2rem; }
 	.title { font-weight: 700; font-size: 1.1rem; color: var(--text); text-decoration: none; }
 	.title:hover { text-decoration: underline; }

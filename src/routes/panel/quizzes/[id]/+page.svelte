@@ -561,8 +561,8 @@
 	.title { flex: 1; min-width: 0; width: 100%; font-size: 1.25rem; font-weight: 700; border: 0; border-radius: 0; background: transparent; padding: 0.35rem 0; box-shadow: none; outline: none; }
 	.pen { color: #8a90a6; display: inline-flex; }
 	.title-wrap:focus-within .pen { color: #1368ce; }
-	.bar-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
-	.status { min-width: 8rem; text-align: right; }
+	.bar-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-left: auto; }
+	.status { text-align: right; }
 	.err { color: var(--danger); }
 	.start { background: #26890c; }
 	.start.disabled { opacity: 0.4; pointer-events: none; }
@@ -595,7 +595,8 @@
 		.list { flex: 1 1 100%; position: static; max-height: none; box-sizing: border-box; }
 		.status { min-width: 0; text-align: left; }
 	}
-	.q { border: 0; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+	.q { border: 1px solid var(--line); background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1rem 1.25rem 1.25rem; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; }
+	@media (max-width: 720px) { .q { padding: 0.75rem; } }
 	.q-head { display: flex; gap: 0.75rem; align-items: flex-end; flex-wrap: wrap; }
 	.q-head label { margin: 0; }
 	.q-head input { width: 6rem; display: block; margin-top: 0.3rem; }
