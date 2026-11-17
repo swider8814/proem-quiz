@@ -168,8 +168,18 @@ rm -f data/quiz.db-wal data/quiz.db-shm
 rsync -a <kopia>/backup/media-RRRR-MM-DD_GGMM/ data/media/  # pliki audio/obrazy z tej samej chwili
 chown -R 10471:10471 data && docker compose up -d
 ```
-Z Dysku Google (gdy NAS niedostępny): z `rclone.conf` i dwóch haseł –
-`rclone copy gcrypt:db/<plik> .` oraz `rclone copy gcrypt:media media/` (konfiguracja: `backup-config/rclone.conf`).
+Z Dysku Google (gdy NAS niedostępny) – na serwerze, także nowym (po `mikrus-setup.sh`):
+```bash
+bash mikrus-backup-setup.sh odtworz
+```
+Skrypt pokaże kopie z Dysku i pobierze wybraną bazę razem z jej plikami audio/obrazami do
+`/srv/proem-quiz/odtwarzanie/`. Na nowym serwerze zapyta o ID dysku i dwa hasła szyfrowania
+(z menedżera haseł), a klucz konta technicznego trzeba wcześniej zapisać jako `/srv/proem-quiz/backup-config/sa.json`.
+Potem kroki jak wyżej, z `<kopia>/backup/` = `/srv/proem-quiz/odtwarzanie/`.
+Zestaw do odtworzenia trzymaj w menedżerze haseł: plik `sa.json`, ID dysku, oba hasła.
+
+Na Dysku każda kopia ma spis swoich plików; plik audio/obraz znika z Dysku dopiero wtedy,
+gdy nie potrzebuje go już żadna zachowana (90 dni) kopia bazy.
 Kopie nie zawierają sesji logowania – po odtworzeniu wszyscy logują się ponownie (hasło + 2FA, ten sam `TOTP_ENCRYPTION_KEY`).
 
 ## Przydatne komendy na serwerze
@@ -213,4 +223,4 @@ Kroki 2–6 poniżej robią to samo ręcznie (np. na macOS / Linuksie).
    Pytanie audio ma melodię „Cicha noc” (domena publiczna) wygenerowaną przez aplikację – własne MP3 dodasz w edytorze.
 
 Zatrzymanie: Ctrl+C. Dane zostają w wolumenie Dockera (`proem-quiz-local_data`); usunięcie wszystkiego:
-`docker compose -f docker-compose.local.yml down -v`.
+`docker compose -f docker-compose.local.yml --env-file .env.local down -v`.

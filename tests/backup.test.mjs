@@ -31,8 +31,10 @@ fs.writeFileSync(path.join(bin, 'docker'), [
 	'exit 0',
 	''
 ].join('\n'), { mode: 0o755 });
-// Atrapa rclone: zapisuje wywołania; RCLONE_FAIL=1 symuluje błąd wysyłki.
-fs.writeFileSync(path.join(bin, 'rclone'), '#!/bin/bash\necho "rclone $*" >> "$STUB_APP/rclone.log"\n[[ "${RCLONE_FAIL:-}" == 1 ]] && exit 1\nexit 0\n', { mode: 0o755 });
+// Atrapa rclone (tests/stubs/rclone.mjs): „zdalny” dysk w <app>/remote, zapisuje wywołania.
+fs.writeFileSync(path.join(bin, 'rclone'), `#!/bin/bash\nexec "${process.execPath}" "${path.join(repo, 'tests/stubs/rclone.mjs')}" "$@"\n`, { mode: 0o755 });
+const remote = (...p) => path.join(app, 'remote', ...p);
+const daysAgo = (f, d) => fs.utimesSync(f, new Date(Date.now() - d * 864e5), new Date(Date.now() - d * 864e5));
 
 const runBackup = (env = {}) =>
 	spawnSync('bash', [path.join(app, 'backup.sh')], {
@@ -104,6 +106,18 @@ try {
 	fs.writeFileSync(outside, 'ważne');
 	fs.symlinkSync(outside, path.join(data, 'backup', 'quiz-1999-01-01_0000.db'));
 	fs.utimesSync(outside, new Date(Date.now() - 10 * 864e5), new Date(Date.now() - 10 * 864e5));
+	// Dysk: kopia sprzed 100 dni (do usunięcia razem z plikiem, którego nikt już nie potrzebuje)
+	// i kopia sprzed 30 dni (jej plik musi zostać, choć zniknął z aplikacji).
+	for (const d of ['db', 'manifests', 'media']) fs.mkdirSync(remote(d), { recursive: true });
+	fs.writeFileSync(remote('db', 'quiz-2026-08-01_0230.db'), 'x');
+	fs.writeFileSync(remote('manifests', 'media-2026-08-01_0230.txt'), 'med_tylkostara1234.mp3\nmed_wspolny123456.mp3\n');
+	fs.writeFileSync(remote('db', 'quiz-2026-11-10_0230.db'), 'x');
+	fs.writeFileSync(remote('manifests', 'media-2026-11-10_0230.txt'), 'med_wspolny123456.mp3\nmed_miesiac12345.mp3\n');
+	for (const f of ['med_tylkostara1234.mp3', 'med_wspolny123456.mp3', 'med_miesiac12345.mp3']) fs.writeFileSync(remote('media', f), 'x');
+	daysAgo(remote('db', 'quiz-2026-08-01_0230.db'), 100);
+	daysAgo(remote('manifests', 'media-2026-08-01_0230.txt'), 100);
+	daysAgo(remote('db', 'quiz-2026-11-10_0230.db'), 30);
+	daysAgo(remote('manifests', 'media-2026-11-10_0230.txt'), 30);
 
 	const r2 = runBackup({ RCLONE: path.join(bin, 'rclone'), BACKUP_STAMP: '2026-12-16_0800' });
 	ok(r2.status === 0, 'backup.sh z Dyskiem: sukces');
@@ -115,7 +129,14 @@ try {
 	ok(/rclone copy \S+\/backup\/media-2026-12-16_0800 gcrypt:media --immutable/.test(calls), 'pliki audio/obrazy z migawki tej samej chwili, tylko nowe (--immutable)');
 	ok(/rclone copy \S+\/backup\/quiz-[\d_-]+\.db gcrypt:db/.test(calls), 'kopia bazy wysłana');
 	ok(/rclone delete gcrypt:db --min-age 90d --include quiz-\*\.db/.test(calls), 'na Dysku kopie bazy trzymane 90 dni');
-	ok(!/gcrypt:media.*(delete|sync|purge)|(delete|sync|purge).*gcrypt:media/.test(calls), 'pliki na Dysku nigdy nie są kasowane ani synchronizowane z usuwaniem');
+	ok(!fs.existsSync(remote('db', 'quiz-2026-08-01_0230.db')) && fs.existsSync(remote('db', 'quiz-2026-11-10_0230.db')), 'Dysk: baza sprzed 100 dni usunięta, sprzed 30 dni zostaje');
+	const curManifest = fs.readFileSync(remote('manifests', 'media-2026-12-16_0800.txt'), 'utf8').trim().split('\n');
+	ok(curManifest.includes(liveFile) && !curManifest.some((f) => f.endsWith('.part')), 'Dysk: spis plików bieżącej kopii');
+	const onDrive = fs.readdirSync(remote('media'));
+	ok(!onDrive.includes('med_tylkostara1234.mp3'), 'Dysk: plik potrzebny tylko wygasłej kopii usunięty (review Codexa #5)');
+	ok(onDrive.includes('med_wspolny123456.mp3') && onDrive.includes('med_miesiac12345.mp3'), 'Dysk: pliki zachowanych kopii zostają, nawet gdy zniknęły z aplikacji');
+	ok(onDrive.includes(liveFile), 'Dysk: bieżące pliki są');
+	ok(!/(sync|purge) /.test(calls), 'brak sync/purge na Dysku');
 	ok(status().drive === 'ok', 'status: Dysk OK');
 
 	const r3 = runBackup({ RCLONE: path.join(bin, 'rclone'), RCLONE_FAIL: '1', BACKUP_STAMP: '2026-12-16_0900' });
@@ -129,10 +150,9 @@ try {
 
 	// Nieudane wysłanie plików → baza tej kopii nie trafia na Dysk (review Codexa #5)
 	fs.writeFileSync(path.join(app, 'rclone.log'), '');
-	fs.writeFileSync(path.join(bin, 'rclone'), '#!/bin/bash\necho "rclone $*" >> "$STUB_APP/rclone.log"\n[[ "$2" == *media-* ]] && exit 1\nexit 0\n', { mode: 0o755 });
-	const r4 = runBackup({ RCLONE: path.join(bin, 'rclone'), BACKUP_STAMP: '2026-12-16_1000' });
+	const r4 = runBackup({ RCLONE: path.join(bin, 'rclone'), RCLONE_FAIL_MEDIA: '1', BACKUP_STAMP: '2026-12-16_1000' });
 	const calls4 = fs.readFileSync(path.join(app, 'rclone.log'), 'utf8');
-	ok(r4.status !== 0 && !/gcrypt:db/.test(calls4), 'po błędzie wysyłki plików baza nie jest wysyłana na Dysk');
+	ok(r4.status !== 0 && !/gcrypt:db|gcrypt:manifests/.test(calls4), 'po błędzie wysyłki plików baza i spis nie są wysyłane na Dysk');
 
 	// Brak pliku wskazanego w bazie → kopia nieudana, nic nie publikujemy (review Codexa #5)
 	const victim = fs.readdirSync(path.join(data, 'media')).find((f) => f.endsWith('.mp3'));

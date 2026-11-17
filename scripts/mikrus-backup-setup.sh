@@ -9,6 +9,10 @@
 #  3. (opcjonalnie) szyfrowana kopia na Dysk współdzielony Google przez konto techniczne
 #     (service account) z rolą „Menedżer treści” – stare kopie trafiają do kosza Dysku (30 dni na odzyskanie).
 # Skrypt można uruchamiać wielokrotnie – niczego nie nadpisuje bez pytania.
+#
+# Odtwarzanie z Dysku Google (gdy NAS niedostępny, także na nowym serwerze po mikrus-setup.sh):
+#   bash mikrus-backup-setup.sh odtworz
+# Potrzebne: klucz konta technicznego (sa.json), ID dysku i dwa hasła szyfrowania z menedżera haseł.
 set -euo pipefail
 
 APP_DIR="${APP_DIR:-/srv/proem-quiz}"
@@ -32,13 +36,97 @@ yes_no() {
 
 [[ $EUID -eq 0 ]] || { echo "Uruchom jako root."; exit 1; }
 [[ -f "$APP_DIR/docker-compose.yml" ]] || { echo "Najpierw uruchom mikrus-setup.sh (brak $APP_DIR)."; exit 1; }
+CFG="$APP_DIR/backup-config"
+
+# rclone.conf: Dysk współdzielony przez konto techniczne + szyfrowanie (crypt) dwoma hasłami.
+write_rclone_conf() { # <id dysku> <hasło 1> <hasło 2>
+	obscure() { docker run --rm -i --read-only --cap-drop ALL "$RCLONE_IMAGE" obscure - <<<"$1"; }
+	umask 077
+	cat >"$CFG/rclone.conf" <<EOF
+[gdrive]
+type = drive
+scope = drive
+service_account_file = /config/sa.json
+team_drive = $1
+# kasowanie = przeniesienie do kosza Dysku (30 dni na odzyskanie)
+use_trash = true
+
+[gcrypt]
+type = crypt
+remote = gdrive:proem-quiz
+filename_encryption = standard
+directory_name_encryption = true
+password = $(obscure "$2")
+password2 = $(obscure "$3")
+EOF
+	chmod 600 "$CFG/rclone.conf"
+}
+
+need_sa_json() {
+	if [[ ! -s "$CFG/sa.json" ]]; then
+		info "Zapisz klucz konta technicznego (plik JSON z Google Cloud) jako $CFG/sa.json:"
+		info "  nano $CFG/sa.json   (wklej całą zawartość pliku, zapisz), potem uruchom ten skrypt ponownie."
+		exit 0
+	fi
+	chmod 600 "$CFG/sa.json"
+	grep -q '"type": *"service_account"' "$CFG/sa.json" || { warn "$CFG/sa.json nie jest kluczem konta technicznego."; exit 1; }
+}
+
+ask_drive_id() {
+	local id
+	id="$(ask 'ID Dysku współdzielonego (z adresu: drive.google.com/drive/folders/<ID>)' '')"
+	[[ "$id" =~ ^[A-Za-z0-9_-]{10,60}$ ]] || { warn "Niepoprawne ID dysku."; exit 1; }
+	printf '%s' "$id"
+}
+
+# --- Odtwarzanie z Dysku Google ---
+if [[ "${1:-}" == odtworz ]]; then
+	bold "Pobieranie kopii z Dysku Google"
+	install -d -m 700 -o root -g root "$CFG"
+	if [[ ! -f "$CFG/rclone.conf" ]]; then
+		need_sa_json
+		drive_id="$(ask_drive_id)"
+		read -r -s -p "  Hasło szyfrowania 1: " pass1 || true; echo
+		read -r -s -p "  Hasło szyfrowania 2: " pass2 || true; echo
+		[[ -n "$pass1" && -n "$pass2" ]] || { warn "Podaj oba hasła."; exit 1; }
+		write_rclone_conf "$drive_id" "$pass1" "$pass2"
+	fi
+	OUT="$APP_DIR/odtwarzanie"
+	install -d -m 700 -o root -g root "$OUT"
+	rcr() {
+		docker run --rm --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges \
+			-e RCLONE_CONFIG=/config/rclone.conf -e RCLONE_CACHE_DIR=/tmp \
+			-v "$CFG:/config:ro" -v "$OUT:/out" "$RCLONE_IMAGE" "$@"
+	}
+	list="$(rcr lsf --files-only gcrypt:db | grep -E '^quiz-[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{4}\.db$' | sort)" \
+		|| { warn "Nie udało się odczytać Dysku (konto techniczne, ID dysku, hasła?)."; exit 1; }
+	info "Ostatnie kopie bazy na Dysku:"
+	tail -n 15 <<<"$list" | sed 's/^/    /'
+	file="$(ask 'Którą pobrać' "$(tail -n 1 <<<"$list")")"
+	grep -qxF "$file" <<<"$list" || { warn "Nie ma takiej kopii."; exit 1; }
+	stamp="${file#quiz-}"
+	stamp="${stamp%.db}"
+	rcr copy "gcrypt:db/$file" /out/
+	if rcr copyto "gcrypt:manifests/media-$stamp.txt" "/out/media-$stamp.txt" 2>/dev/null; then
+		rcr copy gcrypt:media "/out/media-$stamp" --files-from-raw "/out/media-$stamp.txt"
+	else
+		warn "Brak spisu plików tej kopii – pobieram wszystkie pliki audio/obrazy."
+		rcr copy gcrypt:media "/out/media-$stamp"
+	fi
+	bold "Pobrano do $OUT:"
+	info "baza:  $OUT/$file"
+	info "pliki: $OUT/media-$stamp/"
+	info "Dalej jak w README (Odtwarzanie), z <kopia>/backup/ = $OUT/"
+	exit 0
+fi
 
 write_backup() {
 	cat >"$1" <<'BACKUP_EOF'
 #!/usr/bin/env bash
 # Proem Quiz – kopia zapasowa. Cron co noc o 02:30; ręcznie przed wydarzeniem:  bash /srv/proem-quiz/backup.sh
 #  - spójna kopia bazy + migawka plików z tej samej chwili do data/backup/ (7 dni; NAS pobiera rano),
-#  - jeśli skonfigurowano: szyfrowana kopia na Dysk współdzielony Google (90 dni).
+#  - jeśli skonfigurowano: szyfrowana kopia na Dysk współdzielony Google (90 dni; pliki audio/obrazy,
+#    których nie potrzebuje już żadna zachowana kopia bazy, też są usuwane).
 # Stan ostatniej kopii widać w panelu: Ustawienia → Kopie zapasowe.
 set -euo pipefail
 cd "$(dirname "$(readlink -f "$0")")"
@@ -60,19 +148,43 @@ status() { app_cli backup-status "$1" "$(basename "$DB")" "$2" >/dev/null || log
 
 # rclone w osobnym, zamkniętym kontenerze: dane tylko do odczytu, bez uprawnień poza czytaniem plików.
 # (W testach: RCLONE=ścieżka-do-rclone, wtedy działa lokalnie.)
+# Katalog roboczy (spis plików kopii, lista do usunięcia) – poza katalogiem danych, tylko root.
+install -d -m 700 backup-work
 if [[ -n "${RCLONE:-}" ]]; then
 	D="$PWD/data"
+	W="$PWD/backup-work"
 	rc() { RCLONE_CONFIG="$PWD/backup-config/rclone.conf" "$RCLONE" "$@"; }
 else
 	D=/data
+	W=/work
 	rc() {
 		docker run --rm --read-only --tmpfs /tmp --cap-drop ALL --cap-add DAC_READ_SEARCH \
 			--security-opt no-new-privileges --memory 256m --pids-limit 128 \
 			-e RCLONE_CONFIG=/config/rclone.conf -e RCLONE_CACHE_DIR=/tmp \
-			-v "$PWD/data:/data:ro" -v "$PWD/backup-config:/config:ro" \
+			-v "$PWD/data:/data:ro" -v "$PWD/backup-config:/config:ro" -v "$PWD/backup-work:/work:ro" \
 			"$RCLONE_IMAGE" "$@"
 	}
 fi
+
+# Na Dysku: gcrypt:db/quiz-STAMP.db + gcrypt:manifests/media-STAMP.txt (spis plików tej kopii)
+# i wspólny gcrypt:media. Plik z gcrypt:media usuwamy dopiero, gdy nie ma go w spisie żadnej
+# zachowanej kopii – każdą zachowaną bazę da się więc odtworzyć razem z jej plikami.
+MEDIA_RE='^med_[A-Za-z0-9_-]{10,20}\.(mp3|png|jpe?g|webp|gif)$'
+rotate_drive() {
+	rc delete gcrypt:db --min-age "${KEEP_DRIVE_DAYS}d" --include 'quiz-*.db' --log-level NOTICE || return 1
+	rc delete gcrypt:manifests --min-age "${KEEP_DRIVE_DAYS}d" --include 'media-*.txt' --log-level NOTICE || return 1
+	local manifests keep all
+	manifests="$(rc lsf --files-only gcrypt:manifests)" || return 1
+	# Bez spisu bieżącej kopii nie wiemy, co jest potrzebne – nic nie usuwamy.
+	grep -qxF "media-$STAMP.txt" <<<"$manifests" || { log "Brak spisu bieżącej kopii na Dysku – pomijam sprzątanie plików."; return 0; }
+	keep="$(rc cat gcrypt:manifests --include 'media-*.txt')" || return 1
+	all="$(rc lsf --files-only gcrypt:media)" || return 1
+	comm -23 <(grep -E "$MEDIA_RE" <<<"$all" | sort -u) <(grep -E "$MEDIA_RE" <<<"$keep" | sort -u) >backup-work/delete.txt || true
+	if [[ -s backup-work/delete.txt ]]; then
+		log "Usuwanie z Dysku plików niepotrzebnych żadnej zachowanej kopii: $(wc -l <backup-work/delete.txt)"
+		rc delete gcrypt:media --files-from-raw "$W/delete.txt" --log-level NOTICE || return 1
+	fi
+}
 
 log "Kopia bazy → data/$DB"
 if ! app_cli backup "$(basename "$DB")" "$KEEP_LOCAL_DAYS"; then
@@ -87,13 +199,25 @@ if [[ -f backup-config/rclone.conf ]]; then
 	log "Wysyłanie na Dysk Google (szyfrowane)"
 	# Pliki z migawki tej samej chwili co baza; są niezmienne – kopiujemy tylko nowe (--immutable chroni przed nadpisaniem).
 	rc copy "$D/backup/media-$STAMP" gcrypt:media --immutable --transfers 2 --log-level NOTICE || drive=failed
-	# Bazę publikujemy dopiero, gdy wszystkie jej pliki są już na Dysku.
+	# Spis plików tej kopii (nazwy z migawki) – potrzebny do bezpiecznego sprzątania gcrypt:media.
+	if [[ "$drive" == ok ]]; then
+		# Nazwy czyta rclone w kontenerze (dane tylko do odczytu) – root nie przegląda katalogu danych.
+		if names="$(rc lsf --files-only "$D/backup/media-$STAMP")"; then
+			grep -E "$MEDIA_RE" <<<"$names" | sort >backup-work/manifest.txt || true
+		else
+			drive=failed
+		fi
+	fi
+	if [[ "$drive" == ok ]]; then
+		rc copyto "$W/manifest.txt" "gcrypt:manifests/media-$STAMP.txt" --log-level NOTICE || drive=failed
+	fi
+	# Bazę publikujemy dopiero, gdy wszystkie jej pliki i ich spis są już na Dysku.
 	if [[ "$drive" == ok ]]; then
 		rc copy "$D/$DB" gcrypt:db --log-level NOTICE || drive=failed
 	fi
-	# Kopie bazy starsze niż 90 dni → kosz Dysku (tam jeszcze 30 dni na odzyskanie).
+	# Kopie starsze niż 90 dni → kosz Dysku (tam jeszcze 30 dni na odzyskanie).
 	if [[ "$drive" == ok ]]; then
-		rc delete gcrypt:db --min-age "${KEEP_DRIVE_DAYS}d" --include 'quiz-*.db' --log-level NOTICE || drive=failed
+		rotate_drive || drive=failed
 	fi
 	[[ "$drive" == ok ]] || log "BŁĄD: wysyłanie na Dysk Google nie powiodło się."
 fi
@@ -195,42 +319,15 @@ fi
 
 # --- 3. Dysk współdzielony Google (szyfrowany) ---
 bold "3/3 Szyfrowana kopia na Dysk współdzielony Google"
-CFG="$APP_DIR/backup-config"
 install -d -m 700 -o root -g root "$CFG"
 if [[ -f "$CFG/rclone.conf" ]] && ! yes_no "Dysk Google jest już skonfigurowany. Skonfigurować od nowa?"; then
 	info "Konfiguracja Dysku bez zmian."
 elif yes_no "Skonfigurować teraz kopię na Dysk Google? (wymaga konta technicznego – instrukcja w README)"; then
-	if [[ ! -s "$CFG/sa.json" ]]; then
-		info "Zapisz klucz konta technicznego (plik JSON z Google Cloud) jako $CFG/sa.json:"
-		info "  nano $CFG/sa.json   (wklej całą zawartość pliku, zapisz), potem uruchom ten skrypt ponownie."
-		exit 0
-	fi
-	chmod 600 "$CFG/sa.json"
-	grep -q '"type": *"service_account"' "$CFG/sa.json" || { warn "$CFG/sa.json nie jest kluczem konta technicznego."; exit 1; }
-	drive_id="$(ask 'ID Dysku współdzielonego (z adresu: drive.google.com/drive/folders/<ID>)' '')"
-	[[ "$drive_id" =~ ^[A-Za-z0-9_-]{10,60}$ ]] || { warn "Niepoprawne ID dysku."; exit 1; }
+	need_sa_json
+	drive_id="$(ask_drive_id)"
 	pass1="$(head -c 32 /dev/urandom | base64 | tr -d '/+=' | head -c 40)"
 	pass2="$(head -c 32 /dev/urandom | base64 | tr -d '/+=' | head -c 40)"
-	obscure() { docker run --rm --read-only --cap-drop ALL "$RCLONE_IMAGE" obscure "$1"; }
-	umask 077
-	cat >"$CFG/rclone.conf" <<EOF
-[gdrive]
-type = drive
-scope = drive
-service_account_file = /config/sa.json
-team_drive = $drive_id
-# kasowanie = przeniesienie do kosza Dysku (30 dni na odzyskanie)
-use_trash = true
-
-[gcrypt]
-type = crypt
-remote = gdrive:proem-quiz
-filename_encryption = standard
-directory_name_encryption = true
-password = $(obscure "$pass1")
-password2 = $(obscure "$pass2")
-EOF
-	chmod 600 "$CFG/rclone.conf"
+	write_rclone_conf "$drive_id" "$pass1" "$pass2"
 	info "Test połączenia z Dyskiem…"
 	if docker run --rm --read-only --tmpfs /tmp --cap-drop ALL -e RCLONE_CONFIG=/config/rclone.conf -e RCLONE_CACHE_DIR=/tmp \
 		-v "$CFG:/config:ro" "$RCLONE_IMAGE" mkdir gcrypt:db; then
