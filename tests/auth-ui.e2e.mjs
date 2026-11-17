@@ -52,6 +52,17 @@ try {
 		await page.check('label.check input');
 		await Promise.all([page.waitForNavigation(), page.click('a.btn:has-text("Przejdź do panelu")')]);
 		ok(await page.isVisible('header nav a[href="/panel/users"]'), 'po konfiguracji 2FA menu administratora widoczne od razu');
+		// Telefon: menu pod przyciskiem (hamburger), zamyka się po przejściu na stronę
+		await page.setViewportSize({ width: 390, height: 760 });
+		ok(!(await page.isVisible('header nav a[href="/panel/users"]')) && (await page.isVisible('button.burger')), 'telefon: menu schowane, widać przycisk menu');
+		const headerH = await page.$eval('header', (h) => h.getBoundingClientRect().height);
+		ok(headerH < 80, `telefon: niski nagłówek (${Math.round(headerH)} px)`);
+		await page.click('button.burger');
+		ok(await page.isVisible('header nav a[href="/panel/users"]'), 'telefon: przycisk otwiera menu');
+		await Promise.all([page.waitForURL('**/panel/users'), page.click('header nav a[href="/panel/users"]')]);
+		await page.waitForTimeout(200);
+		ok(!(await page.isVisible('header nav a[href="/panel/users"]')), 'telefon: menu zamyka się po przejściu');
+		await page.setViewportSize({ width: 1280, height: 800 });
 		const page2 = await (await browser.newContext()).newPage();
 		await page2.goto(srv.base + '/login');
 		await page2.fill('#email', 'formularz@proem.pl');

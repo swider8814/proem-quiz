@@ -66,6 +66,7 @@ const pl = {
 		activate: 'Aktywuj konto'
 	},
 	nav: {
+		menu: 'Menu',
 		quizzes: 'Quizy',
 		themes: 'Motywy',
 		users: 'Użytkownicy',
@@ -589,6 +590,7 @@ const en: PanelDict = {
 		activate: 'Activate account'
 	},
 	nav: {
+		menu: 'Menu',
 		quizzes: 'Quizzes',
 		themes: 'Themes',
 		users: 'Users',
