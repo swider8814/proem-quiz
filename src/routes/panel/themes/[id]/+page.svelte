@@ -140,7 +140,8 @@
 	legend { font-weight: 700; }
 	.logo-row { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.6rem; flex-wrap: wrap; }
 	.logo-row img { max-height: 2.5rem; max-width: 8rem; background: #eee; padding: 0.2rem; border-radius: 0.3rem; }
-	.file { position: relative; overflow: hidden; padding: 0.45rem 0.8rem; font-size: 0.85rem; background: #e7e8ee; color: var(--text); }
+	.file { position: relative; overflow: hidden; }
+	.fields :global(button.link) { align-self: flex-start; margin-top: 0.4rem; }
 	.file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 	.small { font-size: 0.8rem; }
 	.save { margin-top: 1.25rem; align-self: flex-start; }
@@ -156,5 +157,7 @@
 	.pv-ptiles { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; flex: 1; }
 	.pv-ptiles .g-tile { justify-content: center; cursor: default; }
 	.phone .g-btn { font-size: 0.85rem; min-height: 0; padding: 0.5em; }
-	.danger-zone { display: flex; gap: 1rem; align-items: center; margin-top: 1.5rem; }
+	.danger-zone { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; margin-top: 1.5rem; }
+	/* Telefon: podgląd nad formularzem – zmiany kolorów widać od razu. */
+	@media (max-width: 720px) { .previews { order: -1; } }
 </style>

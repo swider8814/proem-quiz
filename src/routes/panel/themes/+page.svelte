@@ -3,6 +3,9 @@
 	import { logoFor } from '#lib/game/theme.js';
 	let { data, form } = $props();
 	const T = $derived(panelDict(data.lang).themes);
+	// Telefon: formularz nowego motywu chowa się pod przyciskiem (otwarty od razu, gdy wrócił z błędem).
+	let newOpen = $state(false);
+	$effect(() => { if (form?.error) newOpen = true; });
 </script>
 
 <svelte:head><title>{T.title} · Proem Quiz</title></svelte:head>
@@ -10,7 +13,8 @@
 <h1>{T.title}</h1>
 <p class="muted">{T.intro}</p>
 
-<div class="card">
+<button type="button" class="new-toggle" aria-expanded={newOpen} aria-controls="new-box" onclick={() => (newOpen = !newOpen)}>+ {T.new}</button>
+<div class="card new-box" id="new-box" class:open={newOpen}>
 	<h2>{T.new}</h2>
 	{#if form?.error}<p class="error">{form.error}</p>{/if}
 	<form method="POST" action="?/create" class="new">
@@ -42,16 +46,23 @@
 </ul>
 
 <style>
-	h2 { font-size: 1.1rem; margin-top: 0; }
+	h2 { margin-top: 0; }
 	.new { display: grid; grid-template-columns: 2fr 1.5fr auto; gap: 0 1rem; align-items: end; }
-	@media (max-width: 720px) { .new { grid-template-columns: 1fr; } .new button { margin-top: 1rem; } }
+	.new-toggle { display: none; }
+	@media (max-width: 720px) {
+		.new { grid-template-columns: 1fr; }
+		.new button { margin-top: 1rem; }
+		.new-toggle { display: flex; width: 100%; margin-top: 1rem; }
+		.new-box { display: none; margin-top: 1rem; }
+		.new-box.open { display: block; }
+	}
 	.grid { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: 1rem; margin-top: 1.5rem; }
 	.theme { padding: 0; overflow: hidden; }
 	.swatch { display: flex; flex-direction: column; justify-content: space-between; height: 8rem; padding: 0.75rem; text-decoration: none; }
 	.swatch img { max-height: 2.5rem; max-width: 60%; object-fit: contain; align-self: flex-start; }
 	.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.35rem; margin-top: auto; }
-	.tiles span { height: 1.6rem; border: 2px solid #111; }
+	.tiles span { height: 1.6rem; border: 2px solid #111; border-radius: 0.35rem; }
 	.meta { padding: 0.75rem 1rem; display: flex; flex-direction: column; gap: 0.25rem; }
-	.nm { font-weight: 700; color: var(--text); text-decoration: none; }
+	.nm { font-weight: 700; font-size: 1.1rem; color: var(--text); text-decoration: none; }
 	.tag { align-self: flex-start; }
 </style>

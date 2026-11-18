@@ -137,7 +137,13 @@ try {
 	await phone.addCookies([{ name: 'pq_session', value: admin.jar.pq_session, url: srv.base }]);
 	const m = await phone.newPage();
 	await m.goto(p.url());
+	await m.waitForSelector('.qnav button[aria-controls="q-list"]');
+	ok(!(await m.isVisible('.list .item')), 'telefon: lista pytań schowana pod przyciskiem');
+	await m.click('.qnav button[aria-controls="q-list"]');
 	await m.waitForSelector('.list .item');
+	await m.locator('.list .item').nth(1).click();
+	ok(!(await m.isVisible('.list .item')) && /Pytanie 2 z 5/.test(await m.textContent('.qnav button[aria-controls="q-list"]')), 'telefon: wybór pytania z listy zamyka ją i pokazuje „Pytanie 2 z 5”');
+	await m.click('.qnav button[aria-controls="q-list"]');
 	const overflow = await m.evaluate(() => {
 		if (document.documentElement.scrollWidth > document.documentElement.clientWidth + 1) return 'strona';
 		for (const el of document.querySelectorAll('.list .item, header nav, .card')) {
@@ -178,6 +184,7 @@ try {
 	await p.click('.chip >> text=Wszystkie');
 	await p.waitForURL(/\/panel$/);
 	const fid = await p.$eval('.chip.folder', (a) => new URL(a.href).searchParams.get('f'));
+	await p.click('.list li >> nth=0 >> details.more summary');
 	await p.selectOption('.list li >> nth=0 >> select[name=folder]', fid);
 	await p.waitForFunction(() => document.querySelector('.chip.folder span')?.textContent === '1');
 	ok(/\/panel$/.test(p.url()), 'przeniesienie do folderu bez zmiany widoku listy');
