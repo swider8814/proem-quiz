@@ -83,11 +83,11 @@
 </div>
 
 <style>
-	h2 { font-size: 1.1rem; margin-top: 0; }
+	h2 { margin-top: 0; }
 	.card { margin-bottom: 1.5rem; max-width: 40rem; }
 	.logo-row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
 	.logo-row img { max-height: 3rem; max-width: 12rem; background: #1b1f3b; padding: 0.4rem; border-radius: 0.4rem; }
-	.file { position: relative; overflow: hidden; padding: 0.45rem 0.8rem; font-size: 0.85rem; background: #e7e8ee; color: var(--text); }
+	.file { position: relative; overflow: hidden; }
 	.file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 	.save { margin-top: 1.25rem; }
 </style>

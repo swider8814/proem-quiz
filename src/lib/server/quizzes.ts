@@ -82,7 +82,8 @@ export function listQuizzes(user: User) {
 			ownerId: schema.quizzes.ownerId,
 			ownerName: schema.users.name,
 			updatedAt: schema.quizzes.updatedAt,
-			themeName: schema.themes.name
+			themeName: schema.themes.name,
+			themeColors: schema.themes.colors
 		})
 		.from(schema.quizzes)
 		.innerJoin(schema.users, eq(schema.quizzes.ownerId, schema.users.id))
@@ -94,8 +95,11 @@ export function listQuizzes(user: User) {
 	for (const q of db.select({ quizId: schema.questions.quizId, n: count() }).from(schema.questions).groupBy(schema.questions.quizId).all()) {
 		counts.set(q.quizId, q.n);
 	}
-	return rows.map((r) => ({
+	// Okładka karty na liście: kolory motywu quizu (quiz bez motywu gra w motywie domyślnym).
+	const fallback = db.select({ colors: schema.themes.colors }).from(schema.themes).where(eq(schema.themes.isDefault, true)).get()?.colors ?? null;
+	return rows.map(({ themeColors, ...r }) => ({
 		...r,
+		cover: (themeColors ?? fallback) ? { background: (themeColors ?? fallback)!.background, answers: (themeColors ?? fallback)!.answers } : null,
 		questionCount: counts.get(r.id) ?? 0,
 		mine: r.ownerId === user.id,
 		canEdit: r.ownerId === user.id || user.role === 'admin' || editShared.has(r.id)

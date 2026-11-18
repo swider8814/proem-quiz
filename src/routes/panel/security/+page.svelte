@@ -17,7 +17,8 @@
 	<h2>{t.security.totp}</h2>
 	{#if data.user.totpEnabled}
 		<p><span class="tag ok">{t.security.on}</span></p>
-		<p>{t.security.codesLeft}: <strong>{data.remainingCodes}</strong> {t.security.of10}.</p>
+		<p class="codes"><span>{t.security.codesLeft}</span> <span><strong>{data.remainingCodes}</strong> {t.security.of10}</span></p>
+		<div class="meter" aria-hidden="true">{#each Array(10) as _, i}<span class:on={i < data.remainingCodes}></span>{/each}</div>
 		{#if data.remainingCodes <= 3}
 			<p class="error">{t.security.lowCodes}</p>
 		{/if}
@@ -32,6 +33,19 @@
 	{/if}
 </div>
 
+{#if data.mail}
+	<div class="card">
+		<h2>{t.security.password}</h2>
+		<p class="muted">{t.security.passwordNote}</p>
+		<p><a class="btn secondary" href="/login/forgot">{t.security.passwordBtn}</a></p>
+	</div>
+{/if}
+
 <style>
-	h2 { font-size: 1.1rem; margin-top: 0; }
+	h2 { margin-top: 0; }
+	.card { max-width: 40rem; margin-bottom: 1.5rem; }
+	.codes { display: flex; justify-content: space-between; gap: 1rem; margin-bottom: 0.5rem; }
+	.meter { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; margin-bottom: 1rem; }
+	.meter span { height: 0.6rem; border-radius: 3px; background: var(--line-strong); }
+	.meter span.on { background: var(--accent); }
 </style>
