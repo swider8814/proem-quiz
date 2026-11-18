@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { panelDict } from '#lib/i18n/panel.js';
+	import { logoFor } from '#lib/game/theme.js';
 	let { data, form } = $props();
 	const T = $derived(panelDict(data.lang).themes);
 </script>
@@ -28,7 +29,7 @@
 	{#each data.themes as t (t.id)}
 		<li class="card theme">
 			<a href="/panel/themes/{t.id}" class="swatch" style:background={t.colors.background} aria-label={T.editTheme(t.name)}>
-				{#if t.logoUrl}<img src={t.logoUrl} alt="" />{/if}
+				{#if logoFor(t)}<img src={logoFor(t)} alt="" />{/if}
 				<span class="tiles">{#each t.colors.answers as c}<span style:background={c}></span>{/each}</span>
 			</a>
 			<div class="meta">

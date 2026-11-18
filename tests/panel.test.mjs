@@ -84,6 +84,21 @@ try {
 	const st = await adm2.req('/panel/settings', { method: 'POST', form: { orgName: 'Fundacja Proem', orgLogo: logo.id } });
 	ok(st.status === 200, 'zapis ustawień organizacji');
 	ok((await B().req(`/media/${logo.id}`, { raw: true })).status === 200, 'logo organizacji jest publiczne');
+	// Motyw z ciemnym tłem i dwoma logo: lista motywów pokazuje logo „na ciemne tło”
+	{
+		const lightLogo = JSON.parse((await upload(adm2, png, 'logo-jasne.png')).text);
+		const darkLogo = JSON.parse((await upload(adm2, png, 'logo-ciemne.png')).text);
+		const sv = await adm2.req(`${themeUrl}?/save`, { method: 'POST', form: { theme: JSON.stringify({ ...good, logoLight: lightLogo.id, logoDark: darkLogo.id }) } });
+		ok(sv.status === 200, 'motyw z dwoma logo zapisany');
+		const lst = await adm2.req('/panel/themes');
+		// Sprawdzamy znaczniki <img> (dane strony zawierają oba adresy).
+		const img = (h, id) => h.includes(`<img src="/media/${id}"`);
+		ok(img(lst.text, darkLogo.id) && !img(lst.text, lightLogo.id), 'lista motywów: ciemne tło → logo na ciemne tło');
+		await adm2.req(`${themeUrl}?/save`, { method: 'POST', form: { theme: JSON.stringify({ ...good, colors: { ...good.colors, background: '#f4f6ff' }, logoLight: lightLogo.id, logoDark: darkLogo.id }) } });
+		const lst2 = await adm2.req('/panel/themes');
+		ok(img(lst2.text, lightLogo.id) && !img(lst2.text, darkLogo.id), 'lista motywów: jasne tło → logo na jasne tło');
+		await adm2.req(`${themeUrl}?/save`, { method: 'POST', form: { theme: JSON.stringify(good) } });
+	}
 
 	// Zdjęcia: zmniejszane do 1600 px, bez metadanych, z miniaturą 480 px; ogromne wymiary odrzucane
 	{
