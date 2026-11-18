@@ -285,6 +285,12 @@ try {
 	await phones[1].waitForSelector('text=Koniec gry!');
 	ok(true, 'po odświeżeniu telefon wraca do gry');
 
+	// Prowadzący zamyka zakończoną grę: telefony zostają na wynikach, bez paska „Łączenie…”
+	host.once('dialog', (d) => d.accept());
+	await host.click('.game button.g-btn:has-text("Zakończ grę")');
+	await sleep(2500);
+	ok((await phones[1].$$('.offline')).length === 0 && (await phones[1].isVisible('text=Koniec gry!')), 'po zamknięciu gry telefon zostaje na wynikach bez paska „Łączenie…”');
+
 	ok(hostErrors.length === 0, `brak błędów JS u prowadzącego ${hostErrors.join(' | ')}`);
 	// Zamknięcie okna prowadzącego: ekran widzów nie może zostać zamrożony na ostatnim widoku.
 	await host.close();

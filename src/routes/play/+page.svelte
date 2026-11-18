@@ -92,6 +92,8 @@
 		socket = gameSocket();
 		socket.on('connect', async () => {
 			connected = true;
+			// Po końcu gry zostaje ekran wyników – serwer mógł już zamknąć grę, nie ma do czego wracać.
+			if (gs?.state === 'ended') return;
 			// Po zerwaniu połączenia (Wi-Fi, blokada ekranu) wracamy do gry tym samym tokenem.
 			const token = gs ? store.get(sessionKey(gs.pin)) : null;
 			if (gs && token) {
@@ -223,7 +225,7 @@
 </svelte:head>
 
 <div class="game play" data-style={style} style={themeVars(theme)}>
-	{#if !connected && phase === 'game'}
+	{#if !connected && phase === 'game' && gs?.state !== 'ended'}
 		<div class="offline" role="status">{L.reconnecting}</div>
 	{/if}
 	{#if toast}<div class="toast" role="status" transition:fly={{ y: 30, duration: 250 }}>{toast}</div>{/if}
@@ -541,6 +543,6 @@
 	.toast { position: fixed; left: 50%; bottom: max(20px, env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(92vw, 420px); background: #111; color: #fff; padding: 12px 16px; border-radius: 12px; font-weight: 700; text-align: center; z-index: 20; }
 	.place { font-size: 4rem; font-weight: 900; line-height: 1; }
 	.rank { font-weight: 800; }
-	.offline { position: fixed; top: env(safe-area-inset-top); left: 0; right: 0; text-align: center; background: #111; color: #fff; padding: 6px; font-weight: 700; z-index: 10; }
+	.offline { position: sticky; top: 0; align-self: stretch; border-radius: 10px; text-align: center; background: #111; color: #fff; padding: 6px; font-weight: 700; z-index: 10; }
 	button:focus-visible { outline: 3px solid #111; outline-offset: 3px; }
 </style>
