@@ -150,6 +150,24 @@ try {
 	ok(!overflow, 'edytor na telefonie bez poziomego przewijania');
 	await snap(m, 'ed-03-telefon');
 
+	// Foldery na liście quizów: nowy folder, przeniesienie z listy rozwijanej (bez przeładowania strony)
+	await p.goto(`${srv.base}/panel`);
+	await p.click('button.chip.add');
+	await p.fill('form[action="?/folderCreate"] input[name=name]', 'Zimowisko');
+	await p.click('form[action="?/folderCreate"] button:not([type])');
+	await p.waitForURL(/f=fld_/);
+	ok((await p.textContent('.folder-bar')).includes('Zimowisko'), 'folder utworzony i otwarty');
+	await p.click('.chip >> text=Wszystkie');
+	await p.waitForURL(/\/panel$/);
+	const fid = await p.$eval('.chip.folder', (a) => new URL(a.href).searchParams.get('f'));
+	await p.selectOption('.list li >> nth=0 >> select[name=folder]', fid);
+	await p.waitForFunction(() => document.querySelector('.chip.folder span')?.textContent === '1');
+	ok(/\/panel$/.test(p.url()), 'przeniesienie do folderu bez zmiany widoku listy');
+	await p.click('.chip.folder');
+	await p.waitForURL(/f=fld_/);
+	ok((await p.$$('.list li')).length === 1, 'quiz widoczny w folderze');
+	await snap(p, 'ed-04-foldery');
+
 	ok(errors.filter((e) => !/Failed to load resource/.test(e)).length === 0, `brak błędów JS ${errors.join(' | ')}`);
 } catch (e) {
 	ok(false, `wyjątek: ${e.stack}`);

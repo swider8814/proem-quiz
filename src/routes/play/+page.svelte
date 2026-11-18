@@ -521,9 +521,13 @@
 	.range::-webkit-slider-thumb { -webkit-appearance: none; width: 44px; height: 44px; border-radius: 50%; background: var(--accent); border: 3px solid #111; cursor: grab; }
 	.range::-moz-range-thumb { width: 44px; height: 44px; border-radius: 50%; background: var(--accent); border: 3px solid #111; cursor: grab; }
 	.range-ends { width: 100%; display: flex; justify-content: space-between; font-weight: 700; opacity: 0.8; }
-	.avatars { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
-	.av { border: 3px solid transparent; border-radius: 14px; background: rgba(255, 255, 255, 0.5); padding: 4px; cursor: pointer; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; }
-	.av.sel { border-color: var(--line, #111); background: #fff; transform: scale(1.08); }
+	/* 4 kolumny na telefonie, 6 na szerszym ekranie. minmax(0, 1fr) + min-width: 0 – kafelki nigdy nie
+	   rozpychają siatki (iOS Safari); wysokość z szerokości obrazka, bez procentowej wysokości SVG. */
+	.avatars { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 4px; }
+	@media (min-width: 520px) { .avatars { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+	.av { border: 3px solid transparent; border-radius: 14px; background: rgba(255, 255, 255, 0.5); padding: 4px; margin: 0; cursor: pointer; display: block; width: 100%; min-width: 0; min-height: 0; height: auto; line-height: 0; box-shadow: none; }
+	.av :global(svg) { display: block; width: 100%; height: auto; }
+	.av.sel { border-color: var(--line, #111); background: #fff; }
 	.nick { display: inline-flex; align-items: center; gap: 6px; }
 	.nick-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.medal-wrap { display: flex; justify-content: center; }

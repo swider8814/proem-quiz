@@ -297,6 +297,58 @@ try {
 	const clipDur = Number(ex('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', path.join(srv.dataDir, 'media', clipRow.file)], { encoding: 'utf8' }));
 	ok(audioQ.clipMediaId !== audioQ.audioMediaId && Math.abs(clipDur - audioQ.endMs / 1000) < 0.5, `klip demonstracyjny ma naprawdę ${audioQ.endMs / 1000} s (${clipDur.toFixed(1)} s) – review Codexa #5`);
 
+	// ── Foldery, wyszukiwanie i stronicowanie listy quizów ──
+	{
+		const fo = await makeAuthor(srv, adm2, 'foldery@proem.pl');
+		const other = await makeAuthor(srv, adm2, 'obcy@proem.pl');
+		const mk = async (title, form = {}) => (await fo.req('/panel?/create', { method: 'POST', form: { title, ...form } })).loc.split('/').pop();
+		const ids = [];
+		for (let i = 1; i <= 23; i++) ids.push(await mk(`Quiz numer ${String(i).padStart(2, '0')}`));
+		const kol = await mk('Kolędy i pastorałki');
+		const f1 = await fo.req('/panel?/folderCreate', { method: 'POST', form: { name: '  Obóz <b>zimowy</b>  ' } });
+		ok(f1.status === 303 && /\/panel\?f=fld_/.test(f1.loc), 'nowy folder → przejście do folderu');
+		const fid = f1.loc.split('f=')[1];
+		ok((await fo.req('/panel?/folderCreate', { method: 'POST', form: { name: '   ' } })).status === 400, 'folder bez nazwy odrzucony');
+		const inFolder = await mk('Quiz w folderze', { folder: fid });
+		const listF = await fo.req(`/panel?f=${fid}`);
+		ok(listF.text.includes('Quiz w folderze') && !listF.text.includes('Quiz numer 01'), 'nowy quiz utworzony w otwartym folderze');
+		ok(listF.text.includes('Obóz &lt;b>zimowy&lt;/b>') && !listF.text.includes('<b>zimowy</b>'), 'nazwa folderu wyświetlana jako tekst (bez HTML)');
+		const mv = await fo.req(`/panel?f=${fid}&/move`, { method: 'POST', form: { id: kol, folder: fid } });
+		ok(mv.status === 200, 'przeniesienie quizu do folderu');
+		const listF2 = await fo.req(`/panel?f=${fid}`);
+		ok(listF2.text.includes('Kolędy i pastorałki') && !listF2.text.includes('Quiz numer'), 'filtr folderu pokazuje tylko jego quizy');
+		const none = await fo.req('/panel?f=none');
+		ok(!none.text.includes('Kolędy i pastorałki') && none.text.includes('Quiz numer 05'), 'filtr „Bez folderu”');
+		// Stronicowanie: 23 quizy bez folderu → 2 strony po 20
+		const p1 = await fo.req('/panel?f=none');
+		const p2 = await fo.req('/panel?f=none&p=2');
+		const titles = (h) => [...h.matchAll(/class="title[^"]*"[^>]*>([^<]+)</g)].map((m) => m[1]);
+		ok(titles(p1.text).length === 20 && titles(p2.text).length === 3, `stronicowanie po 20 (${titles(p1.text).length} + ${titles(p2.text).length})`);
+		ok(new Set([...titles(p1.text), ...titles(p2.text)]).size === 23, 'strony nie powtarzają quizów');
+		ok(p1.text.includes('Strona 1 z 2') && titles((await fo.req('/panel?f=none&p=999')).text).length === 3, 'numer strony poza zakresem → ostatnia strona');
+		// Wyszukiwanie po całej liście, bez polskich znaków i wielkości liter
+		const sr = await fo.req('/panel?q=KOLEDY');
+		ok(titles(sr.text).join() === 'Kolędy i pastorałki', `wyszukiwanie bez polskich znaków (${titles(sr.text)})`);
+		// Duplikat trafia do tego samego folderu
+		const dup = await fo.req('/panel?/duplicate', { method: 'POST', form: { id: kol } });
+		ok(titles((await fo.req(`/panel?f=${fid}`)).text).includes('Kolędy i pastorałki (kopia)'), 'kopia quizu w tym samym folderze');
+		void dup;
+		// Cudze foldery i quizy: nie da się przenieść cudzego quizu ani użyć cudzego folderu
+		const otherQuiz = (await other.req('/panel?/create', { method: 'POST', form: { title: 'Cudzy quiz' } })).loc.split('/').pop();
+		ok((await fo.req('/panel?/move', { method: 'POST', form: { id: otherQuiz, folder: fid } })).status === 404, 'nie można przenieść quizu bez dostępu');
+		ok((await other.req('/panel?/move', { method: 'POST', form: { id: otherQuiz, folder: fid } })).status === 404, 'nie można użyć cudzego folderu');
+		ok((await other.req('/panel?/folderRename', { method: 'POST', form: { id: fid, name: 'Przejęty' } })).status === 404, 'nie można zmienić nazwy cudzego folderu');
+		ok((await other.req('/panel?/folderDelete', { method: 'POST', form: { id: fid } })).status === 404, 'nie można usunąć cudzego folderu');
+		ok(!(await other.req(`/panel?f=${fid}`)).text.includes('Kolędy'), 'cudzy folder w adresie nic nie pokazuje');
+		// Zmiana nazwy i usunięcie folderu – quizy zostają
+		ok((await fo.req('/panel?/folderRename', { method: 'POST', form: { id: fid, name: 'Zimowisko' } })).status === 200, 'zmiana nazwy folderu');
+		ok((await fo.req('/panel')).text.includes('Zimowisko'), 'nowa nazwa na liście folderów');
+		ok((await fo.req('/panel?/folderDelete', { method: 'POST', form: { id: fid } })).status === 303, 'usunięcie folderu');
+		const after = await fo.req('/panel?q=kol');
+		ok(titles(after.text).length === 2, 'quizy z usuniętego folderu zostały (Bez folderu)');
+		void inFolder; void ids;
+	}
+
 	ok(srv.alive(), 'serwer działa do końca testu');
 } catch (e) {
 	ok(false, `wyjątek: ${e.stack}`);

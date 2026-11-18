@@ -64,6 +64,28 @@ try {
 	const anon = (p) => fetch(`${srv.base}${p}`);
 	ok((await anon(`/game-media/${pin}/${imgs[0]}`)).status === 404, 'w poczekalni obrazki odpowiedzi niedostępne');
 
+	// Wybór postaci mieści się na wąskich telefonach: kafelki w karcie, nic nie zasłania napisu pod nimi
+	for (const dev of ['iPhone SE', 'iPhone 14', 'Galaxy S9+']) {
+		const p = await (await browser.newContext({ ...devices[dev] })).newPage();
+		await p.goto(`${srv.base}/play?pin=${pin}`);
+		await p.waitForSelector('.avatars .av');
+		await p.click('.avatars .av >> nth=7');
+		await sleep(400);
+		const lay = await p.evaluate(() => {
+			const card = document.querySelector('form.card').getBoundingClientRect();
+			const avs = [...document.querySelectorAll('.avatars .av')].map((b) => b.getBoundingClientRect());
+			const label = document.querySelectorAll('form.card .big-label')[1].getBoundingClientRect();
+			return {
+				inside: avs.every((r) => r.left >= card.left - 1 && r.right <= card.right + 1),
+				below: avs.every((r) => r.bottom <= label.top + 1),
+				pageFits: document.documentElement.scrollWidth <= window.innerWidth + 1,
+				w: Math.round(avs[0].width)
+			};
+		});
+		ok(lay.inside && lay.below && lay.pageFits && lay.w >= 40, `${dev}: postacie mieszczą się w karcie i nie zasłaniają napisu (${JSON.stringify(lay)})`);
+		await p.context().close();
+	}
+
 	const phone = await (await browser.newContext({ ...devices['iPhone 14'] })).newPage();
 	await phone.goto(`${srv.base}/play?pin=${pin}`);
 	await phone.click('button:has-text("Dołącz do gry")');

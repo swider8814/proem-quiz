@@ -272,3 +272,36 @@ export const gameReports = sqliteTable(
 	},
 	(t) => [index('game_reports_quiz_idx').on(t.quizId, t.endedAt)]
 );
+
+// ── Foldery quizów ───────────────────────────────────────────────────────
+// Foldery są prywatne dla każdego użytkownika: autor układa po swojemu także quizy, które ktoś mu
+// udostępnił. Quiz jest w co najwyżej jednym folderze danego użytkownika. Usunięcie folderu nie usuwa quizów.
+
+export const quizFolders = sqliteTable(
+	'quiz_folders',
+	{
+		id: text('id').primaryKey(),
+		userId: text('user_id')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		name: text('name').notNull(),
+		createdAt: createdAt()
+	},
+	(t) => [index('quiz_folders_user_idx').on(t.userId)]
+);
+
+export const quizFolderItems = sqliteTable(
+	'quiz_folder_items',
+	{
+		userId: text('user_id')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		quizId: text('quiz_id')
+			.notNull()
+			.references(() => quizzes.id, { onDelete: 'cascade' }),
+		folderId: text('folder_id')
+			.notNull()
+			.references(() => quizFolders.id, { onDelete: 'cascade' })
+	},
+	(t) => [primaryKey({ columns: [t.userId, t.quizId] }), index('quiz_folder_items_folder_idx').on(t.folderId)]
+);

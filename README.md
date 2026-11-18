@@ -18,6 +18,7 @@ Specyfikacja: dokument „Proem Quiz – specyfikacja” w Claude.
 - **Telefony:** powrót do gry po rozłączeniu (ten sam nick i punkty, także przez ponowne
   zeskanowanie QR), „wstecz” nie wyrzuca z gry, kod QR między pytaniami.
 - **Po grze:** raport (wyniki, najtrudniejsze pytania) z eksportem CSV dla Excela; usuwany po 90 dniach.
+- **Lista quizów:** prywatne foldery każdego autora (także na udostępnione quizy), wyszukiwanie bez polskich znaków, stronicowanie po 20.
 - **Panel:** po polsku i angielsku, 2FA, udostępnianie quizów, motywy.
 
 ## Praca lokalnie

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { and, asc, eq, inArray, or } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, or } from 'drizzle-orm';
 import { db, schema } from './db/index.js';
 import { newId } from './auth/crypto.js';
 import { MediaError, cutClip, mediaUrl } from './media.js';
@@ -88,11 +88,11 @@ export function listQuizzes(user: User) {
 		.innerJoin(schema.users, eq(schema.quizzes.ownerId, schema.users.id))
 		.leftJoin(schema.themes, eq(schema.quizzes.themeId, schema.themes.id))
 		.where(where)
-		.orderBy(asc(schema.quizzes.title))
+		.orderBy(desc(schema.quizzes.updatedAt))
 		.all();
 	const counts = new Map<string, number>();
-	for (const q of db.select({ quizId: schema.questions.quizId }).from(schema.questions).all()) {
-		counts.set(q.quizId, (counts.get(q.quizId) ?? 0) + 1);
+	for (const q of db.select({ quizId: schema.questions.quizId, n: count() }).from(schema.questions).groupBy(schema.questions.quizId).all()) {
+		counts.set(q.quizId, q.n);
 	}
 	return rows.map((r) => ({
 		...r,
