@@ -14,7 +14,7 @@
 	import { backOut } from 'svelte/easing';
 	import { ask, deviceId, gameSocket, keepAwake, remaining, store } from '#lib/game/client.js';
 	import { errText, t } from '#lib/game/i18n.js';
-	import { shapeColor, themeVars, type GameTheme } from '#lib/game/theme.js';
+	import { logoFor, shapeColor, themeVars, type GameTheme } from '#lib/game/theme.js';
 
 	type Item = { id: string; label: string };
 	type Q = {
@@ -230,7 +230,7 @@
 
 	{#if phase === 'pin'}
 		<main class="center" in:fly={{ y: 24, duration: 380 }}>
-			{#if theme?.logoUrl}<img class="logo" src={theme.logoUrl} alt="" />{/if}
+			{#if logoFor(theme)}<img class="logo" src={logoFor(theme)} alt="" />{/if}
 			<form class="g-box card" onsubmit={checkPin}>
 				<label for="pin" class="big-label">{L.enterPin}</label>
 				<input

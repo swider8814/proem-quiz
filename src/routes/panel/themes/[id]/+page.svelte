@@ -1,7 +1,7 @@
 <script lang="ts">
 	import '#lib/game/game.css';
 	import Shape from '#lib/game/Shape.svelte';
-	import { shapeColor, themeVars } from '#lib/game/theme.js';
+	import { logoFor, shapeColor, themeVars } from '#lib/game/theme.js';
 	import { uploadFile } from '#lib/editor/model.js';
 	import { panelDict } from '#lib/i18n/panel.js';
 
@@ -12,7 +12,7 @@
 	let uploadError = $state('');
 	let uploading = $state(false);
 
-	const preview = $derived({ name: t.name, style: t.style, colors: t.colors, headingFont: t.headingFont, logoUrl: t.logoLight ? `/media/${t.logoLight}` : null });
+	const preview = $derived({ name: t.name, style: t.style, colors: t.colors, headingFont: t.headingFont, logoUrl: t.logoLight ? `/media/${t.logoLight}` : null, logoDarkUrl: t.logoDark ? `/media/${t.logoDark}` : null });
 	const payload = $derived(JSON.stringify({ name: t.name, style: t.style, headingFont: t.headingFont, colors: t.colors, logoLight: t.logoLight, logoDark: t.logoDark }));
 	const colorFields = ['background', 'surface', 'text', 'accent'] as const;
 
@@ -98,7 +98,7 @@
 	<section class="previews" aria-label={T.preview}>
 		<div class="game pv host" data-style={t.style} style={themeVars(preview)}>
 			<div class="pv-top">
-				{#if preview.logoUrl}<img src={preview.logoUrl} alt="" />{:else}<b>{t.name.split(' – ')[0]}</b>{/if}
+				{#if logoFor(preview)}<img src={logoFor(preview)} alt="" />{:else}<b>{t.name.split(' – ')[0]}</b>{/if}
 				<span class="g-chip">PIN 482 913</span>
 			</div>
 			<div class="g-box pv-q">{T.pvQuestion}</div>

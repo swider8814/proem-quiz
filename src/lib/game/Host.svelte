@@ -15,7 +15,7 @@
 	import { Music, playPodium, type MusicKind, type PodiumSound } from './sounds.js';
 	import { ask, gameSocket, keepAwake, remaining } from './client.js';
 	import { t } from './i18n.js';
-	import { shapeColor, themeVars, type GameTheme } from './theme.js';
+	import { logoFor, shapeColor, themeVars, type GameTheme } from './theme.js';
 
 	/**
 	 * mode="operator": okno prowadzącego – połączenie z serwerem, sterowanie, dźwięk.
@@ -433,7 +433,7 @@
 		{/if}
 	{:else}
 		<header class="bar">
-			<span class="brand">{#if theme?.logoUrl}<img src={theme.logoUrl} alt="" />{:else}{(theme?.name ?? 'Proem').split(' – ')[0]}{/if}</span>
+			<span class="brand">{#if logoFor(theme)}<img src={logoFor(theme)} alt="" />{:else}{(theme?.name ?? 'Proem').split(' – ')[0]}{/if}</span>
 			{#if q && hs.state !== 'lobby' && q.type !== 'slide'}<span class="g-chip">{L.question} {q.index + 1} {L.of} {q.total}</span>{/if}
 			<span class="g-chip pinchip">PIN {pinFmt(hs.pin)}</span>
 		</header>
