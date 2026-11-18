@@ -150,6 +150,24 @@ try {
 	ok(!overflow, 'edytor na telefonie bez poziomego przewijania');
 	await snap(m, 'ed-03-telefon');
 
+	// Kolory motywu: pole HEX obok próbnika (wpisanie, skrót #rgb, błędna wartość, zapis)
+	await p.goto(`${srv.base}/panel/themes/theme_proem`);
+	const hex = p.getByLabel('Tło (HEX)');
+	await hex.fill('#12ab9f');
+	ok((await p.getByLabel('Tło', { exact: true }).inputValue()) === '#12ab9f', 'HEX wpisany → próbnik koloru zaktualizowany');
+	await hex.fill('#fd0');
+	await hex.blur();
+	ok((await hex.inputValue()) === '#ffdd00' && (await p.getByLabel('Tło', { exact: true }).inputValue()) === '#ffdd00', 'skrót #fd0 rozwinięty do #ffdd00 po wyjściu z pola');
+	await hex.fill('zielony');
+	ok((await hex.getAttribute('aria-invalid')) === 'true', 'błędny HEX oznaczony');
+	await hex.blur();
+	ok((await hex.inputValue()) === '#ffdd00' && (await hex.getAttribute('aria-invalid')) === 'false', 'błędny HEX cofnięty do ostatniego poprawnego koloru (bez oznaczenia błędu)');
+	await snap(p, 'ed-05-kolory-hex');
+	await p.click('button.save');
+	await p.waitForLoadState('networkidle');
+	await p.goto(`${srv.base}/panel/themes/theme_proem`);
+	ok((await p.getByLabel('Tło (HEX)').inputValue()) === '#ffdd00', 'kolor z pola HEX zapisany w motywie');
+
 	// Foldery na liście quizów: nowy folder, przeniesienie z listy rozwijanej (bez przeładowania strony)
 	await p.goto(`${srv.base}/panel`);
 	await p.click('button.chip.add');

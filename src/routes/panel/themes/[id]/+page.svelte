@@ -2,6 +2,7 @@
 	import '#lib/game/game.css';
 	import Shape from '#lib/game/Shape.svelte';
 	import { logoFor, shapeColor, themeVars } from '#lib/game/theme.js';
+	import ColorField from '#lib/editor/ColorField.svelte';
 	import { uploadFile } from '#lib/editor/model.js';
 	import { panelDict } from '#lib/i18n/panel.js';
 
@@ -69,10 +70,10 @@
 		<fieldset>
 			<legend>{T.colors}</legend>
 			{#each colorFields as key}
-				<label class="color"><input type="color" bind:value={t.colors[key]} /> {T[key]} <code>{t.colors[key]}</code></label>
+				<ColorField bind:value={t.colors[key]} label={T[key]} />
 			{/each}
 			{#each t.colors.answers as _, i}
-				<label class="color"><input type="color" bind:value={t.colors.answers[i]} /> {T.answer(String.fromCharCode(65 + i))} <code>{t.colors.answers[i]}</code></label>
+				<ColorField bind:value={t.colors.answers[i]} label={T.answer(String.fromCharCode(65 + i))} />
 			{/each}
 		</fieldset>
 
@@ -137,8 +138,6 @@
 	.fields { flex: 1 1 22rem; display: flex; flex-direction: column; }
 	fieldset { border: 1px solid var(--line); border-radius: 0.5rem; margin: 1rem 0 0; padding: 0.5rem 1rem 1rem; }
 	legend { font-weight: 700; }
-	.color { display: flex; align-items: center; gap: 0.6rem; font-weight: 400; margin: 0.5rem 0 0; }
-	.color input { width: 2.6rem; height: 2rem; padding: 0; border: 1px solid #c9cbd3; border-radius: 0.3rem; background: none; }
 	.logo-row { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.6rem; flex-wrap: wrap; }
 	.logo-row img { max-height: 2.5rem; max-width: 8rem; background: #eee; padding: 0.2rem; border-radius: 0.3rem; }
 	.file { position: relative; overflow: hidden; padding: 0.45rem 0.8rem; font-size: 0.85rem; background: #e7e8ee; color: var(--text); }
