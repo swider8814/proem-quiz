@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { sliderMid } from '#lib/game/slider.js';
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import type { Socket } from 'socket.io-client';
@@ -50,11 +51,6 @@
 	let members = $state<string[]>(['']);
 	let avatar = $state(Math.floor(Math.random() * AVATAR_COUNT));
 	let sliderVal = $state<number | null>(null);
-	/** Środek suwaka na siatce kroku (bez błędów zaokrągleń typu 0,30000000000000004). */
-	const sliderMid = (sl: { min: number; max: number; step: number }) => {
-		const dec = (String(sl.step).split('.')[1] ?? '').length;
-		return Number((sl.min + Math.round((sl.max - sl.min) / 2 / sl.step) * sl.step).toFixed(dec));
-	};
 	let toast = $state('');
 	let toastTimer: ReturnType<typeof setTimeout> | null = null;
 

@@ -113,9 +113,12 @@ try {
 		};
 		const gifBig = fileOf(JSON.parse((await upload(adm2, fs.readFileSync(path.join(tmp, 'big.gif')), 'duzy.gif')).text).id);
 		ok(dim(gifBig) === '1600x800' && frames(gifBig) === '5', `duży GIF zmniejszony z animacją (${dim(gifBig)}, klatek ${frames(gifBig)})`);
-		const smallSrc = fs.readFileSync(path.join(tmp, 'small.gif'));
+		// Mały GIF z komentarzem (rozszerzenie 0x21 0xFE przed końcem pliku): komentarz usunięty, animacja i wymiary zostają
+		const raw = fs.readFileSync(path.join(tmp, 'small.gif'));
+		const note = Buffer.from('TAJNE-GPS-52.1');
+		const smallSrc = Buffer.concat([raw.subarray(0, raw.length - 1), Buffer.from([0x21, 0xfe, note.length]), note, Buffer.from([0x00, 0x3b])]);
 		const gifSmall = fileOf(JSON.parse((await upload(adm2, smallSrc, 'maly.gif')).text).id);
-		ok(fs.readFileSync(gifSmall).equals(smallSrc), 'mały GIF zapisany bez zmian');
+		ok(!fs.readFileSync(gifSmall).includes('TAJNE-GPS') && dim(gifSmall) === '320x240' && frames(gifSmall) === '3', `mały GIF oczyszczony z komentarza, animacja zachowana (${dim(gifSmall)}, klatek ${frames(gifSmall)})`);
 		const hugeUp = await upload(adm2, fs.readFileSync(path.join(tmp, 'huge.png')), 'bomba.png');
 		ok(hugeUp.status === 400 && /megapikseli/.test(hugeUp.text), 'obrazek 48 Mpx odrzucony przed dekodowaniem');
 		fs.rmSync(tmp, { recursive: true, force: true });
