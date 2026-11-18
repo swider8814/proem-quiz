@@ -35,7 +35,7 @@
 	let socket: Socket | null = null;
 	let phase = $state<'pin' | 'nick' | 'game' | 'kicked' | 'replaced'>('pin');
 	let pin = $state('');
-	let info = $state<{ title: string; locale: string; theme: GameTheme; nicknameMode: string; teamMode: boolean } | null>(null);
+	let info = $state<{ title: string; locale: string; theme: GameTheme; nicknameMode: string; teamMode: boolean; avatars?: boolean } | null>(null);
 	let nick = $state('');
 	let suggestion = $state('');
 	let ownNick = $state(false);
@@ -162,7 +162,7 @@
 		const p = pin.replace(/\D/g, '');
 		if (p.length !== 6) return;
 		busy = true;
-		const r = await ask<{ ok?: boolean; error?: string; title: string; locale: string; theme: GameTheme; nicknameMode: string; teamMode: boolean; suggestion: string }>(socket!, 'check', { pin: p });
+		const r = await ask<{ ok?: boolean; error?: string; title: string; locale: string; theme: GameTheme; nicknameMode: string; teamMode: boolean; avatars?: boolean; suggestion: string }>(socket!, 'check', { pin: p });
 		busy = false;
 		if (!r.ok) {
 			error = errText(locale, r.error ?? 'default');
@@ -191,7 +191,7 @@
 			// Podpowiedź z serwera traktujemy jak własny nick (żeby gracz dostał dokładnie to, co widzi).
 			random: false,
 			deviceId: deviceId(),
-			avatar,
+			avatar: info?.avatars === false ? undefined : avatar,
 			members: team ? members.map((m) => m.trim()).filter(Boolean) : undefined
 		});
 		busy = false;
@@ -253,14 +253,17 @@
 		<main class="center" in:fly={{ y: 24, duration: 380 }}>
 			<h1 class="title">{info.title}</h1>
 			<form class="g-box card" onsubmit={join}>
-				<span class="big-label">{L.pickAvatar}</span>
-				<div class="avatars" role="radiogroup" aria-label={L.pickAvatar}>
-					{#each Array(AVATAR_COUNT) as _, i}
-						<button type="button" class="av" class:sel={avatar === i} role="radio" aria-checked={avatar === i} aria-label="{L.pickAvatar} {i + 1}" onclick={() => (avatar = i)}>
-							<Avatar id={i} size="100%" animated={avatar === i} />
-						</button>
-					{/each}
-				</div>
+				{#if info.avatars !== false}
+					<span class="big-label">{L.pickAvatar}</span>
+					<div class="avatars" role="radiogroup" aria-label={L.pickAvatar}>
+						{#each Array(AVATAR_COUNT) as _, i}
+							<button type="button" class="av" class:sel={avatar === i} role="radio" aria-checked={avatar === i} aria-label="{L.pickAvatar} {i + 1}" onclick={() => (avatar = i)}>
+								<Avatar id={i} size="100%" animated={avatar === i} />
+								{#if avatar === i}<span class="av-check" aria-hidden="true"><Icon name="check" /></span>{/if}
+							</button>
+						{/each}
+					</div>
+				{/if}
 				<span class="big-label">{team ? L.teamName : L.yourNick}</span>
 				{#if !ownNick}
 					<div class="nick-show">{suggestion}</div>
@@ -525,9 +528,13 @@
 	   rozpychają siatki (iOS Safari); wysokość z szerokości obrazka, bez procentowej wysokości SVG. */
 	.avatars { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 4px; }
 	@media (min-width: 520px) { .avatars { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
-	.av { border: 3px solid transparent; border-radius: 14px; background: rgba(255, 255, 255, 0.5); padding: 4px; margin: 0; cursor: pointer; display: block; width: 100%; min-width: 0; min-height: 0; height: auto; line-height: 0; box-shadow: none; }
-	.av :global(svg) { display: block; width: 100%; height: auto; }
-	.av.sel { border-color: var(--line, #111); background: #fff; }
+	/* Wybrana postać: wyraźnie w każdym motywie (kolor akcentu, czarna ramka, znaczek ✓), pozostałe przygaszone. */
+	.av { position: relative; border: 3px solid transparent; border-radius: 14px; background: rgba(0, 0, 0, 0.04); padding: 10%; margin: 0; cursor: pointer; display: block; width: 100%; min-width: 0; min-height: 0; height: auto; line-height: 0; box-shadow: none; opacity: 0.55; transition: opacity 0.15s, transform 0.15s, background 0.15s; }
+	/* Margines wokół rysunku: uszy (zając, lis) i kołysanie wybranej postaci nie dotykają ramki. */
+	.av :global(svg) { display: block; width: 100%; height: auto; overflow: visible; }
+	.av.sel { opacity: 1; border-color: #111; background: var(--accent, #ffc93c); transform: scale(1.06); box-shadow: 0 3px 0 #111; }
+	.av-check { position: absolute; top: -8px; right: -8px; width: 24px; height: 24px; border-radius: 50%; background: #111; color: #fff; display: flex; align-items: center; justify-content: center; line-height: 1; font-size: 14px; }
+	@media (prefers-reduced-motion: reduce) { .av, .av.sel { transition: none; transform: none; } }
 	.nick { display: inline-flex; align-items: center; gap: 6px; }
 	.nick-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.medal-wrap { display: flex; justify-content: center; }

@@ -234,6 +234,7 @@ export const quizSaveSchema = z.object({
 		teamTalk: z.number().int().min(0).max(30).default(10),
 		shuffleQuestions: z.boolean().default(false),
 		shuffleAnswers: z.boolean().default(false),
+		avatars: z.boolean().default(true),
 		lateJoin: z.boolean(),
 		phoneAnswerText: z.boolean()
 	}),

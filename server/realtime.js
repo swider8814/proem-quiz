@@ -268,6 +268,7 @@ function playerConnection(socket, games) {
 			theme: game.quiz.theme,
 			nicknameMode: game.quiz.settings.nicknameMode,
 			teamMode: game.quiz.settings.teamMode,
+			avatars: game.quiz.settings.avatars !== false,
 			suggestion: randomNick(game.quiz.locale, game.takenNicks())
 		});
 	});

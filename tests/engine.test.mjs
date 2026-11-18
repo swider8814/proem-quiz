@@ -305,6 +305,27 @@ for (const cd of [0, 3]) {
 	a.close();
 	b.close();
 }
+// Postacie wyłączone w ustawieniach quizu: telefon wie, że ma nie pokazywać wyboru; gracz bez postaci
+{
+	const g = registry().create({ ...quiz, quizId: 'noav', settings: { ...quiz.settings, avatars: false } }, 'user1');
+	const h = connect(URL, { auth: { role: 'host', pin: g.pin, token: g.hostToken }, transports: ['websocket'] });
+	let hs = null;
+	h.on('state', (x) => (hs = x));
+	await nextState(h);
+	const a = mk();
+	const chk = await emit(a, 'check', { pin: g.pin });
+	ok(chk.ok && chk.avatars === false, 'postacie wyłączone: telefon dostaje avatars=false');
+	await emit(a, 'join', { pin: g.pin, nick: 'Bezpostaci', deviceId: 'noav1', avatar: 5 });
+	await sleep(100);
+	const p = hs.players.find((x) => x.nick === 'Bezpostaci');
+	ok(p && p.avatar == null, `postacie wyłączone: gracz bez postaci (${p?.avatar})`);
+	const b = mk();
+	const chk2 = await emit(b, 'check', { pin: (registry().create({ ...quiz, quizId: 'avon' }, 'user1')).pin });
+	ok(chk2.ok && chk2.avatars === true, 'domyślnie postacie włączone (avatars=true)');
+	h.close();
+	a.close();
+	b.close();
+}
 
 // Losowa kolejność pytań i odpowiedzi
 {

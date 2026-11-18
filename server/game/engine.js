@@ -168,7 +168,7 @@ export class Game {
 			deviceId: typeof deviceId === 'string' ? deviceId.slice(0, 64) : null,
 			nick: finalNick,
 			members: team,
-			avatar: Number.isInteger(avatar) && avatar >= 0 && avatar < AVATARS ? avatar : randomInt(AVATARS),
+			avatar: this.quiz.settings.avatars === false ? null : Number.isInteger(avatar) && avatar >= 0 && avatar < AVATARS ? avatar : randomInt(AVATARS),
 			score: 0,
 			streak: 0,
 			totalTime: 0,

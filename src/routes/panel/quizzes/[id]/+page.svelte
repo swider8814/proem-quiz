@@ -11,6 +11,7 @@
 
 	let { data } = $props();
 	const t = $derived(panelDict(data.lang));
+	const S = $derived(t.editor.set);
 	const E = $derived(t.editor);
 	const problemText = (q: EditorQuestion) => problems(q).map((p) => E.problems[p]).join(', ');
 
@@ -238,75 +239,118 @@
 {#if showSettings}
 	<fieldset class="card settings" disabled={ro}>
 		<legend class="sr">{E.settingsLegend}</legend>
-		<label>{E.theme}
-			<select bind:value={quiz.themeId}>
-				{#each data.themes as th}<option value={th.id}>{th.name}</option>{/each}
-			</select>
-		</label>
-		<label>{E.gameLanguage}
-			<select bind:value={quiz.locale}>
-				<option value="pl">Polski</option><option value="en">English</option><option value="uk">Українська</option>
-			</select>
-		</label>
-		<label>{E.defaultTime}
-			<input type="number" min="5" max="240" bind:value={quiz.settings.defaultTimeLimit} />
-		</label>
-		<label>{E.countdown}
-			<select bind:value={quiz.settings.countdown}>
-				<option value={0}>{E.countdownOff}</option>
-				{#each [3, 5, 10] as n}<option value={n}>{E.countdownSec(n)}</option>{/each}
-			</select>
-		</label>
-		<div class="podium-set">
-			<label>{E.podiumSound}
-				<select bind:value={quiz.settings.podiumSound} onchange={choosePodium}>
-					{#each PODIUM_OPTIONS as o}<option value={o}>{E.podiumSounds[o]}</option>{/each}
-				</select>
-			</label>
-			{#if quiz.settings.podiumSound !== 'custom' && quiz.settings.podiumSound !== 'none'}
-				<button type="button" class="secondary" onclick={previewPodium}>{E.podiumPreview}</button>
-			{/if}
-		</div>
-		{#if quiz.settings.podiumSound === 'custom' && quiz.settings.podiumAudio}
-			{@const pa = quiz.settings.podiumAudio}
-			<div class="podium-clip">
-				<p class="muted">{E.podiumCustomHint}</p>
-				{#key pa.mediaId}
-					<AudioClipEditor
-						mediaId={pa.mediaId}
-						mediaName={media[pa.mediaId]?.name ?? null}
-						durationMs={media[pa.mediaId]?.durationMs ?? null}
-						bind:startMs={pa.startMs}
-						bind:endMs={pa.endMs}
-						loop={false}
-						revealEndMs={null}
-						simple
-						maxMs={20_000}
-						disabled={ro}
-						onMedia={(m) => {
-							media[m.id] = { ...m, kind: 'audio' };
-							pa.mediaId = m.id;
-						}}
-					/>
-				{/key}
+
+		<section class="sgroup">
+			<h3>{S.look}</h3>
+			<div class="srow">
+				<div class="stext"><label for="s-theme">{E.theme}</label><p class="hint">{S.themeHint}</p></div>
+				<div class="sctl">
+					<select id="s-theme" bind:value={quiz.themeId}>
+						{#each data.themes as th}<option value={th.id}>{th.name}</option>{/each}
+					</select>
+				</div>
 			</div>
-		{/if}
-		<div class="podium-set">
-			<label>{E.music}
-				<select bind:value={quiz.settings.music} onchange={chooseMusic}>
-					{#each MUSIC_OPTIONS as o}<option value={o}>{E.musics[o]}</option>{/each}
-				</select>
-			</label>
-			{#if quiz.settings.music === 'calm' || quiz.settings.music === 'upbeat'}
-				<button type="button" class="secondary" onclick={toggleMusicPreview}>{musicPlaying ? E.stop : E.podiumPreview}</button>
-			{/if}
-		</div>
-		{#if quiz.settings.music !== 'none'}
-			<div class="music-where">
-				<label class="check"><input type="checkbox" bind:checked={quiz.settings.musicLobby} /> {E.musicLobby}</label>
-				<label class="check"><input type="checkbox" bind:checked={quiz.settings.musicQuestions} /> {E.musicQuestions}</label>
+			<div class="srow">
+				<div class="stext"><label for="s-lang">{E.gameLanguage}</label><p class="hint">{S.langHint}</p></div>
+				<div class="sctl">
+					<select id="s-lang" bind:value={quiz.locale}>
+						<option value="pl">Polski</option><option value="en">English</option><option value="uk">Українська</option>
+					</select>
+				</div>
 			</div>
-		{/if}
+		</section>
+
+		<section class="sgroup">
+			<h3>{S.flow}</h3>
+			<div class="srow">
+				<div class="stext"><label for="s-time">{E.defaultTime}</label><p class="hint">{S.timeHint}</p></div>
+				<div class="sctl"><input id="s-time" type="number" min="5" max="240" bind:value={quiz.settings.defaultTimeLimit} /></div>
+			</div>
+			<div class="srow">
+				<div class="stext"><label for="s-count">{E.countdown}</label><p class="hint">{S.countdownHint}</p></div>
+				<div class="sctl">
+					<select id="s-count" bind:value={quiz.settings.countdown}>
+						<option value={0}>{E.countdownOff}</option>
+						{#each [3, 5, 10] as n}<option value={n}>{E.countdownSec(n)}</option>{/each}
+					</select>
+				</div>
+			</div>
+			<label class="srow toggle">
+				<span class="stext"><span class="lbl">{S.shuffleQ}</span><span class="hint">{S.shuffleQHint}</span></span>
+				<input class="switch" type="checkbox" bind:checked={quiz.settings.shuffleQuestions} />
+			</label>
+			<label class="srow toggle">
+				<span class="stext"><span class="lbl">{S.shuffleA}</span><span class="hint">{S.shuffleAHint}</span></span>
+				<input class="switch" type="checkbox" bind:checked={quiz.settings.shuffleAnswers} />
+			</label>
+			<label class="srow toggle">
+				<span class="stext"><span class="lbl">{S.streak}</span><span class="hint">{S.streakHint}</span></span>
+				<input class="switch" type="checkbox" bind:checked={quiz.settings.streakBonus} />
+			</label>
+		</section>
+
+		<section class="sgroup">
+			<h3>{S.players}</h3>
+			<label class="srow toggle">
+				<span class="stext"><span class="lbl">{S.avatars}</span><span class="hint">{S.avatarsHint}</span></span>
+				<input class="switch" type="checkbox" bind:checked={quiz.settings.avatars} />
+			</label>
+			<div class="srow">
+				<div class="stext"><label for="s-nick">{E.nicknames}</label><p class="hint">{S.nickHint}</p></div>
+				<div class="sctl">
+					<select id="s-nick" bind:value={quiz.settings.nicknameMode}>
+						<option value="random-or-custom">{E.nickRandomOrCustom}</option>
+						<option value="random-only">{E.nickRandomOnly}</option>
+					</select>
+				</div>
+			</div>
+			<label class="srow toggle">
+				<span class="stext"><span class="lbl">{S.lateJoin}</span><span class="hint">{S.lateJoinHint}</span></span>
+				<input class="switch" type="checkbox" bind:checked={quiz.settings.lateJoin} />
+			</label>
+			<label class="srow toggle">
+				<span class="stext"><span class="lbl">{S.phoneText}</span><span class="hint">{S.phoneTextHint}</span></span>
+				<input class="switch" type="checkbox" bind:checked={quiz.settings.phoneAnswerText} />
+			</label>
+			<label class="srow toggle">
+				<span class="stext"><span class="lbl">{S.team}</span><span class="hint">{S.teamHint}</span></span>
+				<input class="switch" type="checkbox" bind:checked={quiz.settings.teamMode} />
+			</label>
+			{#if quiz.settings.teamMode}
+				<div class="srow sub">
+					<div class="stext"><label for="s-talk">{E.teamTalk}</label><p class="hint">{S.teamTalkHint}</p></div>
+					<div class="sctl">
+						<select id="s-talk" bind:value={quiz.settings.teamTalk}>
+							<option value={0}>{E.countdownOff}</option>
+							{#each [5, 10, 15, 20] as n}<option value={n}>{E.countdownSec(n)}</option>{/each}
+						</select>
+					</div>
+				</div>
+			{/if}
+		</section>
+
+		<section class="sgroup">
+			<h3>{S.sound}</h3>
+			<div class="srow">
+				<div class="stext"><label for="s-music">{E.music}</label><p class="hint">{S.musicHint}</p></div>
+				<div class="sctl with-btn">
+					<select id="s-music" bind:value={quiz.settings.music} onchange={chooseMusic}>
+						{#each MUSIC_OPTIONS as o}<option value={o}>{E.musics[o]}</option>{/each}
+					</select>
+					{#if quiz.settings.music === 'calm' || quiz.settings.music === 'upbeat'}
+						<button type="button" class="secondary" onclick={toggleMusicPreview}>{musicPlaying ? E.stop : E.podiumPreview}</button>
+					{/if}
+				</div>
+			</div>
+			{#if quiz.settings.music !== 'none'}
+				<div class="srow sub">
+					<div class="stext"><span class="lbl">{S.musicWhen}</span></div>
+					<div class="sctl checks">
+						<label class="check"><input type="checkbox" bind:checked={quiz.settings.musicLobby} /> {E.musicLobby}</label>
+						<label class="check"><input type="checkbox" bind:checked={quiz.settings.musicQuestions} /> {E.musicQuestions}</label>
+					</div>
+				</div>
+			{/if}
 		{#if quiz.settings.music === 'custom' && quiz.settings.musicAudio}
 			{@const ma = quiz.settings.musicAudio}
 			<div class="podium-clip">
@@ -331,26 +375,42 @@
 				{/key}
 			</div>
 		{/if}
-		<label>{E.nicknames}
-			<select bind:value={quiz.settings.nicknameMode}>
-				<option value="random-or-custom">{E.nickRandomOrCustom}</option>
-				<option value="random-only">{E.nickRandomOnly}</option>
-			</select>
-		</label>
-		<label class="check"><input type="checkbox" bind:checked={quiz.settings.teamMode} /> {E.teamMode}</label>
-		{#if quiz.settings.teamMode}
-			<label>{E.teamTalk}
-				<select bind:value={quiz.settings.teamTalk}>
-					<option value={0}>{E.countdownOff}</option>
-					{#each [5, 10, 15, 20] as n}<option value={n}>{E.countdownSec(n)}</option>{/each}
-				</select>
-			</label>
+			<div class="srow">
+				<div class="stext"><label for="s-podium">{E.podiumSound}</label><p class="hint">{S.podiumHint}</p></div>
+				<div class="sctl with-btn">
+					<select id="s-podium" bind:value={quiz.settings.podiumSound} onchange={choosePodium}>
+						{#each PODIUM_OPTIONS as o}<option value={o}>{E.podiumSounds[o]}</option>{/each}
+					</select>
+					{#if quiz.settings.podiumSound !== 'custom' && quiz.settings.podiumSound !== 'none'}
+						<button type="button" class="secondary" onclick={previewPodium}>{E.podiumPreview}</button>
+					{/if}
+				</div>
+			</div>
+		{#if quiz.settings.podiumSound === 'custom' && quiz.settings.podiumAudio}
+			{@const pa = quiz.settings.podiumAudio}
+			<div class="podium-clip">
+				<p class="muted">{E.podiumCustomHint}</p>
+				{#key pa.mediaId}
+					<AudioClipEditor
+						mediaId={pa.mediaId}
+						mediaName={media[pa.mediaId]?.name ?? null}
+						durationMs={media[pa.mediaId]?.durationMs ?? null}
+						bind:startMs={pa.startMs}
+						bind:endMs={pa.endMs}
+						loop={false}
+						revealEndMs={null}
+						simple
+						maxMs={20_000}
+						disabled={ro}
+						onMedia={(m) => {
+							media[m.id] = { ...m, kind: 'audio' };
+							pa.mediaId = m.id;
+						}}
+					/>
+				{/key}
+			</div>
 		{/if}
-		<label class="check"><input type="checkbox" bind:checked={quiz.settings.lateJoin} /> {E.lateJoin}</label>
-		<label class="check"><input type="checkbox" bind:checked={quiz.settings.phoneAnswerText} /> {E.phoneText}</label>
-		<label class="check"><input type="checkbox" bind:checked={quiz.settings.streakBonus} /> {E.streak}</label>
-		<label class="check"><input type="checkbox" bind:checked={quiz.settings.shuffleQuestions} /> {E.shuffleQuestions}</label>
-		<label class="check"><input type="checkbox" bind:checked={quiz.settings.shuffleAnswers} /> {E.shuffleAnswers}</label>
+		</section>
 	</fieldset>
 {/if}
 
@@ -566,12 +626,33 @@
 	.err { color: var(--danger); }
 	.start { background: #26890c; }
 	.start.disabled { opacity: 0.4; pointer-events: none; }
-	.settings { display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: 0.25rem 1.5rem; margin: 0 0 1rem; border: 1px solid var(--line); }
-	.settings label { margin-top: 0.5rem; }
-	.podium-set { display: flex; gap: 0.6rem; align-items: flex-end; }
-	.podium-set label { flex: 1; }
-	.podium-clip { grid-column: 1 / -1; }
-	.music-where { display: flex; flex-direction: column; justify-content: flex-end; }
+	/* Ustawienia: grupy (karty) z wierszami „opis po lewej, kontrolka po prawej”; na telefonie jedno pod drugim. */
+	.settings { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr)); gap: 1rem; margin: 0 0 1rem; border: 1px solid var(--line); }
+	.sgroup { border: 1px solid var(--line); border-radius: 0.75rem; padding: 0.25rem 1rem 0.5rem; background: #fbfbfd; min-width: 0; }
+	.sgroup h3 { margin: 0.75rem 0 0.25rem; font-size: 1rem; }
+	.srow { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.7rem 0; border-top: 1px solid #ecedf2; margin: 0; font-weight: 400; }
+	.sgroup h3 + .srow { border-top: 0; }
+	.srow.sub { padding-left: 1rem; border-top-style: dashed; }
+	.stext { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.15rem; }
+	.stext label, .stext .lbl { font-weight: 600; margin: 0; }
+	.hint { margin: 0; color: var(--muted); font-size: 0.85rem; line-height: 1.35; }
+	.sctl { flex: 0 0 13rem; min-width: 0; }
+	.sctl select, .sctl input[type='number'] { width: 100%; }
+	.sctl.with-btn { display: flex; gap: 0.5rem; flex-basis: 18rem; }
+	.sctl.with-btn select { flex: 1; min-width: 0; }
+	.sctl.checks { display: flex; flex-direction: column; gap: 0.35rem; flex-basis: 18rem; }
+	.toggle { cursor: pointer; }
+	.switch { appearance: none; -webkit-appearance: none; flex: none; width: 2.75rem; height: 1.6rem; border-radius: 999px; background: #c9ccd8; position: relative; cursor: pointer; transition: background 0.15s; margin: 0; padding: 0; border: 0; }
+	.switch::after { content: ''; position: absolute; top: 0.2rem; left: 0.2rem; width: 1.2rem; height: 1.2rem; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); transition: transform 0.15s; }
+	.switch:checked { background: #26890c; }
+	.switch:checked::after { transform: translateX(1.15rem); }
+	.switch:focus-visible { box-shadow: var(--focus); }
+	.switch:disabled { opacity: 0.5; }
+	@media (max-width: 560px) {
+		.srow:not(.toggle) { flex-direction: column; align-items: stretch; gap: 0.5rem; }
+		.sctl, .sctl.with-btn, .sctl.checks { flex-basis: auto; }
+	}
+	.podium-clip { padding: 0 0 0.75rem; }
 	.podium-clip p { margin: 0.5rem 0; }
 	.check { display: flex; align-items: center; gap: 0.5rem; font-weight: 400; }
 	.check.small { font-size: 0.8rem; white-space: nowrap; margin: 0; }

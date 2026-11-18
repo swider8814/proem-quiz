@@ -43,7 +43,7 @@ try {
 	const quizId = c.loc.split('/').pop();
 	const base = { promptTranslation: null, timeLimit: 20, pointsMultiplier: 1 };
 	const quiz = (questions) => JSON.stringify({
-		title: 'Zwierzęta', description: null, themeId: 'theme_proem', locale: 'pl',
+		title: 'Zwierzęta', description: null, themeId: 'theme_proem_vivid', locale: 'pl',
 		settings: { defaultTimeLimit: 20, countdown: 3, streakBonus: true, nicknameMode: 'random-or-custom', teamMode: false, lateJoin: true, phoneAnswerText: true },
 		questions
 	});
@@ -83,6 +83,13 @@ try {
 			};
 		});
 		ok(lay.inside && lay.below && lay.pageFits && lay.w >= 40, `${dev}: postacie mieszczą się w karcie i nie zasłaniają napisu (${JSON.stringify(lay)})`);
+		// Wybrana postać wyraźnie oznaczona także w motywie kolorowym (przezroczysta linia motywu)
+		const sel = await p.evaluate(() => {
+			const s = document.querySelector('.av.sel');
+			const other = document.querySelector('.av:not(.sel)');
+			return { idx: [...document.querySelectorAll('.av')].indexOf(s), border: getComputedStyle(s).borderColor, check: !!s.querySelector('.av-check'), dim: Number(getComputedStyle(other).opacity) };
+		});
+		ok(sel.idx === 7 && sel.border === 'rgb(17, 17, 17)' && sel.check && sel.dim < 1, `${dev}: wybrana postać podświetlona ✓, pozostałe przygaszone (${JSON.stringify(sel)})`);
 		await p.context().close();
 	}
 
@@ -118,7 +125,7 @@ try {
 	const c2 = await admin.req('/panel?/create', { method: 'POST', form: { title: 'Drużyny' } });
 	const q2 = c2.loc.split('/').pop();
 	const teamBody = JSON.parse(quiz([q1]));
-	teamBody.settings = { ...teamBody.settings, teamMode: true, teamTalk: 10, countdown: 3 };
+	teamBody.settings = { ...teamBody.settings, teamMode: true, teamTalk: 10, countdown: 3, avatars: false };
 	ok((await admin.req(`/panel/api/quizzes/${q2}`, { method: 'PUT', headers: json, body: JSON.stringify(teamBody) })).status === 200, 'quiz drużynowy zapisany');
 	const host2 = await hostCtx.newPage();
 	await host2.goto(`${srv.base}/panel/quizzes/${q2}/host`);
@@ -127,6 +134,8 @@ try {
 	const pin2 = (await host2.textContent('.pin')).replace(/\s/g, '');
 	const team = await (await browser.newContext({ ...devices['iPhone 14'] })).newPage();
 	await team.goto(`${srv.base}/play?pin=${pin2}`);
+	await team.waitForSelector('input[aria-label="Imię 1"]');
+	ok((await team.$$('.avatars')).length === 0, 'postacie wyłączone w ustawieniach → brak wyboru postaci na telefonie');
 	await team.fill('input[aria-label="Imię 1"]', 'Ala');
 	await team.click('button:has-text("Dołącz do gry")');
 	await team.waitForSelector('text=Jesteś w grze!');

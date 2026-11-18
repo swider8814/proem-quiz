@@ -113,6 +113,7 @@ export type QuizSettings = {
 	musicQuestions: boolean; // muzyka w trakcie odliczania i pytań (bez pytań audio)
 	streakBonus: boolean;
 	nicknameMode: 'random-or-custom' | 'random-only';
+	avatars: boolean; // gracze wybierają postać (zwierzątko) przy dołączaniu
 	teamMode: boolean;
 	teamTalk: number; // tryb drużynowy: sekundy na naradę przed odpowiedzią (0–30)
 	shuffleQuestions: boolean; // losowa kolejność pytań w każdej grze (slajdy zostają na miejscu)
@@ -132,6 +133,7 @@ export const DEFAULT_QUIZ_SETTINGS: QuizSettings = {
 	musicQuestions: true,
 	streakBonus: true,
 	nicknameMode: 'random-or-custom',
+	avatars: true,
 	teamMode: false,
 	teamTalk: 10,
 	shuffleQuestions: false,
