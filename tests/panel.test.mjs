@@ -231,7 +231,7 @@ try {
 	// ── Przykładowe quizy do próby (cli demo-quiz) ──
 	const demoOut = srv.cli('demo-quiz', 'admin2@proem.pl');
 	const demoIds = [...demoOut.matchAll(/\/panel\/quizzes\/(quiz_[A-Za-z0-9_-]+)/g)].map((m) => m[1]);
-	ok(demoIds.length === 3, 'demo-quiz tworzy trzy quizy');
+	ok(demoIds.length === 4, 'demo-quiz tworzy cztery quizy');
 	for (const qid of demoIds) {
 		const ed = await adm2.req(`/panel/quizzes/${qid}`);
 		ok(ed.status === 200, `przykładowy quiz otwiera się w edytorze (${qid})`);
@@ -266,6 +266,23 @@ try {
 		};
 		const ns = await adm2.req(`/panel/api/quizzes/${demoIds[2]}`, { method: 'PUT', body: JSON.stringify(save), headers: { 'content-type': 'application/json', accept: 'application/json' } });
 		ok(ns.status === 200, `pokaz nowych typów przechodzi walidację edytora (${ns.text.slice(0, 160)})`);
+	}
+	// Pełny pokaz: wszystkie typy pytań, obrazek pytania, punkty ×2, ustawienia (odliczanie, muzyka, podium)
+	{
+		const fdb = new Database2(path.join(srv.dataDir, 'quiz.db'), { readonly: true });
+		const fq = fdb.prepare('SELECT type, prompt, prompt_translation, image_media_id, time_limit, points_multiplier, data FROM questions WHERE quiz_id = ? ORDER BY position').all(demoIds[3]);
+		const fs3 = JSON.parse(fdb.prepare('SELECT settings FROM quizzes WHERE id = ?').get(demoIds[3]).settings);
+		fdb.close();
+		const types = new Set(fq.map((q) => q.type));
+		ok(['choice', 'truefalse', 'audio', 'text', 'order', 'poll', 'slider', 'slide'].every((t) => types.has(t)), `pełny pokaz ma wszystkie typy pytań (${[...types]})`);
+		ok(fq.some((q) => q.image_media_id) && fq.some((q) => q.points_multiplier === 2) && fq.some((q) => JSON.parse(q.data).correct?.length > 1), 'pełny pokaz: obrazek pytania, punkty ×2, kilka poprawnych');
+		ok(fs3.countdown === 5 && fs3.music === 'upbeat' && fs3.podiumSound === 'triumph', 'pełny pokaz: odliczanie, muzyka i dźwięk podium ustawione');
+		const save = {
+			title: 'Pełny pokaz – wszystkie typy pytań', description: null, themeId: null, locale: 'pl', settings: fs3,
+			questions: fq.map((q) => { const { clipMediaId: _c, ...data } = JSON.parse(q.data); return { type: q.type, prompt: q.prompt, promptTranslation: q.prompt_translation, imageMediaId: q.image_media_id, timeLimit: q.time_limit, pointsMultiplier: q.points_multiplier, data }; })
+		};
+		const fsv = await adm2.req(`/panel/api/quizzes/${demoIds[3]}`, { method: 'PUT', body: JSON.stringify(save), headers: { 'content-type': 'application/json', accept: 'application/json' } });
+		ok(fsv.status === 200, `pełny pokaz przechodzi walidację edytora (${fsv.text.slice(0, 160)})`);
 	}
 	const audioQ = JSON.parse(dq[0].data);
 	ok(dq[0].type === 'audio' && audioQ.audioMediaId, 'przykładowy quiz ma pytanie audio');

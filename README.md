@@ -214,7 +214,7 @@ Działa na Windows, macOS i Linuksie z **Docker Desktop**. Komputer i telefony m
 1. Pobierz kod: GitHub → repozytorium → **Code → Download ZIP** (rozpakuj) albo sklonuj przez GitHub Desktop.
 
 **Windows – najprościej jednym poleceniem** (sam wykryje adres IP, utworzy `.env.local`, zbuduje, uruchomi,
-założy konto administratora i dwa przykładowe quizy). W PowerShell w folderze z kodem:
+założy konto administratora i cztery przykładowe quizy). W PowerShell w folderze z kodem:
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\local-start.ps1 -Admin twoj@email.pl -Name "Imię Nazwisko"
 ```
@@ -232,7 +232,8 @@ Kroki 2–6 poniżej robią to samo ręcznie (np. na macOS / Linuksie).
    ```
 5. Otwórz wypisany link **przez adres IP** (nie `localhost` – tak samo jak w `ORIGIN`), ustaw hasło i 2FA.
    Telefony dołączają przez kod QR na ekranie prowadzącego.
-6. (Opcjonalnie) dwa gotowe quizy do próby – polski i angielski z polskim drugim wierszem, wszystkie typy pytań oprócz audio:
+6. (Opcjonalnie) cztery gotowe quizy do próby – polski, angielski z polskim drugim wierszem, pokaz nowych typów
+   oraz „Pełny pokaz – wszystkie typy pytań” (każdy typ, obrazki, ankiety, punkty ×2, muzyka i odliczanie):
    ```bash
    docker compose -f docker-compose.local.yml --env-file .env.local exec app node server/cli.js demo-quiz twoj@email.pl
    ```

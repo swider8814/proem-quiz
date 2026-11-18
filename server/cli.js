@@ -195,13 +195,13 @@ switch (cmd) {
 		const settings = JSON.stringify({ defaultTimeLimit: 20, streakBonus: true, nicknameMode: 'random-or-custom', teamMode: false, lateJoin: true, phoneAnswerText: true });
 		const melody = demoMelody(user.id);
 		const audio = (answers) => ({ type: 'audio', answers, correct: [0], audioMediaId: melody.id, clipMediaId: melody.clipId, startMs: 0, endMs: DEMO_CLIP_MS, loop: false, revealEndMs: Math.min(melody.durationMs, 28_000) });
-		const make = (title, locale, questions) => {
+		const make = (title, locale, questions, extra = {}) => {
 			const quizId = id('quiz');
 			db.transaction(() => {
-				db.prepare('INSERT INTO quizzes (id, owner_id, title, theme_id, locale, settings) VALUES (?, ?, ?, ?, ?, ?)').run(quizId, user.id, title, theme, locale, settings);
+				db.prepare('INSERT INTO quizzes (id, owner_id, title, theme_id, locale, settings) VALUES (?, ?, ?, ?, ?, ?)').run(quizId, user.id, title, theme, locale, JSON.stringify({ ...JSON.parse(settings), ...extra }));
 				questions.forEach((q, i) =>
-					db.prepare('INSERT INTO questions (id, quiz_id, position, type, prompt, prompt_translation, time_limit, points_multiplier, data) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)')
-						.run(id('qst'), quizId, i, q.data.type, q.prompt, q.tr ?? null, q.time ?? 20, JSON.stringify(q.data))
+					db.prepare('INSERT INTO questions (id, quiz_id, position, type, prompt, prompt_translation, image_media_id, time_limit, points_multiplier, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+						.run(id('qst'), quizId, i, q.data.type, q.prompt, q.tr ?? null, q.image ?? null, q.time ?? 20, q.points ?? 1, JSON.stringify(q.data))
 				);
 			})();
 			console.log(`Utworzono: ${title} → ${ORIGIN}/panel/quizzes/${quizId}`);
@@ -237,6 +237,25 @@ switch (cmd) {
 			{ prompt: 'Ile dni ma grudzień?', time: 25, data: { type: 'slider', min: 0, max: 60, step: 1, correct: 31, margin: 'low', unit: 'dni' } },
 			{ prompt: 'Która kolęda podoba Ci się najbardziej?', data: { type: 'poll', answers: ['Cicha noc', 'Wśród nocnej ciszy', 'Lulajże, Jezuniu', 'Bóg się rodzi'] } }
 		]);
+		// Pełny pokaz: każdy typ pytania i warianty (obrazek pytania, obrazki odpowiedzi, kilka poprawnych,
+		// kciuki, ankieta z obrazkami, punkty ×2, slajdy), odliczanie, muzyka i dźwięk podium.
+		const star = demoBauble(user.id, 'Bombka fioletowa.png', [120, 40, 170]);
+		make('Pełny pokaz – wszystkie typy pytań', 'pl', [
+			{ prompt: 'Witajcie na quizie!', data: { type: 'slide', text: 'Zeskanujcie kod QR, wpiszcie ksywkę i wybierzcie swoje zwierzątko.\nZa chwilę pierwsze pytanie!' } },
+			{ prompt: 'Jaka to kolęda?', data: audio(['Cicha noc', 'Wśród nocnej ciszy', 'Lulajże, Jezuniu', 'Bóg się rodzi']) },
+			{ prompt: 'Jakiego koloru jest ta bombka?', image: star, data: { type: 'choice', answers: ['Czerwona', 'Fioletowa', 'Zielona', 'Złota'], correct: [1] } },
+			{ prompt: 'Która bombka jest niebieska?', data: { type: 'choice', answers: ['', '', '', ''], correct: [2], images: baubles } },
+			{ prompt: 'Wskaż jeden z darów Mędrców (kilka odpowiedzi jest dobrych)', data: { type: 'choice', answers: ['Złoto', 'Srebro', 'Kadzidło', 'Mirra'], correct: [0, 2, 3] } },
+			{ prompt: 'Wigilia to wieczór 24 grudnia.', data: { type: 'truefalse', correct: true } },
+			{ prompt: 'Renifery Mikołaja mieszkają na pustyni.', data: { type: 'truefalse', correct: false, thumbs: true } },
+			{ prompt: 'Co dzielimy przy wigilijnym stole?', time: 30, data: { type: 'text', accepted: ['opłatek', 'opłatkiem'], typoTolerance: 1 } },
+			{ prompt: 'Ułóż od najwcześniejszego', time: 30, data: { type: 'order', items: ['Adwent', 'Wigilia', 'Boże Narodzenie', 'Trzech Króli'], partialCredit: true } },
+			{ prompt: 'W którym roku pierwszy raz zaśpiewano „Cichą noc”?', time: 30, data: { type: 'slider', min: 1700, max: 1900, step: 1, correct: 1818, margin: 'medium', unit: '' } },
+			{ prompt: 'Krótka przerwa', data: { type: 'slide', text: 'Brawo! Za chwilę dwie ankiety (bez punktów) i pytanie finałowe za podwójne punkty.' } },
+			{ prompt: 'Która bombka podoba Ci się najbardziej?', points: 0, data: { type: 'poll', answers: ['', '', '', ''], images: baubles } },
+			{ prompt: 'Jaką kolędę lubisz śpiewać najbardziej?', points: 0, data: { type: 'poll', answers: ['Cicha noc', 'Wśród nocnej ciszy', 'Lulajże, Jezuniu', 'Bóg się rodzi'] } },
+			{ prompt: 'FINAŁ ×2: Ile potraw tradycyjnie jest na wigilijnym stole?', points: 2, data: { type: 'choice', answers: ['7', '10', '12', '24'], correct: [2] } }
+		], { countdown: 5, music: 'upbeat', musicLobby: true, musicQuestions: true, podiumSound: 'triumph' });
 		console.log('Pytanie audio: melodia „Cicha noc” (F. X. Gruber, 1818 – domena publiczna), wygenerowana syntezatorem.');
 		break;
 	}
