@@ -98,6 +98,16 @@ try {
 		const lst2 = await adm2.req('/panel/themes');
 		ok(img(lst2.text, lightLogo.id) && !img(lst2.text, darkLogo.id), 'lista motywów: jasne tło → logo na jasne tło');
 		await adm2.req(`${themeUrl}?/save`, { method: 'POST', form: { theme: JSON.stringify(good) } });
+		// Dekoracja motywu (śnieg) zapisuje się; nieznana wartość odrzucona
+		const snowSave = await adm2.req(`${themeUrl}?/save`, { method: 'POST', form: { theme: JSON.stringify({ ...good, decor: 'snow' }) } });
+		const tdb = new Database(path.join(srv.dataDir, 'quiz.db'), { readonly: true });
+		const decor = tdb.prepare('SELECT decor FROM themes WHERE id = ?').get(themeUrl.split('/').pop()).decor;
+		const xmas = tdb.prepare("SELECT name, decor FROM themes WHERE id = 'theme_proem_christmas'").get();
+		tdb.close();
+		ok(snowSave.status === 200 && decor === 'snow', `dekoracja motywu zapisana (${decor})`);
+		ok((await adm2.req(`${themeUrl}?/save`, { method: 'POST', form: { theme: JSON.stringify({ ...good, decor: '<script>' }) } })).status === 400, 'nieznana dekoracja odrzucona');
+		ok(xmas?.name === 'Święta Bożego Narodzenia' && xmas.decor === 'snow', 'gotowy motyw świąteczny ze śniegiem');
+		await adm2.req(`${themeUrl}?/save`, { method: 'POST', form: { theme: JSON.stringify(good) } });
 	}
 
 	// Zdjęcia: zmniejszane do 1600 px, bez metadanych, z miniaturą 480 px; ogromne wymiary odrzucane

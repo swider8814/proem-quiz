@@ -10,6 +10,7 @@
 	import Medal from './Medal.svelte';
 	import Avatar from './Avatar.svelte';
 	import Confetti from './Confetti.svelte';
+	import Snow from './Snow.svelte';
 	import CountUp from './CountUp.svelte';
 	import { flip } from 'svelte/animate';
 	import { fly, scale } from 'svelte/transition';
@@ -444,6 +445,7 @@
 	onmousemove={isScreen ? wakeCursor : undefined}
 	ondblclick={isScreen ? fullscreen : undefined}
 >
+	{#if theme?.decor === 'snow'}<Snow count={45} />{/if}
 	{#if !hs || opLost}
 		{#if isScreen}
 			<div class="center screen-wait">

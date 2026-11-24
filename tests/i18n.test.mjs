@@ -118,7 +118,7 @@ try {
 
 	// ── Administrator po angielsku: wszystkie strony admina ──
 	await admin.req('/lang', { method: 'POST', form: { lang: 'en', next: '/panel' } });
-	const allowed = ['Proem Zako – obozy']; // nazwa motywu wpisana przez admina
+	const allowed = ['Proem Zako – obozy', 'Święta Bożego Narodzenia']; // nazwy motywów (dane, nie teksty interfejsu)
 	for (const page of ['/panel', '/panel/users', '/panel/themes', '/panel/themes/theme_proem', '/panel/settings', '/panel/security']) {
 		const r = await admin.req(page);
 		const left = polishLeft(r.text, allowed);

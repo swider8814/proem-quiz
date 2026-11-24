@@ -5,6 +5,7 @@ export type GameTheme = {
 	headingFont?: string;
 	logoUrl?: string | null;
 	logoDarkUrl?: string | null;
+	decor?: 'none' | 'snow';
 } | null;
 
 const HEX = /^#[0-9a-fA-F]{3,8}$/;

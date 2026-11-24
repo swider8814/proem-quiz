@@ -13,8 +13,8 @@
 	let uploadError = $state('');
 	let uploading = $state(false);
 
-	const preview = $derived({ name: t.name, style: t.style, colors: t.colors, headingFont: t.headingFont, logoUrl: t.logoLight ? `/media/${t.logoLight}` : null, logoDarkUrl: t.logoDark ? `/media/${t.logoDark}` : null });
-	const payload = $derived(JSON.stringify({ name: t.name, style: t.style, headingFont: t.headingFont, colors: t.colors, logoLight: t.logoLight, logoDark: t.logoDark }));
+	const preview = $derived({ name: t.name, style: t.style, colors: t.colors, headingFont: t.headingFont, logoUrl: t.logoLight ? `/media/${t.logoLight}` : null, logoDarkUrl: t.logoDark ? `/media/${t.logoDark}` : null, decor: t.decor });
+	const payload = $derived(JSON.stringify({ name: t.name, style: t.style, headingFont: t.headingFont, colors: t.colors, logoLight: t.logoLight, logoDark: t.logoDark, decor: t.decor }));
 	const colorFields = ['background', 'surface', 'text', 'accent'] as const;
 
 	function applyPreset() {
@@ -65,6 +65,12 @@
 		<label for="font">{T.font}</label>
 		<select id="font" bind:value={t.headingFont}>
 			{#each data.fonts as f}<option value={f}>{f}</option>{/each}
+		</select>
+
+		<label for="decor">{T.decor}</label>
+		<select id="decor" bind:value={t.decor}>
+			<option value="none">{T.decorNone}</option>
+			<option value="snow">{T.decorSnow}</option>
 		</select>
 
 		<fieldset>

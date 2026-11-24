@@ -57,6 +57,13 @@
       "when": 1794989511281,
       "tag": "0007_quiz_folders",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1795521361198,
+      "tag": "0008_theme_decor_christmas",
+      "breakpoints": true
     }
   ]
 }

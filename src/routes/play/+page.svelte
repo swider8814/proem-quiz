@@ -9,6 +9,7 @@
 	import Medal from '#lib/game/Medal.svelte';
 	import OrderList from '#lib/game/OrderList.svelte';
 	import Avatar, { AVATAR_COUNT } from '#lib/game/Avatar.svelte';
+	import Snow from '#lib/game/Snow.svelte';
 	import { pushState } from '$app/navigation';
 	import { fly, scale } from 'svelte/transition';
 	import { backOut } from 'svelte/easing';
@@ -225,6 +226,7 @@
 </svelte:head>
 
 <div class="game play" data-style={style} style={themeVars(theme)}>
+	{#if theme?.decor === 'snow'}<Snow count={18} />{/if}
 	{#if !connected && phase === 'game' && gs?.state !== 'ended'}
 		<div class="offline" role="status">{L.reconnecting}</div>
 	{/if}
@@ -465,7 +467,7 @@
 		/* Tło na całą szerokość okna; treść w kolumnie (telefon → tablet → komputer). */
 		--col: 560px;
 	}
-	.play > :not(.offline):not(.toast) { width: 100%; max-width: var(--col); margin-inline: auto; }
+	.play > :not(.offline):not(.toast):not(.snow) { width: 100%; max-width: var(--col); margin-inline: auto; }
 	.card { max-width: 480px; }
 	@media (min-width: 700px) {
 		.play { --col: 720px; gap: 16px; padding-top: 28px; padding-bottom: 28px; }

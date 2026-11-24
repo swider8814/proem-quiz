@@ -74,6 +74,9 @@ export type ThemeColors = {
 export const THEME_STYLES = ['poster', 'vivid', 'calm'] as const;
 export type ThemeStyle = (typeof THEME_STYLES)[number];
 
+export const THEME_DECORS = ['none', 'snow'] as const;
+export type ThemeDecor = (typeof THEME_DECORS)[number];
+
 export const themes = sqliteTable('themes', {
 	id: text('id').primaryKey(),
 	slug: text('slug').notNull().unique(),
@@ -84,6 +87,8 @@ export const themes = sqliteTable('themes', {
 	logoDark: text('logo_dark'),
 	colors: text('colors', { mode: 'json' }).$type<ThemeColors>().notNull(),
 	headingFont: text('heading_font').notNull().default('Inter'),
+	// Dekoracja ekranów gry (np. padający śnieg w motywie świątecznym).
+	decor: text('decor', { enum: THEME_DECORS }).notNull().default('none'),
 	background: text('background'), // media id lub CSS gradient
 	jingleMediaId: text('jingle_media_id'),
 	lobbyMusicMediaId: text('lobby_music_media_id'),
@@ -97,7 +102,7 @@ export const PODIUM_SOUNDS = ['fanfare', 'triumph', 'drumroll', 'custom', 'none'
 export type PodiumSound = (typeof PODIUM_SOUNDS)[number];
 
 // Wbudowane nagrania w static/sounds/music-*.mp3; „calm”/„upbeat” to dawne nazwy (zamieniane przy zapisie).
-export const MUSIC_KINDS = ['lounge', 'elevator', 'background', 'onhold', 'custom', 'none'] as const;
+export const MUSIC_KINDS = ['lounge', 'elevator', 'background', 'onhold', 'christmas', 'custom', 'none'] as const;
 export const LEGACY_MUSIC: Record<string, MusicKind> = { calm: 'background', upbeat: 'lounge' };
 export type MusicKind = (typeof MUSIC_KINDS)[number];
 /** Własny dźwięk: plik + zakres; clipMediaId = wycięty i wyrównany głośnościowo fragment (liczy serwer). */

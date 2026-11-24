@@ -126,6 +126,7 @@ try {
 	const q2 = c2.loc.split('/').pop();
 	const teamBody = JSON.parse(quiz([q1]));
 	teamBody.settings = { ...teamBody.settings, teamMode: true, teamTalk: 10, countdown: 3, avatars: false };
+	teamBody.themeId = 'theme_proem_christmas';
 	ok((await admin.req(`/panel/api/quizzes/${q2}`, { method: 'PUT', headers: json, body: JSON.stringify(teamBody) })).status === 200, 'quiz drużynowy zapisany');
 	const host2 = await hostCtx.newPage();
 	await host2.goto(`${srv.base}/panel/quizzes/${q2}/host`);
@@ -136,11 +137,15 @@ try {
 	await team.goto(`${srv.base}/play?pin=${pin2}`);
 	await team.waitForSelector('input[aria-label="Imię 1"]');
 	ok((await team.$$('.avatars')).length === 0, 'postacie wyłączone w ustawieniach → brak wyboru postaci na telefonie');
+	ok((await team.$$('.snow span')).length > 0, 'motyw świąteczny: na telefonie pada śnieg');
 	await team.fill('input[aria-label="Imię 1"]', 'Ala');
 	await team.click('button:has-text("Dołącz do gry")');
 	await team.waitForSelector('text=Jesteś w grze!');
 	await host2.waitForSelector('.players .members');
 	ok((await host2.textContent('.players')).includes('Ala'), 'członek drużyny widoczny w poczekalni');
+	ok((await host2.$$('.snow span')).length > 0, 'motyw świąteczny: śnieg na ekranie prowadzącego');
+	await host2.screenshot({ path: '/tmp/xmas-host.png' });
+	await team.screenshot({ path: '/tmp/xmas-phone.png' });
 	await host2.keyboard.press('Space');
 	await host2.waitForSelector('.answers.talk');
 	await host2.waitForFunction(() => [...document.querySelectorAll('.answers.talk img')].filter((i) => i.naturalWidth > 0).length === 4);

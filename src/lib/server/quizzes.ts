@@ -360,7 +360,7 @@ export function themeView(themeId: string | null) {
 		(themeId && db.select().from(schema.themes).where(eq(schema.themes.id, themeId)).get()) ||
 		db.select().from(schema.themes).where(eq(schema.themes.isDefault, true)).get();
 	if (!t) return null;
-	return { name: t.name, style: t.style, colors: t.colors, headingFont: t.headingFont, logoUrl: mediaUrl(t.logoLight), logoDarkUrl: mediaUrl(t.logoDark) };
+	return { name: t.name, style: t.style, colors: t.colors, headingFont: t.headingFont, logoUrl: mediaUrl(t.logoLight), logoDarkUrl: mediaUrl(t.logoDark), decor: t.decor };
 }
 
 /** Do gry: zamiast identyfikatorów plików tylko adresy gotowych fragmentów (podium, muzyka). */

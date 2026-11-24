@@ -26,8 +26,8 @@ export function playPodium(kind: PodiumSound, opts: { firstAt: number; url?: str
 }
 
 // ── Muzyka w tle (cały quiz w pętli) ─────────────────────────────────────
-export type MusicKind = 'lounge' | 'elevator' | 'background' | 'onhold' | 'custom' | 'none' | 'calm' | 'upbeat';
-export const BUILTIN_MUSIC = ['lounge', 'elevator', 'background', 'onhold'] as const;
+export type MusicKind = 'lounge' | 'elevator' | 'background' | 'onhold' | 'christmas' | 'custom' | 'none' | 'calm' | 'upbeat';
+export const BUILTIN_MUSIC = ['lounge', 'elevator', 'background', 'onhold', 'christmas'] as const;
 
 /** Dawne nazwy (muzyka z syntezatora) → nagrania. */
 export const musicKind = (k: MusicKind | undefined): MusicKind => (k === 'calm' ? 'background' : k === 'upbeat' ? 'lounge' : (k ?? 'background'));
