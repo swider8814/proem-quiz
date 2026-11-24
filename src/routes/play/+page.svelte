@@ -531,7 +531,7 @@
 	.avatars { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 4px; }
 	@media (min-width: 520px) { .avatars { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
 	/* Wybrana postać: wyraźnie w każdym motywie (kolor akcentu, czarna ramka, znaczek ✓), pozostałe przygaszone. */
-	.av { position: relative; border: 3px solid transparent; border-radius: 14px; background: rgba(0, 0, 0, 0.04); padding: 10%; margin: 0; cursor: pointer; display: block; width: 100%; min-width: 0; min-height: 0; height: auto; line-height: 0; box-shadow: none; opacity: 0.55; transition: opacity 0.15s, transform 0.15s, background 0.15s; }
+	.av { position: relative; border: 3px solid transparent; border-radius: 14px; background: rgba(0, 0, 0, 0.04); padding: 8%; margin: 0; cursor: pointer; display: block; width: 100%; min-width: 0; min-height: 0; height: auto; line-height: 0; box-shadow: none; opacity: 0.55; transition: opacity 0.15s, transform 0.15s, background 0.15s; }
 	/* Margines wokół rysunku: uszy (zając, lis) i kołysanie wybranej postaci nie dotykają ramki. */
 	.av :global(svg) { display: block; width: 100%; height: auto; overflow: visible; }
 	.av.sel { opacity: 1; border-color: #111; background: var(--accent, #ffc93c); transform: scale(1.06); box-shadow: 0 3px 0 #111; }
