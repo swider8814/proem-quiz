@@ -255,7 +255,7 @@ switch (cmd) {
 			{ prompt: 'Która bombka podoba Ci się najbardziej?', points: 0, data: { type: 'poll', answers: ['', '', '', ''], images: baubles } },
 			{ prompt: 'Jaką kolędę lubisz śpiewać najbardziej?', points: 0, data: { type: 'poll', answers: ['Cicha noc', 'Wśród nocnej ciszy', 'Lulajże, Jezuniu', 'Bóg się rodzi'] } },
 			{ prompt: 'FINAŁ ×2: Ile potraw tradycyjnie jest na wigilijnym stole?', points: 2, data: { type: 'choice', answers: ['7', '10', '12', '24'], correct: [2] } }
-		], { countdown: 5, music: 'upbeat', musicLobby: true, musicQuestions: true, podiumSound: 'triumph' });
+		], { countdown: 5, music: 'lounge', podiumSound: 'triumph' });
 		console.log('Pytanie audio: melodia „Cicha noc” (F. X. Gruber, 1818 – domena publiczna), wygenerowana syntezatorem.');
 		break;
 	}

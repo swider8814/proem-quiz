@@ -1,0 +1,9 @@
+Nagrania dostarczone przez Fundację Proem (fundacja ma prawa do ich użycia w aplikacji):
+music-lounge.mp3      – arpmedia, „Lounge Jazz Elevator Music”
+music-elevator.mp3    – the_mountain, „Elevator Music”
+music-background.mp3  – lnplusmusic, „Background Music”
+music-onhold.mp3      – alex-morgan, „Elevator Music (On Hold)”
+podium-fanfare.mp3    – emand_edroff, „Victory Bell Success Fanfare”
+podium-triumph.mp3    – u_it78ck90s3, „Orchestral Win”
+podium-drumroll.mp3   – freesound_community, „Drumroll”
+Pliki znormalizowane (głośność), bez metadanych.

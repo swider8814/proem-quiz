@@ -291,13 +291,23 @@ try {
 		const types = new Set(fq.map((q) => q.type));
 		ok(['choice', 'truefalse', 'audio', 'text', 'order', 'poll', 'slider', 'slide'].every((t) => types.has(t)), `pełny pokaz ma wszystkie typy pytań (${[...types]})`);
 		ok(fq.some((q) => q.image_media_id) && fq.some((q) => q.points_multiplier === 2) && fq.some((q) => JSON.parse(q.data).correct?.length > 1), 'pełny pokaz: obrazek pytania, punkty ×2, kilka poprawnych');
-		ok(fs3.countdown === 5 && fs3.music === 'upbeat' && fs3.podiumSound === 'triumph', 'pełny pokaz: odliczanie, muzyka i dźwięk podium ustawione');
+		ok(fs3.countdown === 5 && fs3.music === 'lounge' && fs3.podiumSound === 'triumph', 'pełny pokaz: odliczanie, muzyka i dźwięk podium ustawione');
 		const save = {
 			title: 'Pełny pokaz – wszystkie typy pytań', description: null, themeId: null, locale: 'pl', settings: fs3,
 			questions: fq.map((q) => { const { clipMediaId: _c, ...data } = JSON.parse(q.data); return { type: q.type, prompt: q.prompt, promptTranslation: q.prompt_translation, imageMediaId: q.image_media_id, timeLimit: q.time_limit, pointsMultiplier: q.points_multiplier, data }; })
 		};
 		const fsv = await adm2.req(`/panel/api/quizzes/${demoIds[3]}`, { method: 'PUT', body: JSON.stringify(save), headers: { 'content-type': 'application/json', accept: 'application/json' } });
 		ok(fsv.status === 200, `pełny pokaz przechodzi walidację edytora (${fsv.text.slice(0, 160)})`);
+		// Dawna muzyka z syntezatora („calm”) zapisuje się jako nagranie „background”
+		const legacy = await adm2.req(`/panel/api/quizzes/${demoIds[3]}`, { method: 'PUT', body: JSON.stringify({ ...save, settings: { ...fs3, music: 'calm' } }), headers: { 'content-type': 'application/json', accept: 'application/json' } });
+		const ldb = new Database2(path.join(srv.dataDir, 'quiz.db'), { readonly: true });
+		const lm = JSON.parse(ldb.prepare('SELECT settings FROM quizzes WHERE id = ?').get(demoIds[3]).settings).music;
+		ldb.close();
+		ok(legacy.status === 200 && lm === 'background', `dawna nazwa muzyki zamieniona na nagranie (${lm})`);
+		for (const f of ['music-lounge', 'music-elevator', 'music-background', 'music-onhold', 'podium-fanfare', 'podium-triumph', 'podium-drumroll']) {
+			const r = await B().req(`/sounds/${f}.mp3`, { raw: true });
+			ok(r.status === 200, `wbudowany dźwięk /sounds/${f}.mp3 dostępny`);
+		}
 	}
 	const audioQ = JSON.parse(dq[0].data);
 	ok(dq[0].type === 'audio' && audioQ.audioMediaId, 'przykładowy quiz ma pytanie audio');

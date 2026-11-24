@@ -3,7 +3,7 @@ import { asc, inArray } from 'drizzle-orm';
 import type { PageServerLoad } from './$types';
 import { db, schema } from '#lib/server/db/index.js';
 import { canEdit, canManageShares, loadQuiz, quizAccess } from '#lib/server/quizzes.js';
-import { DEFAULT_QUIZ_SETTINGS } from '#lib/server/db/schema.js';
+import { DEFAULT_QUIZ_SETTINGS, LEGACY_MUSIC } from '#lib/server/db/schema.js';
 import { panelDict } from '#lib/i18n/panel.js';
 
 export const load: PageServerLoad = ({ params, locals }) => {
@@ -17,6 +17,8 @@ export const load: PageServerLoad = ({ params, locals }) => {
 		if (q.data.type === 'choice' || q.data.type === 'poll') for (const im of q.data.images ?? []) if (im) mediaIds.add(im);
 	}
 	const settings = { ...DEFAULT_QUIZ_SETTINGS, ...loaded.quiz.settings };
+	// Dawne nazwy muzyki (syntezator) → nagrania, żeby lista wyboru pokazywała właściwą pozycję.
+	settings.music = LEGACY_MUSIC[settings.music as string] ?? settings.music;
 	// Edytor dostaje plik i zakres; wycięty fragment (clipMediaId) serwer liczy sam przy zapisie.
 	const strip = (a: typeof settings.podiumAudio) => (a ? { mediaId: a.mediaId, startMs: a.startMs, endMs: a.endMs } : null);
 	const podiumAudio = strip(settings.podiumAudio);

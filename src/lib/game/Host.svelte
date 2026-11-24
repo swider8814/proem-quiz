@@ -185,11 +185,11 @@
 	function syncMusic() {
 		const set = hs?.settings;
 		const st = hs?.state;
-		const want =
-			!musicOff && set && set.music !== 'none' &&
-			((st === 'lobby' && set.musicLobby !== false) || ((st === 'intro' || st === 'question') && set.musicQuestions !== false && !hs?.question?.audio));
-		if (want) music.play(set.music ?? 'calm', set.musicUrl, st === 'lobby' ? 1 : 0.7);
-		else music.stop();
+		// Muzyka gra w pętli przez cały quiz; milknie na pytaniu z muzyką (wraca po nim) i na podium.
+		const audioQuestion = !!hs?.question?.audio && (st === 'intro' || st === 'question' || st === 'reveal');
+		if (musicOff || !set || set.music === 'none' || st === 'ended') music.stop();
+		else if (audioQuestion) music.pause();
+		else music.play(set.music ?? 'background', set.musicUrl, st === 'lobby' || st === 'leaderboard' ? 1 : 0.6);
 	}
 	function toggleMusic() {
 		musicOff = !musicOff;
@@ -201,7 +201,7 @@
 	function fanfare() {
 		stopPodium?.();
 		const set = hs?.settings;
-		stopPodium = playPodium(set?.podiumSound ?? 'fanfare', { firstAt: PODIUM_DELAY[0], secondAt: PODIUM_DELAY[1], url: set?.podiumUrl });
+		stopPodium = playPodium(set?.podiumSound ?? 'fanfare', { firstAt: PODIUM_DELAY[0], url: set?.podiumUrl });
 	}
 
 	function kickPlayer(p: { id: string; nick: string }) {

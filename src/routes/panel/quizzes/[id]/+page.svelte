@@ -2,7 +2,7 @@
 	import Icon from '#lib/Icon.svelte';
 	import { beforeNavigate } from '$app/navigation';
 	import AudioClipEditor from '#lib/editor/AudioClipEditor.svelte';
-	import { Music, playPodium, type MusicKind, type PodiumSound } from '#lib/game/sounds.js';
+	import { BUILTIN_MUSIC, Music, playPodium, type MusicKind, type PodiumSound } from '#lib/game/sounds.js';
 	import {
 		ANSWER_COLORS, QTYPES, changeType, newKey, newQuestion, problems, toPayload, uploadFile,
 		type EditorQuestion, type QType
@@ -97,9 +97,9 @@
 		stopPreview?.();
 		const kind = quiz.settings.podiumSound;
 		if (kind === 'custom') return; // własny plik odsłuchuje się w edytorze fragmentu
-		stopPreview = playPodium(kind, { firstAt: kind === 'drumroll' ? 1800 : 0, secondAt: 0 });
+		stopPreview = playPodium(kind, { firstAt: 0 });
 	}
-	const MUSIC_OPTIONS: MusicKind[] = ['calm', 'upbeat', 'custom', 'none'];
+	const MUSIC_OPTIONS: MusicKind[] = [...BUILTIN_MUSIC, 'custom', 'none'];
 	const previewMusic = new Music();
 	let musicPlaying = $state(false);
 	let musicTimer: ReturnType<typeof setTimeout> | null = null;
@@ -347,20 +347,11 @@
 					<select id="s-music" bind:value={quiz.settings.music} onchange={chooseMusic}>
 						{#each MUSIC_OPTIONS as o}<option value={o}>{E.musics[o]}</option>{/each}
 					</select>
-					{#if quiz.settings.music === 'calm' || quiz.settings.music === 'upbeat'}
+					{#if quiz.settings.music !== 'custom' && quiz.settings.music !== 'none'}
 						<button type="button" class="secondary" onclick={toggleMusicPreview}>{musicPlaying ? E.stop : E.podiumPreview}</button>
 					{/if}
 				</div>
 			</div>
-			{#if quiz.settings.music !== 'none'}
-				<div class="srow sub">
-					<div class="stext"><span class="lbl">{S.musicWhen}</span></div>
-					<div class="sctl checks">
-						<label class="check"><input type="checkbox" bind:checked={quiz.settings.musicLobby} /> {E.musicLobby}</label>
-						<label class="check"><input type="checkbox" bind:checked={quiz.settings.musicQuestions} /> {E.musicQuestions}</label>
-					</div>
-				</div>
-			{/if}
 		{#if quiz.settings.music === 'custom' && quiz.settings.musicAudio}
 			{@const ma = quiz.settings.musicAudio}
 			<div class="podium-clip">
@@ -691,7 +682,6 @@
 	.sctl select, .sctl input[type='number'] { width: 100%; }
 	.sctl.with-btn { display: flex; gap: 0.5rem; flex-basis: 18rem; }
 	.sctl.with-btn select { flex: 1; min-width: 0; }
-	.sctl.checks { display: flex; flex-direction: column; gap: 0.35rem; flex-basis: 18rem; }
 	.toggle { cursor: pointer; }
 	.switch { appearance: none; -webkit-appearance: none; flex: none; width: 2.75rem; height: 1.6rem; border-radius: 999px; background: #c9ccd8; position: relative; cursor: pointer; transition: background 0.15s; margin: 0; padding: 0; border: 0; }
 	.switch::after { content: ''; position: absolute; top: 0.2rem; left: 0.2rem; width: 1.2rem; height: 1.2rem; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); transition: transform 0.15s; }
@@ -701,7 +691,7 @@
 	.switch:disabled { opacity: 0.5; }
 	@media (max-width: 560px) {
 		.srow:not(.toggle) { flex-direction: column; align-items: stretch; gap: 0.5rem; }
-		.sctl, .sctl.with-btn, .sctl.checks { flex-basis: auto; }
+		.sctl, .sctl.with-btn { flex-basis: auto; }
 	}
 	.podium-clip { padding: 0 0 0.75rem; }
 	.podium-clip p { margin: 0.5rem 0; }

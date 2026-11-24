@@ -36,6 +36,15 @@ try {
 	// ── Prowadzący ────────────────────────────────────────────────────────
 	const hostCtx = await browser.newContext({ viewport: { width: 1600, height: 900 } });
 	await hostCtx.addCookies([{ name: 'pq_session', value: admin.jar.pq_session, url: srv.base }]);
+	// Zapis odtwarzanych dźwięków (muzyka w tle, podium) – Audio nie trafia do DOM.
+	await hostCtx.addInitScript(() => {
+		window.__plays = [];
+		const play = HTMLMediaElement.prototype.play;
+		HTMLMediaElement.prototype.play = function () {
+			window.__plays.push(new URL(this.src, location.href).pathname);
+			return play.call(this).catch(() => {});
+		};
+	});
 	const host = await hostCtx.newPage();
 	const hostErrors = [];
 	host.on('pageerror', (e) => hostErrors.push(String(e)));
@@ -86,6 +95,7 @@ try {
 	await host.waitForFunction(() => document.querySelectorAll('.players .player').length === 3);
 	ok(true, 'prowadzący widzi 3 graczy');
 	ok((await host.$('button:has-text("Wycisz muzykę")')) !== null, 'muzyka w poczekalni z przyciskiem wyciszenia');
+	ok((await host.evaluate(() => window.__plays)).includes('/sounds/music-background.mp3'), 'w poczekalni gra nagranie muzyki w tle');
 	await snap(host, '04-prowadzacy-poczekalnia');
 
 	// ── Ekran dla widzów (osobne okno na projektor) ───────────────────────
@@ -275,6 +285,7 @@ try {
 	const early = await op('.step.s1');
 	await sleep(4800);
 	ok(early < 0.5 && (await op('.step.s1')) === 1, `podium wjeżdża po kolei: 1. miejsce na początku ukryte (${early}), potem widoczne`);
+	ok((await host.evaluate(() => window.__plays)).includes('/sounds/podium-fanfare.mp3'), 'na podium gra nagranie fanfary');
 	await phones[0].waitForSelector('text=Koniec gry!');
 	await snap(host, '12-prowadzacy-podium');
 	await snap(phones[0], '13-telefon-koniec');

@@ -96,7 +96,9 @@ export const themes = sqliteTable('themes', {
 export const PODIUM_SOUNDS = ['fanfare', 'triumph', 'drumroll', 'custom', 'none'] as const;
 export type PodiumSound = (typeof PODIUM_SOUNDS)[number];
 
-export const MUSIC_KINDS = ['calm', 'upbeat', 'custom', 'none'] as const;
+// Wbudowane nagrania w static/sounds/music-*.mp3; „calm”/„upbeat” to dawne nazwy (zamieniane przy zapisie).
+export const MUSIC_KINDS = ['lounge', 'elevator', 'background', 'onhold', 'custom', 'none'] as const;
+export const LEGACY_MUSIC: Record<string, MusicKind> = { calm: 'background', upbeat: 'lounge' };
 export type MusicKind = (typeof MUSIC_KINDS)[number];
 /** Własny dźwięk: plik + zakres; clipMediaId = wycięty i wyrównany głośnościowo fragment (liczy serwer). */
 export type CustomAudio = { mediaId: string; startMs: number; endMs: number; clipMediaId?: string };
@@ -127,7 +129,7 @@ export const DEFAULT_QUIZ_SETTINGS: QuizSettings = {
 	countdown: 5,
 	podiumSound: 'fanfare',
 	podiumAudio: null,
-	music: 'calm',
+	music: 'background',
 	musicAudio: null,
 	musicLobby: true,
 	musicQuestions: true,

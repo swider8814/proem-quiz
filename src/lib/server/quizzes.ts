@@ -6,7 +6,7 @@ import { MediaError, cutClip, mediaUrl } from './media.js';
 import { canUseMedia } from './media-access.js';
 import type { User } from './auth/index.js';
 import type { ErrKey } from '#lib/i18n/panel.js';
-import { DEFAULT_QUIZ_SETTINGS, MUSIC_KINDS, PODIUM_SOUNDS, type QuestionData, type QuizSettings } from './db/schema.js';
+import { DEFAULT_QUIZ_SETTINGS, LEGACY_MUSIC, MUSIC_KINDS, PODIUM_SOUNDS, type MusicKind, type QuestionData, type QuizSettings } from './db/schema.js';
 
 // ── Uprawnienia ──────────────────────────────────────────────────────────
 
@@ -228,7 +228,7 @@ export const quizSaveSchema = z.object({
 		countdown: z.number().int().min(0).max(10).default(5),
 		podiumSound: z.enum(PODIUM_SOUNDS).default('fanfare'),
 		podiumAudio: customAudio,
-		music: z.enum(MUSIC_KINDS).default('calm'),
+		music: z.preprocess((v) => (typeof v === 'string' && v in LEGACY_MUSIC ? LEGACY_MUSIC[v] : v), z.enum(MUSIC_KINDS)).default('background'),
 		musicAudio: customAudio,
 		musicLobby: z.boolean().default(true),
 		musicQuestions: z.boolean().default(true),
@@ -372,7 +372,7 @@ function podiumSettings(s: QuizSettings) {
 		...rest,
 		podiumSound: s.podiumSound === 'custom' && !podiumUrl ? 'fanfare' : s.podiumSound,
 		podiumUrl,
-		music: s.music === 'custom' && !musicUrl ? 'calm' : s.music,
+		music: s.music === 'custom' && !musicUrl ? 'background' : ((LEGACY_MUSIC[s.music as string] ?? s.music) as MusicKind),
 		musicUrl
 	};
 }
