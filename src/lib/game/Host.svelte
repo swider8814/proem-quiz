@@ -10,6 +10,8 @@
 	import Medal from './Medal.svelte';
 	import Avatar from './Avatar.svelte';
 	import Confetti from './Confetti.svelte';
+	import CountUp from './CountUp.svelte';
+	import { flip } from 'svelte/animate';
 	import { fly, scale } from 'svelte/transition';
 	import { backOut } from 'svelte/easing';
 	import { Music, playPodium, type MusicKind, type PodiumSound } from './sounds.js';
@@ -48,7 +50,7 @@
 		now: number; question?: HQ; deadline?: number | null; introEnds?: number | null; answered?: number;
 		solution?: { correct?: number[] | boolean; accepted?: string[]; order?: string[]; value?: number; margin?: number; unit?: string };
 		distribution?: { counts?: number[]; correct?: number; wrong?: number; average?: number | null };
-		ranking?: { id: string; nick: string; avatar?: number; score: number; rank: number; members?: string[] }[];
+		ranking?: { id: string; nick: string; avatar?: number; score: number; rank: number; members?: string[]; prevRank?: number; prevScore?: number }[];
 		standings?: { id: string; nick: string; avatar?: number; score: number; rank: number; connected: boolean }[];
 	};
 	type ScreenMsg =
@@ -154,8 +156,28 @@
 		}
 		if (s.state === 'leaderboard' || s.state === 'ended' || s.state === 'lobby') stopAudio();
 		if (s.state === 'ended' && prev && prev.state !== 'ended' && s.ranking?.length) fanfare();
+		if (s.state === 'leaderboard' && prev?.state !== 'leaderboard') animateBoard(s);
 		syncMusic();
 	}
+
+	// Tablica wyników jak w Kahoot: najpierw kolejność i punkty sprzed pytania, potem kafelki
+	// przesuwają się na nowe miejsca, a punkty dobiegają do nowej wartości.
+	const BOARD_HOLD = 1200;
+	const BOARD_MOVE = 1000;
+	let boardBefore = $state(false);
+	let boardTimer: ReturnType<typeof setTimeout> | undefined;
+	function animateBoard(s: HS) {
+		clearTimeout(boardTimer);
+		const moved = s.ranking?.some((r) => r.prevRank !== r.rank || r.prevScore !== r.score);
+		boardBefore = !!moved && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+		if (boardBefore) boardTimer = setTimeout(() => (boardBefore = false), BOARD_HOLD);
+	}
+	/** Wiersze tablicy: przed animacją w kolejności sprzed pytania (nowi w pierwszej piątce – na końcu). */
+	const boardRows = $derived.by(() => {
+		const rows = hs?.state === 'leaderboard' ? (hs.ranking ?? []) : [];
+		if (!boardBefore) return rows;
+		return [...rows].sort((a, b) => (a.prevRank ?? 1e9) - (b.prevRank ?? 1e9) || a.rank - b.rank);
+	});
 
 	// Muzyka w tle (tylko okno prowadzącego): poczekalnia oraz odliczanie i pytania bez własnego audio.
 	const music = new Music();
@@ -586,7 +608,7 @@
 					<div class="podium">
 						{#each [1, 0, 2] as idx}
 							{#if hs.ranking[idx]}
-								<div class="step s{idx + 1}" in:fly={{ y: 260, delay: PODIUM_DELAY[idx], duration: 800, easing: backOut }}>
+								<div class="step s{idx + 1}" in:fly|global={{ y: 260, delay: PODIUM_DELAY[idx], duration: 800, easing: backOut }}>
 									<div class="pod-top">
 										{#if hs.ranking[idx].avatar != null}<Avatar id={hs.ranking[idx].avatar ?? 0} size="4.2em" animated />{/if}
 										<Medal place={idx + 1} size="2.6em" />
@@ -603,15 +625,31 @@
 					<Confetti delay={PODIUM_DELAY[0] + 150} />
 				{/if}
 				<div class="board-row">
-				<ol class="rank">
-					{#each hs.ranking?.slice(hs.state === 'ended' ? 3 : 0) ?? [] as r, i (r.id)}
-						<li class="g-box" class:top={r.rank <= 3} in:fly={{ x: -50, delay: (hs.state === 'ended' ? PODIUM_REST : 150) + i * 110, duration: 400 }}>
-							{#if r.rank <= 3}<Medal place={r.rank} />{:else}<span class="pos">{r.rank}.</span>{/if}
-							{#if r.avatar != null}<Avatar id={r.avatar} size="1.6em" />{/if}
-							<span class="nm">{r.nick}{#if r.members?.length}<small class="members"> · {r.members.join(', ')}</small>{/if}</span><span class="sc">{r.score}</span>
-						</li>
-					{/each}
-				</ol>
+				{#if hs.state === 'leaderboard'}
+					<ol class="rank">
+						{#each boardRows as r, i (r.id)}
+							{@const place = boardBefore ? (r.prevRank ?? null) : r.rank}
+							{@const up = !boardBefore && r.prevRank != null && r.prevRank > r.rank}
+							<li class="g-box" class:top={!boardBefore && r.rank <= 3} class:up animate:flip={{ duration: BOARD_MOVE }} in:fly|global={{ y: 40, delay: 100 + i * 90, duration: 400 }}>
+								{#if place != null && place <= 3 && !boardBefore}<Medal place={place} />{:else}<span class="pos">{place != null ? `${place}.` : '–'}</span>{/if}
+								{#if r.avatar != null}<Avatar id={r.avatar} size="1.6em" />{/if}
+								<span class="nm">{r.nick}{#if r.members?.length}<small class="members"> · {r.members.join(', ')}</small>{/if}</span>
+								{#if up}<span class="moved" in:scale|global={{ duration: 300 }}>▲ {(r.prevRank ?? 0) - r.rank}</span>{/if}
+								<span class="sc">{#if boardBefore}{r.prevScore ?? 0}{:else}<CountUp from={r.prevScore ?? 0} to={r.score} />{/if}</span>
+							</li>
+						{/each}
+					</ol>
+				{:else}
+					<ol class="rank">
+						{#each hs.ranking?.slice(3) ?? [] as r, i (r.id)}
+							<li class="g-box" in:fly|global={{ x: -50, delay: PODIUM_REST + i * 110, duration: 400 }}>
+								<span class="pos">{r.rank}.</span>
+								{#if r.avatar != null}<Avatar id={r.avatar} size="1.6em" />{/if}
+								<span class="nm">{r.nick}{#if r.members?.length}<small class="members"> · {r.members.join(', ')}</small>{/if}</span><span class="sc">{r.score}</span>
+							</li>
+						{/each}
+					</ol>
+				{/if}
 				{#if hs.state === 'leaderboard'}
 					<!-- Między pytaniami: kod do powrotu dla tych, którzy wypadli z gry (np. „wstecz” na telefonie). -->
 					<div class="rejoin g-box" in:fly={{ y: 20, delay: 500, duration: 400 }}>
@@ -774,6 +812,10 @@
 	.rank { list-style: none; padding: 0; margin: 0; width: min(60vw, 900px); display: flex; flex-direction: column; gap: 1vh; }
 	.rank li { display: flex; align-items: center; gap: 1em; padding: 0.6em 1em; font-weight: 800; font-size: 1.2em; }
 	.nm { flex: 1; }
+	.rank .sc { font-variant-numeric: tabular-nums; min-width: 4ch; text-align: right; }
+	.moved { font-size: 0.75em; color: #1f8f3a; background: #e6f7ea; border-radius: 999px; padding: 0.1em 0.6em; white-space: nowrap; }
+	.rank li { transition: font-size 0.4s, box-shadow 0.4s; }
+	.rank li.up { box-shadow: 0 0 0 3px #3ccf65; }
 	.controls { display: flex; align-items: center; gap: 0.8em; }
 	.controls .g-btn { font-size: 0.85em; }
 	.spacer { flex: 1; }

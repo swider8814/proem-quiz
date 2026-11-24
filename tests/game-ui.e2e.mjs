@@ -151,6 +151,14 @@ try {
 	await host.waitForSelector('.board');
 	await screen.waitForSelector('.board');
 	ok(true, 'spacja w oknie widzów → ranking u prowadzącego i na ekranie');
+	// Tablica jak w Kahoot: najpierw punkty sprzed pytania, potem przesunięcia i nowe punkty
+	const scoresNow = () => host.$$eval('.rank li .sc', (els) => els.map((e) => Number(e.textContent)));
+	ok((await scoresNow()).every((x) => x === 0), `tablica startuje od punktów sprzed pytania (${await scoresNow()})`);
+	await sleep(3000);
+	const after = await scoresNow();
+	const places = await host.$$eval('.rank li', (els) => els.map((e) => e.querySelector('.pos')?.textContent ?? 'medal'));
+	ok(after.some((x) => x > 0) && after.every((x, i) => i === 0 || after[i - 1] >= x), `potem punkty dobiegają i kolejność według wyników (${after}; ${places})`);
+	await snap(host, '09a-prowadzacy-tablica');
 	await screen.waitForSelector('.rejoin .qr-sm');
 	ok(true, 'między pytaniami ekran widzów pokazuje kod QR do powrotu');
 
@@ -262,6 +270,11 @@ try {
 	ok(true, 'wyrzucenie w trakcie gry: gracz dostaje komunikat, znika z rankingu');
 	await host.keyboard.press('Space'); // podium
 	await host.waitForSelector('.podium');
+	// Podium po kolei: 3. → 2. → 1. miejsce (na początku zwycięzcy jeszcze nie widać)
+	const op = (sel) => host.$eval(sel, (e) => Number(getComputedStyle(e).opacity)).catch(() => 1);
+	const early = await op('.step.s1');
+	await sleep(4800);
+	ok(early < 0.5 && (await op('.step.s1')) === 1, `podium wjeżdża po kolei: 1. miejsce na początku ukryte (${early}), potem widoczne`);
 	await phones[0].waitForSelector('text=Koniec gry!');
 	await snap(host, '12-prowadzacy-podium');
 	await snap(phones[0], '13-telefon-koniec');

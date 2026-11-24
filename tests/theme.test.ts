@@ -18,6 +18,6 @@ ok(logoFor(t('#dff1ff')) === '/media/jasne', 'jasne tło → logo na jasne tło'
 ok(logoFor(t('#2c1d63', null)) === '/media/jasne', 'ciemne tło bez drugiego logo → zwykłe logo');
 ok(logoFor(null) === null, 'brak motywu → brak logo');
 // Rysunki postaci: tyle, ile losuje serwer (AVATARS w engine.js), bez skryptów i odnośników.
-ok(AVATAR_ART.length === 12 && AVATAR_ART.every((a) => a.includes('class="eyes"') && !/<script|href|on\w+=/i.test(a)), 'postacie: 12 rysunków z oczami, bez skryptów i odnośników');
+ok(AVATAR_ART.length === 24 && AVATAR_ART.every((a) => a.includes('class="eyes"') && !/<script|href|on\w+=/i.test(a)), 'postacie: 24 rysunki z oczami, bez skryptów i odnośników');
 if (failed) { console.log(`\n${failed} błędów`); process.exit(1); }
 console.log('\nWszystko OK');

@@ -17,7 +17,7 @@ export const introMs = (settings) => {
 };
 export const MAX_MEMBERS = 6;
 /** Liczba awatarów (jak AVATAR_COUNT w Avatar.svelte). */
-export const AVATARS = 12;
+export const AVATARS = 24;
 /** Pytania bez oceny (ankieta) nie zmieniają punktów ani serii. */
 const UNGRADED = new Set(['poll']);
 /** Tolerancja suwaka jako część zakresu. */
@@ -263,6 +263,8 @@ export class Game {
 	startQuestion(i) {
 		this.clearTimer();
 		this.index = i;
+		// Ranking sprzed pytania – tablica wyników animuje przesunięcia graczy (jak w Kahoot).
+		this.prevRanks = new Map(this.ranking().map((r) => [r.id, { rank: r.rank, score: r.score }]));
 		if (!this.startedAt) this.startedAt = Date.now();
 		// Slajd: bez odliczania i bez czasu – wisi, aż prowadzący przejdzie dalej.
 		if (this.question.type === 'slide') {
@@ -577,7 +579,15 @@ export class Game {
 			v.solution = this.solution();
 			v.distribution = this.distribution();
 		}
-		if (this.state === 'leaderboard' || this.state === 'ended') v.ranking = this.ranking().slice(0, this.state === 'ended' ? 10 : 5);
+		if (this.state === 'leaderboard' || this.state === 'ended') {
+			const prev = this.prevRanks ?? new Map();
+			v.ranking = this.ranking()
+				.slice(0, this.state === 'ended' ? 10 : 5)
+				.map((r) => {
+					const pr = prev.get(r.id);
+					return pr ? { ...r, prevRank: pr.rank, prevScore: pr.score } : r;
+				});
+		}
 		// Pełna tabela tylko dla okna prowadzącego (panel boczny), nie trafia na ekran widzów.
 		if (this.state !== 'lobby') {
 			const conn = new Map(this.activePlayers().map((p) => [p.id, p.connected]));

@@ -1,6 +1,6 @@
 <script lang="ts" module>
 	/** Liczba awatarów (zwierzaki narysowane od zera z prostych kształtów). */
-	export const AVATAR_COUNT = 12;
+	export const AVATAR_COUNT = 24;
 </script>
 
 <script lang="ts">

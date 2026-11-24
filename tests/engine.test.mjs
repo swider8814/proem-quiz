@@ -108,9 +108,12 @@ const rv = await p1reveal;
 ok(rv.result.correct && rv.result.points > 900, `szybka poprawna odpowiedź: ${rv.result.points} pkt`);
 
 // Kolejne pytania – przejście przez leaderboard
+const boards = [];
 async function toQuestion() {
 	const w = nextState(p1, (s) => s.state === 'question');
+	const lb = nextState(host, (s) => s.state === 'leaderboard');
 	await emit(host, 'host:next', {}); // -> leaderboard
+	boards.push(await lb);
 	await emit(host, 'host:next', {}); // -> intro
 	return w;
 }
@@ -122,6 +125,13 @@ const ra = await rvAudio;
 ok(ra.result.points > 1800, `mnożnik ×2: ${ra.result.points} pkt`);
 
 q = await toQuestion();
+// Tablica wyników zna miejsca i punkty sprzed pytania (animacja przesunięć jak w Kahoot)
+{
+	const [b1, b2] = boards;
+	const before = new Map(b1.ranking.map((r) => [r.id, r]));
+	ok(b1.ranking.every((r) => r.prevScore === 0 && r.prevRank >= 1), 'pierwsza tablica: punkty sprzed pytania = 0');
+	ok(b2.ranking.every((r) => r.prevScore === before.get(r.id)?.score && r.prevRank === before.get(r.id)?.rank), 'druga tablica: poprzednie miejsca i punkty z pierwszej tablicy');
+}
 const rvText = nextState(p1, (s) => s.state === 'reveal');
 await Promise.all([emit(p1, 'answer', { index: 2, text: '  warszwa! ' }), emit(p2, 'answer', { index: 2, text: 'Kraków' }), emit(p4, 'answer', { index: 2, text: 'WARSZAWA' })]);
 ok((await rvText).result.correct, 'tekst z literówką i bez wielkich liter zaliczony');
@@ -300,7 +310,7 @@ for (const cd of [0, 3]) {
 	await sleep(100);
 	const pa = hs.players.find((p) => p.nick === 'Awa');
 	const pb = hs.players.find((p) => p.nick === 'Bwa');
-	ok(pa.avatar === 5 && Number.isInteger(pb.avatar) && pb.avatar >= 0 && pb.avatar < 12, `awatary: wybrany ${pa.avatar}, losowy ${pb.avatar}`);
+	ok(pa.avatar === 5 && Number.isInteger(pb.avatar) && pb.avatar >= 0 && pb.avatar < 24, `awatary: wybrany ${pa.avatar}, losowy ${pb.avatar}`);
 	h.close();
 	a.close();
 	b.close();
