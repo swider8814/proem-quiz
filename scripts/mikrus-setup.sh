@@ -128,8 +128,8 @@ MAIL_FROM=$mail_from
 MAIL_FROM_NAME=Proem Quiz
 # Limity kontenera (żeby quiz nie zabrał zasobów innym usługom)
 QUIZ_UID=$QUIZ_UID
-QUIZ_MEM=600m
-QUIZ_CPUS=1.0
+QUIZ_MEM=448m
+QUIZ_CPUS=0.6
 # Pliki quizów: łączny limit i minimalne wolne miejsce na dysku, poniżej którego wgrywanie jest blokowane
 MEDIA_QUOTA_BYTES=2147483648
 MEDIA_MIN_FREE_BYTES=3221225472
@@ -148,8 +148,8 @@ ensure_env() { # ensure_env KLUCZ WARTOŚĆ
 	fi
 }
 ensure_env QUIZ_UID "$QUIZ_UID"
-ensure_env QUIZ_MEM 600m
-ensure_env QUIZ_CPUS 1.0
+ensure_env QUIZ_MEM 448m
+ensure_env QUIZ_CPUS 0.6
 ensure_env MEDIA_QUOTA_BYTES 2147483648
 ensure_env MEDIA_MIN_FREE_BYTES 3221225472
 chmod 600 "$ENV_FILE"
@@ -160,7 +160,8 @@ write_compose() {
 # Proem Quiz na Mikrusie – /srv/proem-quiz/docker-compose.yml (zapisuje go scripts/mikrus-setup.sh).
 # Plik zmienia się TYLKO ręcznie (ponowne uruchomienie skryptu), nie przy deployu z GitHuba:
 # nawet przejęte repozytorium nie może przez niego dostać się do reszty serwera (np. app.proem.pl).
-# Wartości z .env: PORT, QUIZ_UID, QUIZ_MEM, QUIZ_CPUS (domyślne poniżej).
+# Wartości z .env: PORT, QUIZ_UID, QUIZ_MEM, QUIZ_CPUS (domyślne poniżej – dobrane do Mikrusa 3.0:
+# 1 rdzeń, 2 GB RAM bez swapu, obok app.proem.pl).
 name: proem-quiz
 services:
   app:
@@ -188,9 +189,11 @@ services:
     security_opt:
       - no-new-privileges:true
     # ── Limity – awaria quizu nie zabierze zasobów innym usługom ──
-    mem_limit: ${QUIZ_MEM:-600m}
-    memswap_limit: ${QUIZ_MEM:-600m}
-    cpus: ${QUIZ_CPUS:-1.0}
+    mem_limit: ${QUIZ_MEM:-448m}
+    memswap_limit: ${QUIZ_MEM:-448m}
+    cpus: ${QUIZ_CPUS:-0.6} # serwer ma 1 rdzeń – reszta zawsze zostaje dla innych usług
+    cpu_shares: 256 # przy rywalizacji o procesor inne usługi (waga 1024) mają pierwszeństwo
+    oom_score_adj: 500 # gdyby serwerowi zabrakło RAM-u, system zamyka najpierw quiz, nie app.proem.pl
     pids_limit: 256
     ulimits:
       nofile: { soft: 4096, hard: 4096 }
@@ -208,6 +211,10 @@ networks:
     driver_opts:
       # Stała nazwa mostka – zapora (scripts/mikrus-firewall.sh) blokuje po niej ruch quizu.
       com.docker.network.bridge.name: br-proem-quiz
+    ipam:
+      config:
+        # Stała podsieć, poza sieciami app.proem.pl (172.17/16, 172.18/16, 172.30.148.0/24).
+        - subnet: 172.31.148.0/24
 COMPOSE_EOF
 }
 
@@ -229,6 +236,17 @@ read -r -t 10 GH_USER TOKEN || { echo "Brak danych na wejściu."; exit 2; }
 trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
 printf '%s' "$TOKEN" | docker login ghcr.io -u "$GH_USER" --password-stdin >/dev/null
 
+# Stan pozostałych kontenerów (np. app.proem.pl) – po aktualizacji sprawdzamy, że nikt ich nie ruszył.
+others() { docker ps -q | xargs -r docker inspect -f '{{.Name}} {{.State.StartedAt}}' | grep -v '^/proem-quiz ' | sort || true; }
+OTHERS_BEFORE="$(others)"
+check_others() {
+	if [[ "$(others)" != "$OTHERS_BEFORE" ]]; then
+		echo "UWAGA: zmienił się stan innych kontenerów na serwerze – sprawdź app.proem.pl (docker ps)." >&2
+	else
+		echo "Inne kontenery bez zmian ($(printf '%s' "$OTHERS_BEFORE" | grep -c . || true))."
+	fi
+}
+
 # Poprzednia wersja na wypadek nieudanej aktualizacji.
 OLD="$(docker compose images -q app 2>/dev/null | head -1 || true)"
 if [[ -n "$OLD" ]]; then docker image tag "$OLD" proem-quiz:previous; fi
@@ -241,6 +259,7 @@ for _ in $(seq 1 30); do
 	st="$(docker inspect -f '{{.State.Health.Status}}' proem-quiz 2>/dev/null || echo none)"
 	if [[ "$st" == healthy ]]; then
 		echo "OK: nowa wersja działa."
+		check_others
 		docker image prune -f --filter "label=org.opencontainers.image.source=https://github.com/swider8814/proem-quiz" >/dev/null || true
 		exit 0
 	fi
@@ -253,6 +272,7 @@ if [[ -n "$OLD" ]]; then
 	QUIZ_IMAGE=proem-quiz:previous docker compose up -d app
 	echo "Przywrócono poprzednią wersję (do następnego udanego deployu)." >&2
 fi
+check_others
 exit 1
 DEPLOY_EOF
 }

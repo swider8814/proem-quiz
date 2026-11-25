@@ -61,7 +61,8 @@ Na Mikrusie działają też inne usługi (np. app.proem.pl), dlatego quiz jest o
 - osobny projekt i sieć Dockera (`proem-quiz`), komendy quizu nie dotykają innych kontenerów;
 - kontener działa jako osobny użytkownik (uid 10471), bez uprawnień, z systemem plików tylko do odczytu
   i widzi wyłącznie `/srv/proem-quiz/data`;
-- limity: 600 MB RAM, 1 rdzeń, 256 procesów, 2 GB na pliki quizów i blokada wgrywania, gdy na dysku
+- limity (dobrane do Mikrusa 3.0: 1 rdzeń, 2 GB RAM bez swapu): 448 MB RAM, 0,6 rdzenia z niższym
+  priorytetem niż inne usługi, przy braku RAM-u system zamyka najpierw quiz, 256 procesów, 2 GB na pliki quizów i blokada wgrywania, gdy na dysku
   zostaje mniej niż 3 GB (wartości w `.env`: `QUIZ_MEM`, `QUIZ_CPUS`, `MEDIA_QUOTA_BYTES`, `MEDIA_MIN_FREE_BYTES`);
 - klucz SSH GitHuba może uruchomić **tylko** `/srv/proem-quiz/deploy.sh` (bez powłoki i kopiowania plików),
   a `docker-compose.yml` zmienia się wyłącznie ręcznie – przejęte repozytorium nie dostanie się do reszty serwera;
