@@ -51,7 +51,7 @@
 				{#if !setupOnly}
 					<nav>
 						{#each links as l}
-							<a href={l.href} aria-current={(l.href === '/panel' ? page.url.pathname === l.href || page.url.pathname.startsWith('/panel/quizzes') : page.url.pathname.startsWith(l.href)) ? 'page' : undefined}><Icon name={l.icon} size="1.15em" /><span>{l.label}</span></a>
+							<a href={l.href} aria-current={(l.href === '/panel' ? page.url.pathname === l.href || page.url.pathname.startsWith('/panel/quizzes') : page.url.pathname.startsWith(l.href)) ? 'page' : undefined}><Icon name={l.icon} size="1.15em" weight={2} /><span>{l.label}</span></a>
 						{/each}
 					</nav>
 				{/if}
