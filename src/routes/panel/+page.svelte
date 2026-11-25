@@ -43,7 +43,7 @@
 				<div class="actions">
 					<a class="btn" href="/panel/quizzes/{q.id}/host" aria-disabled={q.questionCount === 0} class:disabled={q.questionCount === 0}>Uruchom</a>
 					<a class="btn secondary" href="/panel/quizzes/{q.id}">Edytuj</a>
-					<form method="POST" action="?/duplicate"><input type="hidden" name="id" value={q.id} /><button class="secondary">Duplikuj</button></form>
+					{#if q.canEdit}<form method="POST" action="?/duplicate"><input type="hidden" name="id" value={q.id} /><button class="secondary">Duplikuj</button></form>{/if}
 					{#if q.mine || data.user.role === 'admin'}
 						<form method="POST" action="?/delete" onsubmit={(e) => { if (!confirm(`Usunąć quiz „${q.title}”? Tego nie da się cofnąć.`)) e.preventDefault(); }}>
 							<input type="hidden" name="id" value={q.id} /><button class="link danger-link">Usuń</button>

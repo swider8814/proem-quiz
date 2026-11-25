@@ -15,22 +15,64 @@ export function quizAccess(user: User, quizId: string): Access {
 	const q = db.select({ ownerId: schema.quizzes.ownerId }).from(schema.quizzes).where(eq(schema.quizzes.id, quizId)).get();
 	if (!q) return null;
 	if (q.ownerId === user.id) return 'owner';
+	// Admin widzi i może edytować wszystko (np. gdy autor odszedł) – udostępnienie nie może tego obniżyć.
+	if (user.role === 'admin') return 'edit';
 	const share = db
 		.select()
 		.from(schema.quizShares)
 		.where(and(eq(schema.quizShares.quizId, quizId), eq(schema.quizShares.userId, user.id)))
 		.get();
-	if (share) return share.permission;
-	// Admin widzi i może edytować wszystko (np. gdy autor odszedł).
-	if (user.role === 'admin') return 'edit';
-	return null;
+	return share ? share.permission : null;
 }
 
 export const canEdit = (a: Access) => a === 'owner' || a === 'edit';
 export const canHost = (a: Access) => a !== null;
 
+// ── Udostępnianie ────────────────────────────────────────────────────────
+
+export type SharePermission = 'host' | 'edit';
+
+/** Kto zarządza udostępnianiem: właściciel quizu albo administrator. */
+export function canManageShares(user: User, access: Access) {
+	return access === 'owner' || (access !== null && user.role === 'admin');
+}
+
+export function listShares(quizId: string) {
+	return db
+		.select({ userId: schema.quizShares.userId, permission: schema.quizShares.permission, name: schema.users.name, email: schema.users.email })
+		.from(schema.quizShares)
+		.innerJoin(schema.users, eq(schema.quizShares.userId, schema.users.id))
+		.where(eq(schema.quizShares.quizId, quizId))
+		.orderBy(asc(schema.users.name))
+		.all();
+}
+
+/** Ustawia (albo usuwa, gdy permission = null) dostęp innej osoby do quizu. Zwraca komunikat błędu lub null. */
+export function setShare(actor: User, quizId: string, targetId: string, permission: SharePermission | null): string | null {
+	const access = quizAccess(actor, quizId);
+	if (!canManageShares(actor, access)) return 'Brak uprawnień do udostępniania tego quizu.';
+	const quiz = db.select({ ownerId: schema.quizzes.ownerId }).from(schema.quizzes).where(eq(schema.quizzes.id, quizId)).get();
+	if (!quiz) return 'Nie znaleziono quizu.';
+	const target = db.select({ id: schema.users.id, disabled: schema.users.disabled }).from(schema.users).where(eq(schema.users.id, targetId)).get();
+	if (!target) return 'Nie znaleziono konta.';
+	if (target.id === quiz.ownerId) return 'Właściciel ma zawsze pełny dostęp.';
+	const where = and(eq(schema.quizShares.quizId, quizId), eq(schema.quizShares.userId, target.id));
+	if (permission === null) {
+		db.delete(schema.quizShares).where(where).run();
+		return null;
+	}
+	if (target.disabled) return 'To konto jest zablokowane.';
+	db.insert(schema.quizShares)
+		.values({ quizId, userId: target.id, permission })
+		.onConflictDoUpdate({ target: [schema.quizShares.quizId, schema.quizShares.userId], set: { permission } })
+		.run();
+	return null;
+}
+
 export function listQuizzes(user: User) {
-	const shared = db.select({ quizId: schema.quizShares.quizId }).from(schema.quizShares).where(eq(schema.quizShares.userId, user.id)).all().map((s) => s.quizId);
+	const shares = db.select({ quizId: schema.quizShares.quizId, permission: schema.quizShares.permission }).from(schema.quizShares).where(eq(schema.quizShares.userId, user.id)).all();
+	const shared = shares.map((s) => s.quizId);
+	const editShared = new Set(shares.filter((s) => s.permission === 'edit').map((s) => s.quizId));
 	const where = user.role === 'admin' ? undefined : or(eq(schema.quizzes.ownerId, user.id), shared.length ? inArray(schema.quizzes.id, shared) : undefined);
 	const rows = db
 		.select({
@@ -51,7 +93,12 @@ export function listQuizzes(user: User) {
 	for (const q of db.select({ quizId: schema.questions.quizId }).from(schema.questions).all()) {
 		counts.set(q.quizId, (counts.get(q.quizId) ?? 0) + 1);
 	}
-	return rows.map((r) => ({ ...r, questionCount: counts.get(r.id) ?? 0, mine: r.ownerId === user.id }));
+	return rows.map((r) => ({
+		...r,
+		questionCount: counts.get(r.id) ?? 0,
+		mine: r.ownerId === user.id,
+		canEdit: r.ownerId === user.id || user.role === 'admin' || editShared.has(r.id)
+	}));
 }
 
 export function defaultThemeId() {

@@ -138,6 +138,7 @@
 			{#if saving}Zapisywanie…{:else if saveError}<span class="err">{saveError}</span>{:else if dirty}Niezapisane zmiany{:else}Zapisano{/if}
 		</span>
 		<button class="secondary" type="button" onclick={() => (showSettings = !showSettings)} aria-expanded={showSettings}>Ustawienia</button>
+		{#if data.canShare}<a class="btn secondary" href="/panel/quizzes/{data.quiz.id}/share">Udostępnij</a>{/if}
 		{#if !ro}<button type="button" onclick={save} disabled={saving || !dirty}>Zapisz</button>{/if}
 		<a class="btn start" href="/panel/quizzes/{data.quiz.id}/host" class:disabled={dirty || questions.length === 0} aria-disabled={dirty || questions.length === 0}>Uruchom grę</a>
 	</div>
@@ -340,8 +341,8 @@
 	.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 	.layout { display: flex; gap: 1rem; align-items: flex-start; flex-wrap: wrap; }
 	.list { flex: 0 1 18rem; padding: 0.75rem; position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow: auto; }
-	.list ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.3rem; }
-	.item { width: 100%; display: flex; align-items: center; gap: 0.5rem; padding: 0.55rem; background: #fff; color: var(--text); border: 1px solid var(--line); font-weight: 400; font-size: 0.9rem; text-align: left; }
+	.list ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.3rem; }
+	.item { width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: 0.5rem; padding: 0.55rem; background: #fff; color: var(--text); border: 1px solid var(--line); font-weight: 400; font-size: 0.9rem; text-align: left; }
 	.item.active { border-color: #1368ce; background: #eef4fd; }
 	.n { width: 1.4rem; color: var(--muted); font-weight: 600; }
 	.t { flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
@@ -349,10 +350,15 @@
 	.warn { background: #f9eeda; color: #8a5a00; border-radius: 50%; width: 1.2rem; height: 1.2rem; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem; }
 	.add { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.75rem; }
 	.editor { flex: 999 1 32rem; min-width: 0; }
+	.item, .t { min-width: 0; }
+	@media (max-width: 720px) {
+		.list { flex: 1 1 100%; position: static; max-height: none; box-sizing: border-box; }
+		.status { min-width: 0; text-align: left; }
+	}
 	.q { border: 0; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; }
 	.q-head { display: flex; gap: 0.75rem; align-items: flex-end; flex-wrap: wrap; }
 	.q-head label { margin: 0; }
-	.q-head input { width: 5rem; }
+	.q-head input { width: 6rem; display: block; margin-top: 0.3rem; }
 	.grow { flex: 1; min-width: 12rem; }
 	.q-tools { display: flex; gap: 0.35rem; }
 	.q-tools button { padding: 0.5rem 0.7rem; font-size: 0.85rem; }

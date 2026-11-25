@@ -52,10 +52,15 @@
 	.brand { font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem; color: #fff; text-decoration: none; }
 	.brand img { max-height: 2rem; max-width: 9rem; display: block; }
 	.brand span { opacity: 0.75; }
-	nav { display: flex; gap: 1rem; flex: 1; }
+	nav { display: flex; gap: 1rem; flex: 1; flex-wrap: wrap; min-width: 0; }
 	nav a { color: #cfd3f5; text-decoration: none; padding: 0.3rem 0; }
 	nav a[aria-current='page'] { color: #fff; border-bottom: 2px solid #f5b700; }
 	.who { display: flex; align-items: center; gap: 0.8rem; margin-left: auto; font-size: 0.9rem; }
 	.who button { padding: 0.4rem 0.8rem; font-size: 0.85rem; }
 	main { max-width: 64rem; margin: 2rem auto; padding: 0 1.5rem; }
+	@media (max-width: 720px) {
+		header { padding: 0.75rem 1rem; gap: 0.75rem; }
+		nav { order: 3; flex-basis: 100%; gap: 0.25rem 1rem; }
+		main { margin: 1rem auto; padding: 0 1rem; }
+	}
 </style>

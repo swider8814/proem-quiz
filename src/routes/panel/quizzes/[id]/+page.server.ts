@@ -2,7 +2,7 @@ import { error } from '@sveltejs/kit';
 import { asc, inArray } from 'drizzle-orm';
 import type { PageServerLoad } from './$types';
 import { db, schema } from '#lib/server/db/index.js';
-import { canEdit, loadQuiz, quizAccess } from '#lib/server/quizzes.js';
+import { canEdit, canManageShares, loadQuiz, quizAccess } from '#lib/server/quizzes.js';
 import { DEFAULT_QUIZ_SETTINGS } from '#lib/server/db/schema.js';
 
 export const load: PageServerLoad = ({ params, locals }) => {
@@ -20,6 +20,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 		: [];
 	return {
 		canEdit: canEdit(access),
+		canShare: canManageShares(locals.user!, access),
 		quiz: {
 			id: loaded.quiz.id,
 			title: loaded.quiz.title,
