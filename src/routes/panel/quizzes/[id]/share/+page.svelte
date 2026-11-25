@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { panelDict } from '#lib/i18n/panel.js';
+	import HelpTip from '#lib/help/HelpTip.svelte';
 	let { data, form } = $props();
 	const S = $derived(panelDict(data.lang).share);
 </script>
@@ -48,7 +49,7 @@
 					{#each data.candidates as u (u.id)}<option value={u.id}>{u.name} ({u.email})</option>{/each}
 				</select>
 			</label>
-			<label>{S.permission}
+			<label>{S.permission}<HelpTip id="share" />
 				<select name="permission">
 					<option value="host">{S.host}</option>
 					<option value="edit">{S.edit}</option>

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Icon from '#lib/Icon.svelte';
+	import HelpTip from '#lib/help/HelpTip.svelte';
 	import { beforeNavigate } from '$app/navigation';
 	import AudioClipEditor from '#lib/editor/AudioClipEditor.svelte';
 	import { BUILTIN_MUSIC, Music, playPodium, type MusicKind, type PodiumSound } from '#lib/game/sounds.js';
@@ -306,7 +307,7 @@
 				<input class="switch" type="checkbox" bind:checked={quiz.settings.avatars} />
 			</label>
 			<div class="srow">
-				<div class="stext"><label for="s-nick">{E.nicknames}</label><p class="hint">{S.nickHint}</p></div>
+				<div class="stext"><span class="lblrow"><label for="s-nick">{E.nicknames}</label><HelpTip id="nick" /></span><p class="hint">{S.nickHint}</p></div>
 				<div class="sctl">
 					<select id="s-nick" bind:value={quiz.settings.nicknameMode}>
 						<option value="random-or-custom">{E.nickRandomOrCustom}</option>
@@ -324,7 +325,7 @@
 				<input class="switch" type="checkbox" bind:checked={quiz.settings.phoneAnswerText} />
 			</label>
 			<label class="srow toggle">
-				<span class="stext"><span class="lbl">{S.team}</span><span class="hint">{S.teamHint}</span></span>
+				<span class="stext"><span class="lbl">{S.team}<HelpTip id="team" /></span><span class="hint">{S.teamHint}</span></span>
 				<input class="switch" type="checkbox" bind:checked={quiz.settings.teamMode} />
 			</label>
 			{#if quiz.settings.teamMode}
@@ -615,7 +616,7 @@
 				{/if}
 				{#if current.type !== 'slide' && current.type !== 'poll'}
 					<div class="field">
-						<span class="lbl" id="q-points">{E.points}</span>
+						<span class="lbl" id="q-points">{E.points}<HelpTip id="points" /></span>
 						<div class="seg" role="group" aria-labelledby="q-points">
 							<button type="button" class="secondary" aria-pressed={current.pointsMultiplier === 0} onclick={() => (current.pointsMultiplier = 0)}>{E.pointsNone}</button>
 							<button type="button" class="secondary" aria-pressed={current.pointsMultiplier === 1} onclick={() => (current.pointsMultiplier = 1)}>{E.pointsNormal}</button>
@@ -623,7 +624,7 @@
 						</div>
 					</div>
 				{/if}
-				<label>{E.translation}
+				<label>{E.translation}<HelpTip id="translation" />
 					<input type="text" value={current.promptTranslation ?? ''} oninput={(e) => (current.promptTranslation = (e.currentTarget as HTMLInputElement).value || null)} maxlength="200" placeholder={E.translationPlaceholder} />
 				</label>
 				<div class="image">
@@ -714,6 +715,7 @@
 
 	/* Trzy panele: lista pytań | pytanie | właściwości. */
 	.layout { flex: 1; display: flex; align-items: stretch; flex-wrap: wrap; }
+	.lblrow { display: flex; align-items: center; }
 	.qnav { display: none; }
 	.add-mobile { display: none; }
 	.grow { flex: 1; min-width: 0; }
