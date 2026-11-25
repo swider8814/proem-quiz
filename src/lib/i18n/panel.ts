@@ -371,7 +371,7 @@ const pl = {
 		backToList: '← Wszystkie raporty',
 		none: 'Nie ma jeszcze raportów. Raport zapisuje się sam po zakończeniu gry.',
 		retention: 'Raporty zawierają tylko nicki graczy i są usuwane automatycznie po 90 dniach.',
-		players: (n: number) => `${n} ${plPlural(n, 'gracz', 'graczy', 'graczy')}`,
+		players: (n: number) => `${n} ${plPlural(n, 'gracz', 'gracze', 'graczy')}`,
 		open: 'Otwórz',
 		download: 'Pobierz arkusz (CSV dla Excela)',
 		remove: 'Usuń raport',

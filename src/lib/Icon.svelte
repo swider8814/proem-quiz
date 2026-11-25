@@ -4,7 +4,7 @@
 	 * systemu (Windows, Android, iOS rysują je inaczej i w innej wysokości), więc w przyciskach
 	 * potrafiły się rozjeżdżać. SVG ma stały rozmiar 1em i jest wyśrodkowane.
 	 */
-	type Name = 'replay' | 'close' | 'check' | 'fullscreen' | 'next' | 'back' | 'up' | 'down' | 'screen' | 'sound' | 'dice' | 'thumbUp' | 'thumbDown' | 'music' | 'edit';
+	type Name = 'replay' | 'close' | 'check' | 'fullscreen' | 'next' | 'back' | 'up' | 'down' | 'screen' | 'sound' | 'dice' | 'thumbUp' | 'thumbDown' | 'music' | 'edit' | 'quizzes' | 'palette' | 'users' | 'settings' | 'shield' | 'help';
 	let { name, size = '1em' }: { name: Name; size?: string } = $props();
 </script>
 
@@ -39,6 +39,18 @@
 		<path d="M9 18V5l11-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="17" cy="16" r="3" />
 	{:else if name === 'dice'}
 		<rect x="3.5" y="3.5" width="17" height="17" rx="3" /><circle cx="8.5" cy="8.5" r="0.6" fill="currentColor" /><circle cx="15.5" cy="15.5" r="0.6" fill="currentColor" /><circle cx="12" cy="12" r="0.6" fill="currentColor" /><circle cx="15.5" cy="8.5" r="0.6" fill="currentColor" /><circle cx="8.5" cy="15.5" r="0.6" fill="currentColor" />
+	{:else if name === 'quizzes'}
+		<rect x="3.5" y="3.5" width="7" height="7" rx="1.5" /><rect x="13.5" y="3.5" width="7" height="7" rx="1.5" /><rect x="3.5" y="13.5" width="7" height="7" rx="1.5" /><rect x="13.5" y="13.5" width="7" height="7" rx="1.5" />
+	{:else if name === 'palette'}
+		<path d="M12 3a9 9 0 1 0 0 18c1.4 0 2-1 1.6-2.1-.5-1.3.3-2.4 1.7-2.4H17a4 4 0 0 0 4-4c0-5-4-9.5-9-9.5z" /><circle cx="7.5" cy="11" r="0.9" fill="currentColor" /><circle cx="10.5" cy="7" r="0.9" fill="currentColor" /><circle cx="15.5" cy="7.5" r="0.9" fill="currentColor" />
+	{:else if name === 'users'}
+		<circle cx="9" cy="8" r="3.5" /><path d="M2.5 20c.5-3.6 3.2-6 6.5-6s6 2.4 6.5 6" /><path d="M15.5 4.6a3.5 3.5 0 0 1 0 6.8M18 14.4c2 .8 3.2 2.8 3.5 5.6" />
+	{:else if name === 'settings'}
+		<circle cx="12" cy="12" r="3" /><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1" />
+	{:else if name === 'shield'}
+		<path d="M12 3l8 3v5.5c0 4.8-3.3 8.4-8 9.5-4.7-1.1-8-4.7-8-9.5V6z" /><rect x="9" y="11" width="6" height="5" rx="1" /><path d="M10.2 11V9.6a1.8 1.8 0 0 1 3.6 0V11" />
+	{:else if name === 'help'}
+		<circle cx="12" cy="12" r="9" /><path d="M9.5 9.5a2.5 2.5 0 1 1 3.4 2.3c-.6.3-.9.8-.9 1.4v.6" /><circle cx="12" cy="17" r="0.6" fill="currentColor" />
 	{/if}
 </svg>
 

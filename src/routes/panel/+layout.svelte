@@ -4,21 +4,22 @@
 	import { panelDict } from '#lib/i18n/panel.js';
 	import LangSwitch from '#lib/i18n/LangSwitch.svelte';
 	import { afterNavigate } from '$app/navigation';
+	import Icon from '#lib/Icon.svelte';
 	let { data, children } = $props();
 	const t = $derived(panelDict(data.lang));
 
 	const setupOnly = $derived(data.user.role === 'admin' && !data.user.totpEnabled);
 	const links = $derived([
-		{ href: '/panel', label: t.nav.quizzes },
+		{ href: '/panel', label: t.nav.quizzes, icon: 'quizzes' as const },
 		...(data.user.role === 'admin'
 			? [
-					{ href: '/panel/themes', label: t.nav.themes },
-					{ href: '/panel/users', label: t.nav.users },
-					{ href: '/panel/settings', label: t.nav.settings }
+					{ href: '/panel/themes', label: t.nav.themes, icon: 'palette' as const },
+					{ href: '/panel/users', label: t.nav.users, icon: 'users' as const },
+					{ href: '/panel/settings', label: t.nav.settings, icon: 'settings' as const }
 				]
 			: []),
-		{ href: '/panel/security', label: t.nav.security },
-		{ href: '/panel/help', label: t.nav.help }
+		{ href: '/panel/security', label: t.nav.security, icon: 'shield' as const },
+		{ href: '/panel/help', label: t.nav.help, icon: 'help' as const }
 	]);
 
 	// Edytor quizu ma własny pasek (← Quizy, tytuł, zapis) i całą szerokość okna – bez menu bocznego.
@@ -50,7 +51,7 @@
 				{#if !setupOnly}
 					<nav>
 						{#each links as l}
-							<a href={l.href} aria-current={(l.href === '/panel' ? page.url.pathname === l.href || page.url.pathname.startsWith('/panel/quizzes') : page.url.pathname.startsWith(l.href)) ? 'page' : undefined}>{l.label}</a>
+							<a href={l.href} aria-current={(l.href === '/panel' ? page.url.pathname === l.href || page.url.pathname.startsWith('/panel/quizzes') : page.url.pathname.startsWith(l.href)) ? 'page' : undefined}><Icon name={l.icon} size="1.15em" /><span>{l.label}</span></a>
 						{/each}
 					</nav>
 				{/if}
@@ -101,7 +102,10 @@
 	.burger { display: none; }
 	.menu { display: flex; flex-direction: column; gap: 1.5rem; flex: 1; min-height: 0; }
 	nav { display: flex; flex-direction: column; gap: 2px; }
-	nav a { display: flex; align-items: center; min-height: 2.75rem; padding: 0 0.75rem; border-radius: var(--radius-s); color: #4b5064; text-decoration: none; }
+	nav a { display: flex; align-items: center; min-height: 2.75rem; padding: 0 0.75rem; border-radius: var(--radius-s); color: #4b5064; text-decoration: none; gap: 0.65rem; }
+	/* Ikony szare, przy aktywnej pozycji w kolorze tekstu – nie konkurują z kolorowymi odpowiedziami. */
+	nav a :global(.icon) { color: #8a8fa3; }
+	nav a[aria-current='page'] :global(.icon) { color: var(--text); }
 	nav a:hover { background: var(--bg); }
 	nav a[aria-current='page'] { background: var(--soft); color: var(--text); font-weight: 600; }
 	.who { margin-top: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; padding: 0.75rem; border: 1px solid var(--line); border-radius: 0.75rem; font-size: 0.9rem; }

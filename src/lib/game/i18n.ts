@@ -1,6 +1,15 @@
 // Teksty ekranów gry (gracz + prowadzący) w języku quizu.
 export type Locale = 'pl' | 'en' | 'uk';
 
+/**
+ * Odmiana liczebników („1 gracz, 2 gracze, 5 graczy”). Formy w kolejności: one, few, many
+ * (dla angielskiego few/many = other). Intl.PluralRules zna reguły polskie i ukraińskie.
+ */
+const forms = (locale: Locale, f: [one: string, few: string, many: string]) => (n: number) => {
+	const r = new Intl.PluralRules(locale).select(n);
+	return r === 'one' ? f[0] : r === 'few' ? f[1] : f[2];
+};
+
 const pl = {
 	enterPin: 'Wpisz PIN gry',
 	pinHint: 'PIN widać na ekranie prowadzącego',
@@ -24,6 +33,7 @@ const pl = {
 	streak: 'Seria',
 	bonus: 'bonus',
 	place: 'miejsce',
+	inGame: (n: number) => `Graczy w grze: ${n}`,
 	youAre: 'Jesteś na',
 	atPlace: (n: number) => `Jesteś na ${n}. miejscu`,
 	behind: 'pkt za graczem przed Tobą',
@@ -40,12 +50,14 @@ const pl = {
 	send: 'Wyślij',
 	tapInOrder: 'Dotykaj w poprawnej kolejności',
 	reset: 'Od nowa',
-	dragToOrder: 'Przeciągnij elementy w poprawnej kolejności',
+	dragToOrder: 'Przeciągnij elementy albo użyj strzałek',
 	members: 'Członkowie drużyny (opcjonalnie)',
 	memberName: (n: number) => `Imię ${n}`,
 	addMember: 'dodaj osobę',
 	teamTalk: 'Naradźcie się!',
 	pickAvatar: 'Wybierz postać',
+	/** Nazwy postaci w kolejności AVATAR_ART – dla czytnika ekranu zamiast numeru. */
+	avatarNames: ['kot', 'pies', 'miś', 'królik', 'lis', 'sowa', 'pingwin', 'żaba', 'świnka', 'lew', 'myszka', 'kurczak', 'panda', 'koala', 'tygrys', 'krowa', 'owca', 'jeż', 'wiewiórka', 'szop', 'małpka', 'słoń', 'wilk', 'kaczuszka'],
 	average: 'Średnia odpowiedzi',
 	closeEnough: (n: number) => `Blisko lub dokładnie: ${n}`,
 	voted: 'Dziękujemy za głos!',
@@ -78,18 +90,18 @@ const pl = {
 	// prowadzący
 	joinAt: 'Wejdź na',
 	andEnterPin: 'i wpisz PIN',
-	players: 'graczy',
-	teams: 'drużyn',
+	players: forms('pl', ['gracz', 'gracze', 'graczy']),
+	teams: forms('pl', ['drużyna', 'drużyny', 'drużyn']),
 	start: 'Zaczynamy',
 	soundTest: 'Test dźwięku',
 	waitingForPlayers: 'Czekamy na graczy…',
-	answers: 'odpowiedzi',
+	answers: forms('pl', ['odpowiedź', 'odpowiedzi', 'odpowiedzi']),
 	next: 'Dalej',
 	skip: 'Zakończ pytanie',
 	endGame: 'Zakończ grę',
 	leaderboard: 'Ranking',
 	podium: 'Zwycięzcy',
-	sumPlayers: (n: number) => `${n} ${n === 1 ? 'gracz' : 'graczy'}`,
+	sumPlayers: (n: number) => `${n} ${forms('pl', ['gracz', 'gracze', 'graczy'])(n)}`,
 	sumQuestions: (n: number) => `${n} ${n === 1 ? 'pytanie' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'pytania' : 'pytań'}`,
 	sumCorrect: (p: number) => `${p}% dobrych odpowiedzi`,
 	sumHardest: (n: number, p: number) => `najtrudniejsze: pytanie ${n} (${p}% dobrze)`,
@@ -114,10 +126,10 @@ const en: Dict = {
 	enterPin: 'Enter game PIN', pinHint: 'The PIN is on the host’s screen', go: 'Next', join: 'Join game', yourNick: 'Your nickname',
 	teamName: 'Team name', drawAgain: 'Draw another', ownNick: 'or type your own', youAreIn: 'You’re in!', waitForStart: 'Watch the screen – we’re about to start.',
 	question: 'Question', of: 'of', getReady: 'Get ready…', answerSent: 'Answer sent!', waitOthers: 'Waiting for the others…', correct: 'Correct!',
-	wrong: 'Not quite', missed: 'Time’s up', points: 'pts', streak: 'Streak', bonus: 'bonus', place: 'place', youAre: 'You are in', atPlace: (n: number) => `You are in place ${n}`,
+	wrong: 'Not quite', missed: 'Time’s up', points: 'pts', streak: 'Streak', bonus: 'bonus', place: 'place', inGame: (n: number) => `Players in the game: ${n}`, youAre: 'You are in', atPlace: (n: number) => `You are in place ${n}`,
 	behind: 'pts behind the player ahead', leader: 'You’re in the lead!', gameOver: 'Game over!', thanks: 'Thanks for playing', topAndYou: 'Ranking', showAll: (n: number) => `Show everyone (${n})`, hideAll: 'Collapse list', you: 'You',
 	true: 'True', false: 'False', typeAnswer: 'Type your answer', send: 'Send', tapInOrder: 'Tap in the correct order', reset: 'Reset',
-	dragToOrder: 'Drag the items into the correct order', moveUp: 'Up', moveDown: 'Down',
+	dragToOrder: 'Drag the items or use the arrows', avatarNames: ['cat', 'dog', 'bear', 'rabbit', 'fox', 'owl', 'penguin', 'frog', 'pig', 'lion', 'mouse', 'chick', 'panda', 'koala', 'tiger', 'cow', 'sheep', 'hedgehog', 'squirrel', 'raccoon', 'monkey', 'elephant', 'wolf', 'duckling'], moveUp: 'Up', moveDown: 'Down',
 	members: 'Team members (optional)', memberName: (n: number) => `Name ${n}`, addMember: 'add person', teamTalk: 'Talk it over!', pickAvatar: 'Pick a character',
 	average: 'Average answer', closeEnough: (n: number) => `Close or exact: ${n}`, voted: 'Thanks for voting!', voteCounted: 'Your vote is counted.',
 	noVote: 'You didn’t vote.', yourAnswer: 'Your answer', slideLook: 'Look at the screen',
@@ -131,8 +143,8 @@ const en: Dict = {
 		'nick-blocked': 'Please choose another nickname.', 'nick-taken': 'That nickname is taken.', 'rate-limited': 'Too many attempts. Please wait.',
 		closed: 'Time’s up.', default: 'Something went wrong. Please try again.'
 	},
-	joinAt: 'Go to', andEnterPin: 'and enter PIN', players: 'players', teams: 'teams', start: 'Start', soundTest: 'Sound test',
-	waitingForPlayers: 'Waiting for players…', answers: 'answers', next: 'Next', skip: 'End question', endGame: 'End game',
+	joinAt: 'Go to', andEnterPin: 'and enter PIN', players: forms('en', ['player', 'players', 'players']), teams: forms('en', ['team', 'teams', 'teams']), start: 'Start', soundTest: 'Sound test',
+	waitingForPlayers: 'Waiting for players…', answers: forms('en', ['answer', 'answers', 'answers']), next: 'Next', skip: 'End question', endGame: 'End game',
 	leaderboard: 'Leaderboard', podium: 'Winners', sumPlayers: (n: number) => `${n} ${n === 1 ? 'player' : 'players'}`, sumQuestions: (n: number) => `${n} ${n === 1 ? 'question' : 'questions'}`, sumCorrect: (p: number) => `${p}% correct answers`, sumHardest: (n: number, p: number) => `hardest: question ${n} (${p}% correct)`, sumCorrectShort: (p: number) => `${p}% correct`, sumHardestShort: (n: number) => `hardest: Q${n}`, listen: 'Listen carefully…', replay: 'Play again', fullscreen: 'Full screen',
 	removePlayer: 'Remove player', randomNick: 'Random nickname', correctAnswer: 'Correct answer', accepted: 'Accepted answers',
 	correctOrder: 'Correct order', correctCount: 'correct', wrongCount: 'wrong'
@@ -143,10 +155,10 @@ const uk: Dict = {
 	enterPin: 'Введіть PIN гри', pinHint: 'PIN видно на екрані ведучого', go: 'Далі', join: 'Приєднатися', yourNick: 'Ваш нік',
 	teamName: 'Назва команди', drawAgain: 'Інший нік', ownNick: 'або введіть свій', youAreIn: 'Ви в грі!', waitForStart: 'Дивіться на екран – зараз почнемо.',
 	question: 'Питання', of: 'з', getReady: 'Приготуйтеся…', answerSent: 'Відповідь надіслано!', waitOthers: 'Чекаємо на інших…', correct: 'Правильно!',
-	wrong: 'На жаль, ні', missed: 'Час минув', points: 'балів', streak: 'Серія', bonus: 'бонус', place: 'місце', youAre: 'Ви на', atPlace: (n: number) => `Ви на ${n}-му місці`,
+	wrong: 'На жаль, ні', missed: 'Час минув', points: 'балів', streak: 'Серія', bonus: 'бонус', place: 'місце', inGame: (n: number) => `Гравців у грі: ${n}`, youAre: 'Ви на', atPlace: (n: number) => `Ви на ${n}-му місці`,
 	behind: 'балів до гравця попереду', leader: 'Ви лідер!', gameOver: 'Кінець гри!', thanks: 'Дякуємо за гру', topAndYou: 'Рейтинг', showAll: (n: number) => `Показати всіх (${n})`, hideAll: 'Згорнути список', you: 'Ви',
 	true: 'Правда', false: 'Неправда', typeAnswer: 'Введіть відповідь', send: 'Надіслати', tapInOrder: 'Торкайтеся у правильному порядку', reset: 'Спочатку',
-	dragToOrder: 'Перетягніть елементи у правильному порядку', moveUp: 'Вище', moveDown: 'Нижче',
+	dragToOrder: 'Перетягніть елементи або скористайтеся стрілками', avatarNames: ['кіт', 'пес', 'ведмедик', 'кролик', 'лис', 'сова', 'пінгвін', 'жаба', 'свинка', 'лев', 'мишка', 'курча', 'панда', 'коала', 'тигр', 'корова', 'вівця', 'їжак', 'білка', 'єнот', 'мавпочка', 'слон', 'вовк', 'каченя'], moveUp: 'Вище', moveDown: 'Нижче',
 	members: 'Учасники команди (необов’язково)', memberName: (n: number) => `Ім’я ${n}`, addMember: 'додати людину', teamTalk: 'Порадьтеся!', pickAvatar: 'Оберіть персонажа',
 	average: 'Середня відповідь', closeEnough: (n: number) => `Близько або точно: ${n}`, voted: 'Дякуємо за голос!', voteCounted: 'Ваш голос враховано.',
 	noVote: 'Ви не проголосували.', yourAnswer: 'Ваша відповідь', slideLook: 'Дивіться на екран',
@@ -160,8 +172,8 @@ const uk: Dict = {
 		'nick-blocked': 'Оберіть інший нік.', 'nick-taken': 'Цей нік уже зайнятий.', 'rate-limited': 'Забагато спроб. Зачекайте.',
 		closed: 'Час минув.', default: 'Щось пішло не так. Спробуйте ще раз.'
 	},
-	joinAt: 'Зайдіть на', andEnterPin: 'і введіть PIN', players: 'гравців', teams: 'команд', start: 'Починаємо', soundTest: 'Тест звуку',
-	waitingForPlayers: 'Чекаємо на гравців…', answers: 'відповідей', next: 'Далі', skip: 'Завершити питання', endGame: 'Завершити гру',
+	joinAt: 'Зайдіть на', andEnterPin: 'і введіть PIN', players: forms('uk', ['гравець', 'гравці', 'гравців']), teams: forms('uk', ['команда', 'команди', 'команд']), start: 'Починаємо', soundTest: 'Тест звуку',
+	waitingForPlayers: 'Чекаємо на гравців…', answers: forms('uk', ['відповідь', 'відповіді', 'відповідей']), next: 'Далі', skip: 'Завершити питання', endGame: 'Завершити гру',
 	leaderboard: 'Рейтинг', podium: 'Переможці', sumPlayers: (n: number) => `гравців: ${n}`, sumQuestions: (n: number) => `питань: ${n}`, sumCorrect: (p: number) => `${p}% правильних відповідей`, sumHardest: (n: number, p: number) => `найскладніше: питання ${n} (${p}% правильно)`, sumCorrectShort: (p: number) => `${p}% правильно`, sumHardestShort: (n: number) => `найскладніше: пит. ${n}`, listen: 'Слухайте уважно…', replay: 'Відтворити знову', fullscreen: 'Повний екран',
 	removePlayer: 'Видалити гравця', randomNick: 'Випадковий нік', correctAnswer: 'Правильна відповідь', accepted: 'Прийняті відповіді',
 	correctOrder: 'Правильний порядок', correctCount: 'правильно', wrongCount: 'неправильно'

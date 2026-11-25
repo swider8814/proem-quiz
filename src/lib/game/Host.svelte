@@ -509,7 +509,7 @@
 				</div>
 				<div class="count g-box">
 					<span class="n">{hs.playerCount}</span>
-					<span>{hs.settings.teamMode ? L.teams : L.players}</span>
+					<span>{hs.settings.teamMode ? L.teams(hs.playerCount) : L.players(hs.playerCount)}</span>
 				</div>
 			</section>
 			<ul class="players">
@@ -602,7 +602,7 @@
 							<p class="listen">{hs.distribution.correct} {L.correctCount} · {hs.distribution.wrong} {L.wrongCount}</p>
 						{/if}
 					</div>
-					<div class="count g-box"><span class="n">{answered.count}</span><span>{L.answers}</span></div>
+					<div class="count g-box"><span class="n">{answered.count}</span><span>{L.answers(answered.count)}</span></div>
 				</div>
 					{#if q.answers}
 						<div class="answers" class:with-images={!!q.answerImages}>
@@ -744,22 +744,24 @@
 		<footer class="controls">
 			{#if error}<span class="err" role="alert">{error}</span>{/if}
 			{#if screenOn}<span class="g-chip screen-on"><Icon name="screen" /> {PH.screenConnected}</span>{/if}
-			<span class="spacer"></span>
+			<!-- Narzędzia (mniejsze, bez cienia) z lewej; „Zakończ grę” i główny „Dalej” z prawej, z odstępem,
+			     żeby w trakcie gry nie kliknąć końca zamiast następnego pytania. -->
 			{#if hs.state !== 'lobby' && !screenOn}
-				<button class="g-btn ghost" onclick={() => (showPlayers = !showPlayers)} aria-pressed={showPlayers}>{showPlayers ? PH.hidePlayers : PH.showPlayers}</button>
+				<button class="g-btn ghost tool" onclick={() => (showPlayers = !showPlayers)} aria-pressed={showPlayers}>{showPlayers ? PH.hidePlayers : PH.showPlayers}</button>
 			{/if}
-			<button class="g-btn ghost" onclick={openScreen}><Icon name="screen" /> {PH.openScreen}</button>
-			{#if hs.state === 'lobby'}<button class="g-btn ghost" onclick={soundTest}><Icon name="sound" /> {L.soundTest}</button>{/if}
+			{#if !screenOn}<button class="g-btn ghost tool" onclick={openScreen}><Icon name="screen" /> {PH.openScreen}</button>{/if}
+			{#if hs.state === 'lobby'}<button class="g-btn ghost tool" onclick={soundTest}><Icon name="sound" /> {L.soundTest}</button>{/if}
 			{#if hs.settings.music && hs.settings.music !== 'none'}
-				<button class="g-btn ghost" onclick={toggleMusic} aria-pressed={!musicOff}><Icon name="music" /> {musicOff ? PH.musicOn : PH.musicOff}</button>
+				<button class="g-btn ghost tool" onclick={toggleMusic} aria-pressed={!musicOff}><Icon name="music" /> {musicOff ? PH.musicOn : PH.musicOff}</button>
 			{/if}
-			<button class="g-btn ghost" onclick={fullscreen} title="F"><Icon name="fullscreen" /> {L.fullscreen}</button>
+			<button class="g-btn ghost tool" onclick={fullscreen} title="F"><Icon name="fullscreen" /> {L.fullscreen}</button>
+			<span class="spacer"></span>
 			{#if hs.state === 'ended'}
-				<a class="g-btn ghost" href="/panel/quizzes/{quizId}/reports" target="_blank" rel="noopener">{PH.report}</a>
-				<button class="g-btn" onclick={closeGame}>{L.endGame}</button>
+				<a class="g-btn ghost tool" href="/panel/quizzes/{quizId}/reports" target="_blank" rel="noopener">{PH.report}</a>
+				<button class="g-btn primary" onclick={closeGame}>{L.endGame}</button>
 			{:else}
-				<button class="g-btn ghost" onclick={endGame}>{L.endGame}</button>
-				<button class="g-btn" onclick={next} title="Spacja">{nextLabel} <Icon name="next" /></button>
+				<button class="g-btn ghost tool" onclick={endGame}>{L.endGame}</button>
+				<button class="g-btn primary" onclick={next} title="Spacja">{nextLabel} <Icon name="next" /></button>
 			{/if}
 		</footer>
 		{/if}
@@ -910,7 +912,10 @@
 	.rank.rest li.sum-cell span + span::before { content: '·'; margin: 0 0.6em; opacity: 0.5; }
 	.summary span + span::before { content: '·'; margin: 0 0.7em; opacity: 0.5; }
 	.controls { display: flex; align-items: center; gap: 0.8em; }
-	.controls .g-btn { font-size: 0.85em; }
+	.controls .g-btn { font-size: 0.85em; white-space: nowrap; }
+	/* Narzędzia prowadzącego są drugorzędne: mniejsze i bez twardego cienia; główny przycisk większy. */
+	.controls .g-btn.tool { font-size: 0.75em; box-shadow: none; }
+	.controls .g-btn.primary { font-size: 1em; margin-left: 0.8em; }
 	.spacer { flex: 1; }
 	.err { font-weight: 800; background: #fff; color: #b0001e; padding: 0.3em 0.8em; }
 
@@ -932,7 +937,8 @@
 		.controls .spacer { display: none; }
 		.rank, .rank.rest { width: 100%; }
 		.rank.rest { grid-template-columns: 1fr; grid-template-rows: none; grid-auto-flow: row; }
-		.controls .g-btn { flex: 1 1 calc(50% - 0.5em); justify-content: center; min-width: 0; }
+		.controls .g-btn { flex: 1 1 calc(50% - 0.5em); justify-content: center; min-width: 0; white-space: normal; }
+		.controls .g-btn.primary { flex-basis: 100%; margin-left: 0; order: 1; }
 		.controls .err, .controls .screen-on { flex: 1 1 100%; }
 	}
 </style>
