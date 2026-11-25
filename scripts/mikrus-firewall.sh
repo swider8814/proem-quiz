@@ -133,8 +133,10 @@ case "$MODE" in
 		cat >/etc/systemd/system/proem-quiz-firewall.service <<EOF
 [Unit]
 Description=Proem Quiz – zapora kontenera quizu
+# PartOf + WantedBy=docker.service: restart lub ponowny start Dockera (np. aktualizacja pakietu)
+# zakłada reguły od nowa – zapora nie znika po cichu do następnego restartu serwera.
 After=docker.service
-Requires=docker.service
+PartOf=docker.service
 
 [Service]
 Type=oneshot
@@ -145,10 +147,13 @@ ExecStart=/usr/local/sbin/proem-quiz-firewall apply${CYTRUS:+ --cytrus $CYTRUS} 
 ExecStop=/usr/local/sbin/proem-quiz-firewall remove
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=multi-user.target docker.service
 EOF
 		systemctl daemon-reload
-		systemctl enable --now proem-quiz-firewall.service
+		# reenable: przy aktualizacji z wersji z Requires= odświeża dowiązania [Install].
+		systemctl reenable proem-quiz-firewall.service
+		systemctl restart proem-quiz-firewall.service
+		systemctl is-active --quiet proem-quiz-firewall.service || { echo "BŁĄD: usługa zapory nie wystartowała – systemctl status proem-quiz-firewall"; exit 1; }
 		echo "Usługa proem-quiz-firewall włączona (po restarcie serwera zapora wraca sama)."
 		;;
 	*)
