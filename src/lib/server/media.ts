@@ -7,7 +7,7 @@ import { newId } from './auth/crypto.js';
 
 // ── Limity ───────────────────────────────────────────────────────────────
 
-export const LIMITS = { audio: 30 * 1024 * 1024, image: 5 * 1024 * 1024 };
+export const LIMITS = { audio: 30 * 1024 * 1024, image: 20 * 1024 * 1024 }; // zdjęcia z telefonu zwykle zmniejsza już przeglądarka
 const MAX_AUDIO_MS = 15 * 60 * 1000; // dłuższe utwory odrzucamy
 const MAX_OUTPUT_BYTES = 25 * 1024 * 1024; // twardy limit pliku wynikowego ffmpeg
 const QUOTA_BYTES = Number(process.env.MEDIA_QUOTA_BYTES) || 4 * 1024 ** 3; // suma wszystkich mediów

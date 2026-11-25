@@ -120,7 +120,40 @@ export function toPayload(q: EditorQuestion) {
 	};
 }
 
+const PREP_MAX_SIDE = 2048; // serwer i tak zmniejsza do 1600 px – wysyłamy niewiele więcej
+const PREP_BIG_BYTES = 4 * 1024 * 1024;
+
+/**
+ * Zdjęcie z telefonu przed wysłaniem: zmniejszenie w przeglądarce (szybciej po komórce, mieści się
+ * w limicie) i obrót według EXIF (przeglądarka rysuje zdjęcie już obrócone). JPEG/HEIC zawsze,
+ * duże PNG/WebP tylko gdy wyjdzie mniejszy plik. GIF bez zmian (animacja). Przy błędzie – oryginał.
+ */
+export async function prepareImage(file: File): Promise<File> {
+	const photo = /^image\/(jpeg|heic|heif)$/i.test(file.type) || /\.(jpe?g|heic|heif)$/i.test(file.name);
+	const bigOther = /^image\/(png|webp)$/i.test(file.type) && file.size > PREP_BIG_BYTES;
+	if ((!photo && !bigOther) || typeof createImageBitmap !== 'function' || typeof document === 'undefined') return file;
+	try {
+		const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+		const scale = Math.min(1, PREP_MAX_SIDE / Math.max(bmp.width, bmp.height));
+		const canvas = document.createElement('canvas');
+		canvas.width = Math.max(1, Math.round(bmp.width * scale));
+		canvas.height = Math.max(1, Math.round(bmp.height * scale));
+		const ctx = canvas.getContext('2d');
+		if (!ctx) return file;
+		ctx.imageSmoothingQuality = 'high';
+		ctx.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+		bmp.close();
+		const type = photo ? 'image/jpeg' : 'image/png'; // PNG/WebP: zachowujemy przezroczystość
+		const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, type, 0.9));
+		if (!blob || (!photo && blob.size >= file.size)) return file;
+		return new File([blob], file.name.replace(/\.[^.]+$/, '') + (photo ? '.jpg' : '.png'), { type });
+	} catch {
+		return file;
+	}
+}
+
 export async function uploadFile(file: File, fallbackError = 'Upload failed.'): Promise<{ id: string; kind: 'audio' | 'image'; name: string; durationMs: number | null; url: string }> {
+	if (file.type.startsWith('image/') || /\.(jpe?g|heic|heif)$/i.test(file.name)) file = await prepareImage(file);
 	const fd = new FormData();
 	fd.append('file', file);
 	const res = await fetch('/panel/api/media', { method: 'POST', body: fd });
