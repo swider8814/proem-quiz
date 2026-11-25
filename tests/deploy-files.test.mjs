@@ -65,6 +65,11 @@ ok(!/\b(find|rm|mv|mktemp|chmod|chown|install|touch|ln)\b[^\n]*data/.test(backup
 	const bridge = fw.match(/BRIDGE="\$\{PQ_BRIDGE:-([a-z-]+)\}"/)?.[1];
 	ok(!!bridge && fs.readFileSync('docker-compose.yml', 'utf8').includes(`com.docker.network.bridge.name: ${bridge}`), `zapora i compose: ta sama nazwa mostka (${bridge})`);
 }
+{
+	const wf = fs.readFileSync('.github/workflows/deploy.yml', 'utf8');
+	const dep = wf.slice(wf.indexOf('\n  deploy:'));
+	ok(/if: github\.event_name == 'workflow_dispatch' && github\.ref == 'refs\/heads\/main'/.test(dep.split('\n').slice(0, 6).join('\n')), 'deploy na serwer tylko ręcznie (Run workflow na main), nie przy scaleniu PR-a');
+}
 const nas = fs.readFileSync('scripts/nas-pull.sh', 'utf8');
 ok(/StrictHostKeyChecking=yes/.test(nas) && /SERVER_FINGERPRINT/.test(nas), 'NAS weryfikuje odcisk klucza serwera');
 for (const [name, body] of [['mikrus-backup-setup.sh', bsetup], ['backup.sh', backupSh], ['nas-pull.sh', nas]]) {

@@ -119,7 +119,7 @@ export type QuizSettings = {
 	musicLobby: boolean; // muzyka w poczekalni
 	musicQuestions: boolean; // muzyka w trakcie odliczania i pytań (bez pytań audio)
 	streakBonus: boolean;
-	nicknameMode: 'random-or-custom' | 'random-only';
+	nicknameMode: 'random-or-custom' | 'random-only' | 'custom-only';
 	avatars: boolean; // gracze wybierają postać (zwierzątko) przy dołączaniu
 	teamMode: boolean;
 	teamTalk: number; // tryb drużynowy: sekundy na naradę przed odpowiedzią (0–30)

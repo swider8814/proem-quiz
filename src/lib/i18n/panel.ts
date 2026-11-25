@@ -223,6 +223,7 @@ const pl = {
 		nicknames: 'Nicki graczy',
 		nickRandomOrCustom: 'Losowe lub własne (z filtrem)',
 		nickRandomOnly: 'Tylko losowe (młodsze dzieci)',
+		nickCustomOnly: 'Tylko własne (gracz wpisuje imię lub nick)',
 		teamMode: 'Tryb drużynowy (jeden telefon na drużynę)',
 		lateJoin: 'Można dołączyć po rozpoczęciu gry',
 		phoneText: 'Tekst odpowiedzi na telefonach (nie tylko kolory i kształty)',
@@ -507,6 +508,13 @@ const pl = {
 		driveFailed: 'błąd wysyłki',
 		driveOff: 'nieskonfigurowany',
 		nasNote: 'Kopię z serwera co rano pobiera NAS (stan zadania widać w DSM).',
+		about: 'O aplikacji',
+		version: 'Wersja',
+		builtAt: 'Zbudowana',
+		commit: 'Commit',
+		startedAt: 'Działa od',
+		mediaUsed: 'Pliki quizów',
+		diskFree: 'Wolne miejsce na serwerze',
 		dateLocale: 'pl-PL'
 	},
 	mail: {
@@ -820,6 +828,7 @@ const en: PanelDict = {
 		nicknames: 'Player nicknames',
 		nickRandomOrCustom: 'Random or custom (filtered)',
 		nickRandomOnly: 'Random only (younger children)',
+		nickCustomOnly: 'Own only (players type a name or nickname)',
 		teamMode: 'Team mode (one phone per team)',
 		lateJoin: 'Players can join after the game has started',
 		phoneText: 'Answer text on phones (not only colours and shapes)',
@@ -1104,6 +1113,13 @@ const en: PanelDict = {
 		driveFailed: 'upload error',
 		driveOff: 'not configured',
 		nasNote: 'The NAS fetches the server backup every morning (see the task status in DSM).',
+		about: 'About',
+		version: 'Version',
+		builtAt: 'Built',
+		commit: 'Commit',
+		startedAt: 'Running since',
+		mediaUsed: 'Quiz files',
+		diskFree: 'Free space on the server',
 		dateLocale: 'en-GB'
 	},
 	mail: {
