@@ -23,7 +23,7 @@ const SETUP_2FA_ROUTE = '/panel/2fa-setup';
  */
 const isPanelRoute = (id: string | null) => id === '/panel' || !!id?.startsWith('/panel/');
 const isPanelApi = (id: string | null) => !!id?.startsWith('/panel/api/');
-const isPrivateRoute = (id: string | null) => isPanelRoute(id) || !!id && /^\/(login|invite|logout)(\/|$)/.test(id);
+const isPrivateRoute = (id: string | null) => isPanelRoute(id) || !!id && /^\/(login|invite|logout|reset)(\/|$)/.test(id);
 
 export const handle: Handle = async ({ event, resolve }) => {
 	const token = event.cookies.get(SESSION_COOKIE);

@@ -8,6 +8,14 @@ export type GameTheme = {
 } | null;
 
 const HEX = /^#[0-9a-fA-F]{3,8}$/;
+
+// Tylko czcionki dołączone do aplikacji (żadnych dowolnych wartości z bazy w CSS).
+const FONT_FAMILIES: Record<string, string> = {
+	Archivo: "'Archivo Variable', system-ui, sans-serif",
+	Montserrat: "'Montserrat Variable', system-ui, sans-serif",
+	'Plus Jakarta Sans': "'Plus Jakarta Sans Variable', system-ui, sans-serif",
+	Inter: "'Inter Variable', system-ui, sans-serif"
+};
 const safe = (c: string | undefined, fallback: string) => (c && HEX.test(c) ? c : fallback);
 
 /** Zmienne CSS z motywu. Tylko kolory w formacie #hex (żadnego dowolnego CSS z bazy). */
@@ -15,7 +23,9 @@ export function themeVars(theme: GameTheme): string {
 	if (!theme) return '';
 	const c = theme.colors;
 	const a = c.answers ?? [];
+	const font = FONT_FAMILIES[theme.headingFont ?? ''];
 	return [
+		...(font ? [`--font:${font}`] : []),
 		`--bg:${safe(c.background, '#dff1ff')}`,
 		`--surface:${safe(c.surface, '#ffffff')}`,
 		`--text:${safe(c.text, '#111111')}`,

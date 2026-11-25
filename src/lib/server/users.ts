@@ -2,21 +2,21 @@ import { and, eq, gt, isNull } from 'drizzle-orm';
 import { db, schema } from './db/index.js';
 import { newId, randomToken, sha256 } from './auth/crypto.js';
 
-const INVITE_DAYS = 7;
+export type TokenPurpose = 'invite' | 'reset';
+const TTL: Record<TokenPurpose, number> = {
+	invite: 7 * 24 * 60 * 60 * 1000, // aktywacja konta: 7 dni
+	reset: 60 * 60 * 1000 // reset hasła: 1 godzina
+};
 
-export function createInvite(userId: string): string {
+/** Jednorazowy link (aktywacja lub reset hasła). Wcześniejsze nieużyte linki tej osoby przestają działać. */
+export function createInvite(userId: string, purpose: TokenPurpose = 'invite'): string {
 	const token = randomToken();
 	db.transaction((tx) => {
-		// Stare, nieużyte zaproszenia tej osoby przestają działać.
 		tx.delete(schema.invites)
 			.where(and(eq(schema.invites.userId, userId), isNull(schema.invites.usedAt)))
 			.run();
 		tx.insert(schema.invites)
-			.values({
-				id: sha256(token),
-				userId,
-				expiresAt: new Date(Date.now() + INVITE_DAYS * 24 * 60 * 60 * 1000)
-			})
+			.values({ id: sha256(token), userId, purpose, expiresAt: new Date(Date.now() + TTL[purpose]) })
 			.run();
 	});
 	return token;
@@ -34,7 +34,7 @@ export function inviteUser(input: { email: string; name: string; role: 'admin' |
 	return { user, token: createInvite(user.id) };
 }
 
-export function findInvite(token: string) {
+export function findInvite(token: string, purpose: TokenPurpose = 'invite') {
 	return (
 		db
 			.select({ invite: schema.invites, user: schema.users })
@@ -43,6 +43,7 @@ export function findInvite(token: string) {
 			.where(
 				and(
 					eq(schema.invites.id, sha256(token)),
+					eq(schema.invites.purpose, purpose),
 					isNull(schema.invites.usedAt),
 					gt(schema.invites.expiresAt, new Date())
 				)
@@ -56,12 +57,12 @@ export function findInvite(token: string) {
  * ustawienie hasła i wylogowanie wszystkich sesji – w jednej transakcji.
  * Zwraca AKTUALNY stan konta (np. totpEnabled włączone w międzyczasie) albo null.
  */
-export function consumeInvite(token: string, passwordHash: string) {
+export function consumeInvite(token: string, passwordHash: string, purpose: TokenPurpose = 'invite') {
 	return db.transaction(() => {
 		const used = db
 			.update(schema.invites)
 			.set({ usedAt: new Date() })
-			.where(and(eq(schema.invites.id, sha256(token)), isNull(schema.invites.usedAt), gt(schema.invites.expiresAt, new Date())))
+			.where(and(eq(schema.invites.id, sha256(token)), eq(schema.invites.purpose, purpose), isNull(schema.invites.usedAt), gt(schema.invites.expiresAt, new Date())))
 			.returning({ userId: schema.invites.userId })
 			.all();
 		if (used.length !== 1) return null;
@@ -74,5 +75,6 @@ export function consumeInvite(token: string, passwordHash: string) {
 }
 
 export const inviteUrl = (origin: string, token: string) => `${origin}/invite/${token}`;
+export const resetUrl = (origin: string, token: string) => `${origin}/reset/${token}`;
 
 export const isValidEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) && e.length <= 200;

@@ -2,6 +2,7 @@
 @import '@fontsource-variable/archivo';
 @import '@fontsource-variable/montserrat';
 @import '@fontsource-variable/plus-jakarta-sans';
+@import '@fontsource-variable/inter';
 
 .game {
 	--bg: #dff1ff;

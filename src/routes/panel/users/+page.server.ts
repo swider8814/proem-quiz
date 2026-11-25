@@ -4,6 +4,7 @@ import type { Actions, PageServerLoad } from './$types';
 import { db, schema } from '#lib/server/db/index.js';
 import { deleteUserSessions, resetTotp } from '#lib/server/auth/index.js';
 import { createInvite, inviteUrl, inviteUser, isValidEmail } from '#lib/server/users.js';
+import { inviteMail, mailConfigured, sendMail } from '#lib/server/mail.js';
 
 function requireAdmin(locals: App.Locals) {
 	if (locals.user?.role !== 'admin') error(403, 'Tylko dla administratorów');
@@ -12,6 +13,7 @@ function requireAdmin(locals: App.Locals) {
 
 export const load: PageServerLoad = ({ locals }) => {
 	requireAdmin(locals);
+	const mail = mailConfigured();
 	const users = db
 		.select({
 			id: schema.users.id,
@@ -26,7 +28,7 @@ export const load: PageServerLoad = ({ locals }) => {
 		.orderBy(asc(schema.users.name))
 		.all()
 		.map((u) => ({ ...u, activated: !!u.activated }));
-	return { users };
+	return { users, mail };
 };
 
 const getTarget = (id: string) => db.select().from(schema.users).where(eq(schema.users.id, id)).get();
@@ -42,7 +44,9 @@ export const actions: Actions = {
 		if (name.length < 2) return fail(400, { inviteError: 'Podaj imię i nazwisko.', email, name, role });
 		const res = inviteUser({ email, name, role });
 		if ('error' in res) return fail(400, { inviteError: res.error, email, name, role });
-		return { link: inviteUrl(url.origin, res.token), linkFor: res.user.name };
+		const link = inviteUrl(url.origin, res.token);
+		const mailed = await sendMail(inviteMail(res.user.email, res.user.name, locals.user!.name, link));
+		return { link, linkFor: res.user.name, mailed };
 	},
 
 	reinvite: async ({ request, locals, url }) => {
@@ -51,7 +55,9 @@ export const actions: Actions = {
 		if (!target) return fail(404, { actionError: 'Nie znaleziono konta.' });
 		// Link aktywacyjny tylko dla kont bez hasła (inaczej działałby jak reset hasła z panelu).
 		if (target.passwordHash) return fail(400, { actionError: 'To konto jest już aktywne.' });
-		return { link: inviteUrl(url.origin, createInvite(target.id)), linkFor: target.name };
+		const link = inviteUrl(url.origin, createInvite(target.id));
+		const mailed = await sendMail(inviteMail(target.email, target.name, locals.user!.name, link));
+		return { link, linkFor: target.name, mailed };
 	},
 
 	role: async ({ request, locals }) => {

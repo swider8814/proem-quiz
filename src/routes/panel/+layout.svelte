@@ -6,17 +6,26 @@
 	const setupOnly = $derived(data.user.role === 'admin' && !data.user.totpEnabled);
 	const links = $derived([
 		{ href: '/panel', label: 'Quizy' },
-		...(data.user.role === 'admin' ? [{ href: '/panel/users', label: 'Użytkownicy' }] : []),
+		...(data.user.role === 'admin'
+			? [
+					{ href: '/panel/themes', label: 'Motywy' },
+					{ href: '/panel/users', label: 'Użytkownicy' },
+					{ href: '/panel/settings', label: 'Ustawienia' }
+				]
+			: []),
 		{ href: '/panel/security', label: 'Bezpieczeństwo' }
 	]);
 </script>
 
 <header>
-	<strong class="brand">Proem Quiz</strong>
+	<a class="brand" href="/panel">
+		{#if data.org.logoUrl}<img src={data.org.logoUrl} alt={data.org.name} />{:else}<strong>{data.org.name}</strong>{/if}
+		<span>Quiz</span>
+	</a>
 	{#if !setupOnly}
 		<nav>
 			{#each links as l}
-				<a href={l.href} aria-current={page.url.pathname === l.href ? 'page' : undefined}>{l.label}</a>
+				<a href={l.href} aria-current={(l.href === '/panel' ? page.url.pathname === l.href : page.url.pathname.startsWith(l.href)) ? 'page' : undefined}>{l.label}</a>
 			{/each}
 		</nav>
 	{/if}
@@ -40,7 +49,9 @@
 		color: var(--accent-text);
 		flex-wrap: wrap;
 	}
-	.brand { font-size: 1.1rem; }
+	.brand { font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem; color: #fff; text-decoration: none; }
+	.brand img { max-height: 2rem; max-width: 9rem; display: block; }
+	.brand span { opacity: 0.75; }
 	nav { display: flex; gap: 1rem; flex: 1; }
 	nav a { color: #cfd3f5; text-decoration: none; padding: 0.3rem 0; }
 	nav a[aria-current='page'] { color: #fff; border-bottom: 2px solid #f5b700; }

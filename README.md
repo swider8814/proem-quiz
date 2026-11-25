@@ -58,6 +58,8 @@ leżą w `~/proem-quiz/data` i przetrwają każdą aktualizację.
    ORIGIN=https://quiz.proem.pl
    TOTP_ENCRYPTION_KEY=...          # wygeneruj: openssl rand -base64 32
    TRUSTED_PROXIES=                 # na razie puste – uzupełnisz w kroku 8
+   SENDGRID_API_KEY=SG....          # opcjonalnie: e-maile (zaproszenia, reset hasła)
+   MAIL_FROM=quiz@proem.pl          # adres zweryfikowany w SendGrid (Sender Authentication)
    # opcjonalnie: MEDIA_QUOTA_BYTES=4294967296 (limit wszystkich plików), MEDIA_MIN_FREE_BYTES=1073741824
    ```
 3. **Klucz SSH dla GitHub Actions:**
