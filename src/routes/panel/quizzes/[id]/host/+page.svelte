@@ -55,7 +55,8 @@
 {:else}
 	<div class="card start">
 		<h1>{data.quiz.title}</h1>
-		<p class="muted">{H.questions(data.quiz.questionCount)}<HelpTip id="screen" /></p>
+		<p class="muted">{H.questions(data.quiz.questionCount)}</p>
+		<p class="muted tipline">{H.screenTip}<HelpTip id="screen" /></p>
 		{#if form?.error}<p class="error">{form.error}</p>{/if}
 		<form method="POST" action="?/start">
 			<button disabled={data.quiz.questionCount === 0}>{H.start}</button>

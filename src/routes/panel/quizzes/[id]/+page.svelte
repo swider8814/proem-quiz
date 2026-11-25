@@ -307,7 +307,7 @@
 				<input class="switch" type="checkbox" bind:checked={quiz.settings.avatars} />
 			</label>
 			<div class="srow">
-				<div class="stext"><span class="lblrow"><label for="s-nick">{E.nicknames}</label><HelpTip id="nick" /></span><p class="hint">{S.nickHint}</p></div>
+				<div class="stext"><label for="s-nick">{E.nicknames}<HelpTip id="nick" /></label><p class="hint">{S.nickHint}</p></div>
 				<div class="sctl">
 					<select id="s-nick" bind:value={quiz.settings.nicknameMode}>
 						<option value="random-or-custom">{E.nickRandomOrCustom}</option>
@@ -715,7 +715,6 @@
 
 	/* Trzy panele: lista pytań | pytanie | właściwości. */
 	.layout { flex: 1; display: flex; align-items: stretch; flex-wrap: wrap; }
-	.lblrow { display: flex; align-items: center; }
 	.qnav { display: none; }
 	.add-mobile { display: none; }
 	.grow { flex: 1; min-width: 0; }
