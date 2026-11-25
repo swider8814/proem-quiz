@@ -99,7 +99,8 @@ Na Mikrusie działają też inne usługi (np. app.proem.pl), dlatego quiz jest o
    Jeśli deploy zgłosi niezgodny odcisk, a serwer nie był zmieniany, sprawdź ten sam odcisk dla
    `/etc/ssh/ssh_host_ecdsa_key.pub` lub `ssh_host_rsa_key.pub` (zależy, którego klucza użyje połączenie).
 
-5. **Uruchom deploy:** repo → Actions → „Build i deploy” → Run workflow (albo zrób dowolny push).
+5. **Uruchom deploy:** repo → Actions → „Build i deploy” → Run workflow (gałąź `main`). Scalenie PR-a do `main`
+   tylko testuje i buduje obraz – na serwer trafia dopiero po ręcznym „Run workflow” (wdrożenia paczkami).
    Po zielonym deployu utwórz pierwszego administratora:
    ```bash
    cd /srv/proem-quiz && docker compose exec app node server/cli.js create-admin twoj@email.pl "Imię Nazwisko"

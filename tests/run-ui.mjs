@@ -1,7 +1,6 @@
 // Wszystkie testy przeglądarkowe (tests/*.e2e.mjs) po kolei – nowy test wystarczy dodać do katalogu,
 // bez dopisywania do package.json (to powodowało konflikty między PR-ami).
 //   node tests/run-ui.mjs [fragment-nazwy]   np. node tests/run-ui.mjs mobile
-// W CI (GITHUB_ACTIONS) każda nieudana asercja trafia też jako adnotacja ::error:: (widoczna w PR).
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -20,10 +19,6 @@ for (const f of files) {
 	process.stdout.write(`━━ ${f}: ${r.status === 0 ? 'OK' : 'BŁĄD'} (${Math.round((Date.now() - t) / 1000)} s)\n`);
 	if (r.status !== 0) {
 		failed.push(f);
-		if (process.env.GITHUB_ACTIONS) {
-			const lines = out.split('\n').filter((l) => l.startsWith('✘')).slice(0, 10);
-			for (const l of lines.length ? lines : out.trim().split('\n').slice(-5)) console.log(`::error title=${f}::${l.replace(/\x1b\[[0-9;]*m/g, '').slice(0, 300)}`);
-		}
 	}
 }
 console.log(failed.length ? `\nNIEUDANE: ${failed.join(', ')}` : `\nWszystkie testy UI OK (${files.length})`);

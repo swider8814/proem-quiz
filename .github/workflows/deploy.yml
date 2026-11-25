@@ -1,5 +1,7 @@
 name: Build i deploy
 
+# Scalenie do main: testy + obraz w GHCR, BEZ wgrywania na serwer.
+# Deploy na serwer tylko na żądanie: Actions → „Build i deploy” → Run workflow (gałąź main).
 on:
   push:
     branches: [main]
@@ -29,9 +31,13 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm run build
-      - run: npm test
-      - run: npm run test:e2e
-      - run: CHROME_PATH="$(which google-chrome)" npm run test:ui
+      # Wyjście testów trafia też do /tmp/ci.log – przy błędzie linie „✘” idą jako adnotacje w PR.
+      - run: npm test 2>&1 | tee -a /tmp/ci.log
+      - run: npm run test:e2e 2>&1 | tee -a /tmp/ci.log
+      - run: CHROME_PATH="$(which google-chrome)" npm run test:ui 2>&1 | tee -a /tmp/ci.log
+      - name: Nieudane testy (adnotacje)
+        if: failure()
+        run: grep -h '^✘' /tmp/ci.log 2>/dev/null | head -20 | sed -e 's/\x1b\[[0-9;]*m//g' -e 's/^/::error title=Test::/' || true
 
   # Na PR-ach: obraz budowany lokalnie i uruchamiany jak na Mikrusie (bez wysyłania do rejestru).
   image-smoke:
@@ -118,6 +124,8 @@ jobs:
 
   deploy:
     needs: image
+    # Tylko ręcznie uruchomiony workflow na main – scalenie PR-a niczego nie wgrywa na serwer.
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: production
     permissions:
