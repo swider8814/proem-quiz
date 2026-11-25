@@ -17,7 +17,9 @@ services:
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
     ports:
       # Lewa strona = port Mikrusa, na który Cytrus kieruje ruch (z .env).
-      - "${PORT:-3000}:3000"
+      # Tylko IPv4: Cytrus łączy się po IPv4, a zapora (mikrus-firewall.sh) obejmuje tylko IPv4 –
+      # przy "[::]:PORT" docker-proxy wpuszczałby ruch IPv6 z pominięciem reguły „tylko Cytrus”.
+      - "0.0.0.0:${PORT:-3000}:3000"
     volumes:
       # Jedyny katalog serwera widoczny dla quizu.
       - ./data:/data
