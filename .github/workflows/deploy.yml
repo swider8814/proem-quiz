@@ -131,21 +131,30 @@ jobs:
           GH_ACTOR: ${{ github.actor }}
         run: |
           set -euo pipefail
+          # Każdy nieoczekiwany błąd pokazuje linię i kod (bez wartości sekretów).
+          trap 'rc=$?; echo "::error::Deploy przerwany w linii $LINENO (kod $rc)"' ERR
           if [ -z "$FP" ]; then echo "::error::Brak sekretu MIKRUS_SSH_FINGERPRINT – deploy przerwany (patrz README)"; exit 1; fi
           umask 077
           mkdir -p ~/.ssh
-          printf '%s\n' "$KEY" > ~/.ssh/deploy_key
+          # Format sekretów (wartości nie trafiają do logu).
+          [[ "$HOST" =~ ^[A-Za-z0-9.-]+$ ]] || { echo "::error::MIKRUS_HOST: pusty albo ze spacją (np. srv19.mikr.us)"; exit 1; }
+          [[ "$PORT" =~ ^[0-9]{1,5}$ ]] || { echo "::error::MIKRUS_SSH_PORT: oczekiwana sama liczba (np. 10148)"; exit 1; }
+          [[ "$USER_NAME" =~ ^[a-z_][a-z0-9_-]*$ ]] || { echo "::error::MIKRUS_USER: pusty albo ze spacją (oczekiwane: root)"; exit 1; }
+          printf '%s\n' "$KEY" | tr -d '\r' > ~/.ssh/deploy_key
+          ssh-keygen -y -f ~/.ssh/deploy_key >/dev/null 2>&1 || { echo "::error::MIKRUS_SSH_KEY: nie da się odczytać klucza (niepełny blok BEGIN…END?)"; exit 1; }
           # Zaufany jest tylko klucz serwera o odcisku z sekretu (ochrona przed podstawionym serwerem).
-          ssh-keyscan -p "$PORT" "$HOST" 2>/dev/null > /tmp/scanned
+          # Kod ≠ 0 bywa, gdy serwer nie ma części typów kluczy – liczy się zawartość pliku, sprawdzana niżej.
+          ssh-keyscan -T 15 -p "$PORT" "$HOST" 2>/dev/null > /tmp/scanned || true
           : > ~/.ssh/known_hosts
           while read -r line; do
             [ -z "$line" ] && continue
-            fp=$(printf '%s\n' "$line" | ssh-keygen -lf - 2>/dev/null | awk '{print $2}')
+            case "$line" in \#*) continue ;; esac
+            fp=$(printf '%s\n' "$line" | ssh-keygen -lf - 2>/dev/null | awk '{print $2}' || true)
             if [ "$fp" = "$FP" ]; then printf '%s\n' "$line" >> ~/.ssh/known_hosts; fi
           done < /tmp/scanned
           if [ ! -s ~/.ssh/known_hosts ]; then echo "::error::Odcisk klucza serwera nie zgadza się z MIKRUS_SSH_FINGERPRINT"; exit 1; fi
           printf '%s %s\n' "$GH_ACTOR" "$GHCR_TOKEN" | ssh -i ~/.ssh/deploy_key -p "$PORT" \
             -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$HOME/.ssh/known_hosts \
-            -o IdentitiesOnly=yes -o ConnectTimeout=20 -o BatchMode=yes \
+            -o IdentitiesOnly=yes -o ConnectTimeout=20 -o BatchMode=yes -o LogLevel=VERBOSE \
             "$USER_NAME@$HOST" deploy
           rm -f ~/.ssh/deploy_key
