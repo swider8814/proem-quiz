@@ -628,7 +628,7 @@
 				{/if}
 				<div class="board-row">
 				{#if hs.state === 'leaderboard'}
-					<ol class="rank">
+					<ol class="rank" class:many={boardRows.length > 5}>
 						{#each boardRows as r, i (r.id)}
 							{@const place = boardBefore ? (r.prevRank ?? null) : r.rank}
 							{@const up = !boardBefore && r.prevRank != null && r.prevRank > r.rank}
@@ -642,7 +642,7 @@
 						{/each}
 					</ol>
 				{:else}
-					<ol class="rank">
+					<ol class="rank rest">
 						{#each hs.ranking?.slice(3) ?? [] as r, i (r.id)}
 							<li class="g-box" in:fly|global={{ x: -50, delay: PODIUM_REST + i * 110, duration: 400 }}>
 								<span class="pos">{r.rank}.</span>
@@ -814,10 +814,20 @@
 	.rank { list-style: none; padding: 0; margin: 0; width: min(60vw, 900px); display: flex; flex-direction: column; gap: 1vh; }
 	.rank li { display: flex; align-items: center; gap: 1em; padding: 0.6em 1em; font-weight: 800; font-size: 1.2em; }
 	.nm { flex: 1; }
+	/* Stała szerokość kolumny miejsca (medal / „10.”), żeby nicki zaczynały się w jednej linii. */
+	.rank li > :first-child { flex: none; width: 2.6em; display: inline-flex; justify-content: center; }
+	.rank .pos { text-align: right; justify-content: flex-end; font-variant-numeric: tabular-nums; }
 	.rank .sc { font-variant-numeric: tabular-nums; min-width: 4ch; text-align: right; }
 	.moved { font-size: 0.75em; color: #1f8f3a; background: #e6f7ea; border-radius: 999px; padding: 0.1em 0.6em; white-space: nowrap; }
 	.rank li { transition: font-size 0.4s, box-shadow 0.4s; }
 	.rank li.up { box-shadow: 0 0 0 3px #3ccf65; }
+	/* Ranking między pytaniami: do 10 osób – niższe wiersze, żeby cała dziesiątka zmieściła się na ekranie. */
+	.rank.many { gap: 0.7vh; }
+	.rank.many li { font-size: 1em; padding: 0.35em 0.9em; }
+	.rank.many li.top { font-size: 1.12em; }
+	/* Podium: miejsca 4–10 w dwóch kolumnach (4–7 i 8–10) pod stopniami. */
+	.rank.rest { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: repeat(4, auto); grid-auto-flow: column; column-gap: 1.5vw; row-gap: 0.8vh; width: min(84vw, 1300px); }
+	.rank.rest li { font-size: 1em; padding: 0.35em 0.9em; }
 	.controls { display: flex; align-items: center; gap: 0.8em; }
 	.controls .g-btn { font-size: 0.85em; }
 	.spacer { flex: 1; }
@@ -839,6 +849,8 @@
 		.players { overflow: visible; }
 		.controls { flex-wrap: wrap; gap: 0.5em; }
 		.controls .spacer { display: none; }
+		.rank, .rank.rest { width: 100%; }
+		.rank.rest { grid-template-columns: 1fr; grid-template-rows: none; grid-auto-flow: row; }
 		.controls .g-btn { flex: 1 1 calc(50% - 0.5em); justify-content: center; min-width: 0; }
 		.controls .err, .controls .screen-on { flex: 1 1 100%; }
 	}

@@ -171,6 +171,27 @@ await emit(host, 'host:next', {}); // leaderboard
 await emit(host, 'host:next', {}); // ended (ostatnie pytanie)
 const fin = await endState;
 ok(fin.rank === 1, `koniec gry: Kasia na miejscu ${fin.rank} z ${fin.me.score} pkt`);
+// Koniec gry na telefonie: pierwsza trójka i okolice gracza, bez identyfikatorów innych graczy
+ok(Array.isArray(fin.top) && fin.top.length >= 1 && fin.top.length <= 3 && fin.top[0].rank === 1, 'koniec gry: telefon dostaje pierwszą trójkę');
+ok(Array.isArray(fin.around) && fin.around.some((r) => r.me && r.rank === fin.rank), 'koniec gry: „Twoje okolice” zawierają gracza (me)');
+ok([...fin.top, ...fin.around].every((r) => !('id' in r)), 'koniec gry: wiersze rankingu na telefon bez id graczy');
+r = await emit(p1new, 'ranking', {});
+ok(Array.isArray(r.ranking) && r.ranking.length === fin.players && r.ranking.every((x) => !('id' in x)) && r.ranking.filter((x) => x.me).length === 1, `pełny ranking na żądanie: ${r.ranking?.length} graczy, bez id, „ja” raz`);
+await emit(p1new, 'ranking', {});
+await emit(p1new, 'ranking', {});
+r = await emit(p1new, 'ranking', {});
+ok(r.error === 'rate-limited', 'pełny ranking: limit zapytań z jednego telefonu');
+r = await emit(mk(), 'ranking', {});
+ok(r.error === 'no-session', 'pełny ranking: tylko dla gracza tej gry');
+
+{
+	// Pełny ranking przed końcem gry – odmowa
+	const g = registry().create({ ...quiz, quizId: 'rk' }, 'user1');
+	const pa = mk();
+	await emit(pa, 'join', { pin: g.pin, nick: 'Ewa', deviceId: 'rk1' });
+	const rr = await emit(pa, 'ranking', {});
+	ok(rr.error === 'not-ended', 'pełny ranking przed końcem gry: odmowa');
+}
 
 // Odliczanie z ustawień quizu: 0 = od razu pytanie, 3 s = intro z czasem końca odliczania
 for (const cd of [0, 3]) {

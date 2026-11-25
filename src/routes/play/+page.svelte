@@ -23,17 +23,45 @@
 		timeLimit: number; prompt: string; promptTranslation: string | null;
 		answers?: string[]; answerCount?: number; items?: Item[];
 	};
+	type Row = { nick: string; avatar?: number; score: number; rank: number; members?: string[]; me?: boolean };
 	type State = {
 		pin: string; state: 'lobby' | 'intro' | 'question' | 'reveal' | 'leaderboard' | 'ended';
 		title: string; locale: string; theme: GameTheme; teamMode: boolean;
 		me: { id: string; nick: string; avatar?: number; score: number; streak: number };
 		now: number; question?: Q; deadline?: number | null; introEnds?: number | null; answered?: boolean;
 		rank?: number | null; players?: number; behindBy?: number;
+		top?: Row[]; around?: Row[];
 		result?: { correct: boolean | null; points: number; bonus: number; missed?: boolean; poll?: boolean; voted?: boolean; value?: number };
 		solution?: { correct?: number[] | boolean; accepted?: string[]; order?: string[]; value?: number; unit?: string };
 	};
 
 	let socket: Socket | null = null;
+	// Koniec gry: pełna lista na żądanie („Pokaż wszystkich”).
+	let allRows = $state<Row[] | null>(null);
+	let loadingAll = $state(false);
+	async function showAll() {
+		if (!socket || loadingAll) return;
+		loadingAll = true;
+		const r = await ask<{ ranking?: Row[]; error?: string }>(socket, 'ranking', {});
+		loadingAll = false;
+		if (r?.ranking) {
+			allRows = r.ranking;
+			requestAnimationFrame(() => document.querySelector('.all .me')?.scrollIntoView({ block: 'center' }));
+		}
+	}
+	/** Pierwsza trójka + okolice gracza, bez powtórzeń; null w miejscu przerwy w numeracji („…”). */
+	const endRows = $derived.by(() => {
+		const byRank = new Map<number, Row>();
+		for (const r of [...(gs?.top ?? []), ...(gs?.around ?? [])]) byRank.set(r.rank, r);
+		const sorted = [...byRank.values()].sort((a, b) => a.rank - b.rank);
+		const out: (Row | null)[] = [];
+		for (const r of sorted) {
+			const prev = out[out.length - 1];
+			if (prev && r.rank > prev.rank + 1) out.push(null);
+			out.push(r);
+		}
+		return out;
+	});
 	let phase = $state<'pin' | 'nick' | 'game' | 'kicked' | 'replaced'>('pin');
 	let pin = $state('');
 	let info = $state<{ title: string; locale: string; theme: GameTheme; nicknameMode: string; teamMode: boolean; avatars?: boolean } | null>(null);
@@ -219,6 +247,16 @@
 
 	const pts = (n: number) => n.toLocaleString(locale === 'uk' ? 'uk-UA' : locale === 'en' ? 'en-GB' : 'pl-PL');
 </script>
+
+{#snippet row(r: Row)}
+	<li class:me={r.me}>
+		<span class="rk">{r.rank}.</span>
+		{#if r.avatar != null}<Avatar id={r.avatar} size="1.5rem" />{/if}
+		<span class="nk">{r.nick}{#if r.me}<small> · {L.you}</small>{/if}</span>
+		<span class="pt">{pts(r.score)}</span>
+	</li>
+{/snippet}
+
 
 <svelte:head>
 	<title>{gs?.title ?? info?.title ?? 'Proem Quiz'}</title>
@@ -454,6 +492,25 @@
 						<p>{L.thanks}</p>
 					{/if}
 				</div>
+				{#if gs.state === 'ended' && endRows.length}
+					<div class="g-box card ranks">
+						{#if allRows}
+							<ol class="rows all">
+								{#each allRows as r (r.rank)}{@render row(r)}{/each}
+							</ol>
+							<button type="button" class="linkish" onclick={() => (allRows = null)}>{L.hideAll}</button>
+						{:else}
+							<ol class="rows">
+								{#each endRows as r, i (r ? r.rank : `gap-${i}`)}
+									{#if r}{@render row(r)}{:else}<li class="gap" aria-hidden="true">⋯</li>{/if}
+								{/each}
+							</ol>
+							{#if (gs.players ?? 0) > endRows.filter(Boolean).length}
+								<button type="button" class="g-btn ghost" onclick={showAll} disabled={loadingAll}>{L.showAll(gs.players ?? 0)}</button>
+							{/if}
+						{/if}
+					</div>
+				{/if}
 			</main>
 		{/if}
 	{/if}
@@ -546,6 +603,17 @@
 	.medal-wrap { display: flex; justify-content: center; }
 	.toast { position: fixed; left: 50%; bottom: max(20px, env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(92vw, 420px); background: #111; color: #fff; padding: 12px 16px; border-radius: 12px; font-weight: 700; text-align: center; z-index: 20; }
 	.place { font-size: 4rem; font-weight: 900; line-height: 1; }
+	/* Koniec gry: pierwsza trójka i okolice gracza, pełna lista na żądanie. */
+	.ranks { gap: 10px; }
+	.rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+	.rows.all { max-height: 55vh; overflow-y: auto; overscroll-behavior: contain; }
+	.rows li { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; font-weight: 700; }
+	.rows li.me { background: var(--accent); color: #111; }
+	.rows .rk { min-width: 2.6ch; text-align: right; font-variant-numeric: tabular-nums; }
+	.rows .nk { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.rows .nk small { font-weight: 600; opacity: 0.8; }
+	.rows .pt { font-variant-numeric: tabular-nums; }
+	.rows .gap { justify-content: center; padding: 0; opacity: 0.5; letter-spacing: 0.2em; }
 	.rank { font-weight: 800; }
 	.offline { position: sticky; top: 0; align-self: stretch; border-radius: 10px; text-align: center; background: #111; color: #fff; padding: 6px; font-weight: 700; z-index: 10; }
 	button:focus-visible { outline: 3px solid #111; outline-offset: 3px; }
