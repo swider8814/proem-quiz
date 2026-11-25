@@ -49,7 +49,7 @@ jobs:
           QUIZ_IMAGE=proem-quiz:test docker compose up -d
           for i in $(seq 1 30); do curl -fsS http://localhost:3000/health && break; sleep 2; done
           curl -fsS http://localhost:3000/health
-          test "$(docker inspect -f '{{.HostConfig.ReadonlyRootfs}} {{.Config.User}} {{.HostConfig.Memory}}' proem-quiz)" = "true 10471:10471 629145600"
+          test "$(docker inspect -f '{{.HostConfig.ReadonlyRootfs}} {{.Config.User}} {{.HostConfig.Memory}} {{.HostConfig.NanoCpus}} {{.HostConfig.CpuShares}} {{.HostConfig.OomScoreAdj}}' proem-quiz)" = "true 10471:10471 469762048 600000000 256 500"
           docker inspect -f '{{.State.Health.Status}}' proem-quiz
       - name: Pierwszy administrator przez CLI i link aktywacyjny
         run: |
