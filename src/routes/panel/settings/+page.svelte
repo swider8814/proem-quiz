@@ -8,6 +8,7 @@
 	let orgLogo = $state<string | null>(data.settings.orgLogo);
 	let err = $state('');
 	let uploading = $state(false);
+	const gb = (n: number) => (n >= 1024 ** 3 ? `${(n / 1024 ** 3).toFixed(1)} GB` : `${Math.round(n / 1024 ** 2)} MB`);
 
 	async function pick(e: Event) {
 		const input = e.currentTarget as HTMLInputElement;
@@ -82,8 +83,24 @@
 	{/if}
 </div>
 
+<div class="card about">
+	<h2>{S.about}</h2>
+	<dl>
+		<dt>{S.version}</dt><dd><strong>{data.about.label}</strong></dd>
+		<dt>{S.builtAt}</dt><dd>{data.about.builtAt ?? '—'}</dd>
+		<dt>{S.commit}</dt><dd>{#if data.about.commitUrl}<a href={data.about.commitUrl} target="_blank" rel="noopener"><code>{data.about.short}</code></a>{:else}—{/if}</dd>
+		<dt>{S.startedAt}</dt><dd>{data.about.startedAt}</dd>
+		<dt>{S.mediaUsed}</dt><dd>{gb(data.about.media.used)} / {gb(data.about.media.quota)}</dd>
+		<dt>{S.diskFree}</dt><dd>{data.about.media.free == null ? '—' : gb(data.about.media.free)}</dd>
+		<dt>Node.js</dt><dd>{data.about.node}</dd>
+	</dl>
+</div>
+
 <style>
 	h2 { margin-top: 0; }
+	.about dl { display: grid; grid-template-columns: max-content 1fr; gap: 0.35rem 1.25rem; margin: 0; }
+	.about dt { color: var(--muted); }
+	.about dd { margin: 0; font-variant-numeric: tabular-nums; }
 	.card { margin-bottom: 1.5rem; max-width: 40rem; }
 	.logo-row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
 	.logo-row img { max-height: 3rem; max-width: 12rem; background: #1b1f3b; padding: 0.4rem; border-radius: 0.4rem; }

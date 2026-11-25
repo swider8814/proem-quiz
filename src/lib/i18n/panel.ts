@@ -505,6 +505,13 @@ const pl = {
 		driveFailed: 'błąd wysyłki',
 		driveOff: 'nieskonfigurowany',
 		nasNote: 'Kopię z serwera co rano pobiera NAS (stan zadania widać w DSM).',
+		about: 'O aplikacji',
+		version: 'Wersja',
+		builtAt: 'Zbudowana',
+		commit: 'Commit',
+		startedAt: 'Działa od',
+		mediaUsed: 'Pliki quizów',
+		diskFree: 'Wolne miejsce na serwerze',
 		dateLocale: 'pl-PL'
 	},
 	mail: {
@@ -1100,6 +1107,13 @@ const en: PanelDict = {
 		driveFailed: 'upload error',
 		driveOff: 'not configured',
 		nasNote: 'The NAS fetches the server backup every morning (see the task status in DSM).',
+		about: 'About',
+		version: 'Version',
+		builtAt: 'Built',
+		commit: 'Commit',
+		startedAt: 'Running since',
+		mediaUsed: 'Quiz files',
+		diskFree: 'Free space on the server',
 		dateLocale: 'en-GB'
 	},
 	mail: {
