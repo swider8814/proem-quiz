@@ -72,6 +72,7 @@ const pl = {
 		users: 'Użytkownicy',
 		settings: 'Ustawienia',
 		security: 'Bezpieczeństwo',
+		help: 'Pomoc',
 		logout: 'Wyloguj',
 		admin: 'admin',
 		switchTo: 'English'
@@ -396,6 +397,14 @@ const pl = {
 		duration: 'Czas gry',
 		minutes: (n: number) => `${n} min`
 	},
+	help: {
+		title: 'Pomoc',
+		intro: 'Krótkie instrukcje krok po kroku. Kliknij temat, żeby go rozwinąć.',
+		search: 'Szukaj w pomocy…',
+		noResults: 'Nic nie znaleziono. Spróbuj innego słowa.',
+		tipLabel: 'Pokaż podpowiedź',
+		more: 'Więcej w Pomocy →'
+	},
 	share: {
 		title: 'Udostępnianie',
 		heading: (t: string) => `Udostępnij „${t}”`,
@@ -677,6 +686,7 @@ const en: PanelDict = {
 		users: 'Users',
 		settings: 'Settings',
 		security: 'Security',
+		help: 'Help',
 		logout: 'Sign out',
 		admin: 'admin',
 		switchTo: 'Polski'
@@ -1000,6 +1010,14 @@ const en: PanelDict = {
 		date: 'Date',
 		duration: 'Game length',
 		minutes: (n: number) => `${n} min`
+	},
+	help: {
+		title: 'Help',
+		intro: 'Short step-by-step guides. Click a topic to expand it.',
+		search: 'Search help…',
+		noResults: 'Nothing found. Try another word.',
+		tipLabel: 'Show tip',
+		more: 'More in Help →'
 	},
 	share: {
 		title: 'Sharing',

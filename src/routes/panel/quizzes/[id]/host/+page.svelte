@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import HelpTip from '#lib/help/HelpTip.svelte';
 	import { replaceState } from '$app/navigation';
 	import Host from '#lib/game/Host.svelte';
 	import { panelDict } from '#lib/i18n/panel.js';
@@ -54,7 +55,7 @@
 {:else}
 	<div class="card start">
 		<h1>{data.quiz.title}</h1>
-		<p class="muted">{H.questions(data.quiz.questionCount)}</p>
+		<p class="muted">{H.questions(data.quiz.questionCount)}<HelpTip id="screen" /></p>
 		{#if form?.error}<p class="error">{form.error}</p>{/if}
 		<form method="POST" action="?/start">
 			<button disabled={data.quiz.questionCount === 0}>{H.start}</button>

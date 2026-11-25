@@ -17,7 +17,8 @@
 					{ href: '/panel/settings', label: t.nav.settings }
 				]
 			: []),
-		{ href: '/panel/security', label: t.nav.security }
+		{ href: '/panel/security', label: t.nav.security },
+		{ href: '/panel/help', label: t.nav.help }
 	]);
 
 	// Edytor quizu ma własny pasek (← Quizy, tytuł, zapis) i całą szerokość okna – bez menu bocznego.
