@@ -160,6 +160,12 @@
 		phase = 'pin';
 	}
 
+	/** Telefon: postacie w jednym rzędzie przewijanym w bok – wylosowana na starcie ma być widoczna. */
+	function showSelected(el: HTMLElement) {
+		const sel = el.querySelector<HTMLElement>('.av.sel');
+		if (sel && el.scrollWidth > el.clientWidth) el.scrollLeft = sel.offsetLeft - (el.clientWidth - sel.offsetWidth) / 2;
+	}
+
 	onMount(() => {
 		connect();
 		const tick = setInterval(() => (now = Date.now()), 200);
@@ -297,9 +303,9 @@
 			<form class="g-box card" onsubmit={join}>
 				{#if info.avatars !== false}
 					<span class="big-label">{L.pickAvatar}</span>
-					<div class="avatars" role="radiogroup" aria-label={L.pickAvatar}>
+					<div class="avatars" role="radiogroup" aria-label={L.pickAvatar} use:showSelected>
 						{#each Array(AVATAR_COUNT) as _, i}
-							<button type="button" class="av" class:sel={avatar === i} role="radio" aria-checked={avatar === i} aria-label="{L.pickAvatar} {i + 1}" onclick={() => (avatar = i)}>
+							<button type="button" class="av" class:sel={avatar === i} role="radio" aria-checked={avatar === i} aria-label={L.avatarNames[i] ?? `${L.pickAvatar} ${i + 1}`} onclick={() => (avatar = i)}>
 								<Avatar id={i} size="100%" animated={avatar === i} />
 								{#if avatar === i}<span class="av-check" aria-hidden="true"><Icon name="check" /></span>{/if}
 							</button>
@@ -308,7 +314,8 @@
 				{/if}
 				<span class="big-label">{team ? L.teamName : L.yourNick}</span>
 				{#if !ownNick}
-					<div class="nick-show">{suggestion}</div>
+					<!-- Podgląd: postać + nick tak, jak zobaczy je prowadzący. -->
+					<div class="nick-show">{#if info.avatars !== false}<Avatar id={avatar} size="1.5em" animated />{/if}<span>{suggestion}</span></div>
 					<button type="button" class="g-btn ghost wide" onclick={reroll}><Icon name="dice" /> {L.drawAgain}</button>
 					{#if info.nicknameMode !== 'random-only'}
 						<button type="button" class="linkish" onclick={() => (ownNick = true)}>{L.ownNick}</button>
@@ -329,7 +336,11 @@
 					{/if}
 				{/if}
 				{#if error}<p class="err" role="alert">{error}</p>{/if}
-				<button class="g-btn wide" disabled={busy || (ownNick && nick.trim().length < 2)}>{L.join}</button>
+				<!-- Pasek przypięty do dołu ekranu: po 24 postaciach przycisk nie może uciekać poza ekran telefonu.
+				     Tło karty pod spodem – przewijana treść chowa się pod paskiem, zamiast prześwitywać. -->
+				<div class="join-bar">
+					<button class="g-btn wide join" disabled={busy || (ownNick && nick.trim().length < 2)}>{L.join}</button>
+				</div>
 			</form>
 		</main>
 	{:else if phase === 'kicked' || phase === 'replaced'}
@@ -342,7 +353,8 @@
 	{:else if gs}
 		<header class="top">
 			<span class="g-chip nick">{#if gs.me.avatar != null}<Avatar id={gs.me.avatar} size="1.6em" />{/if}<span class="nick-text">{gs.me.nick}</span></span>
-			<span class="g-chip score">{pts(gs.me.score)} {L.points}</span>
+			<!-- Na rankingu i na końcu punkty są w środku ekranu – bez powtarzania ich w nagłówku. -->
+			{#if gs.state !== 'leaderboard' && gs.state !== 'ended'}<span class="g-chip score">{pts(gs.me.score)} {L.points}</span>{/if}
 		</header>
 
 		{#if gs.state === 'lobby'}
@@ -452,7 +464,7 @@
 				</form>
 			{:else if q.type === 'order' && q.items}
 				<div class="stack">
-					<p class="hint">{L.dragToOrder}</p>
+					<p class="hint left">{L.dragToOrder}</p>
 					<OrderList items={q.items} bind:order={picked} upLabel={L.moveUp} downLabel={L.moveDown} />
 					<button class="g-btn wide" disabled={picked.length !== q.items.length} onclick={() => answer({ order: picked })}>{L.send}</button>
 				</div>
@@ -483,7 +495,7 @@
 					{#if gs.me.avatar != null && !(gs.state === 'ended' && gs.rank && gs.rank <= 3)}<div class="medal-wrap"><Avatar id={gs.me.avatar} size="4.5rem" animated /></div>{/if}
 					{#if gs.rank}
 						{#if gs.state === 'ended' && gs.rank <= 3}<div class="medal-wrap" in:scale={{ start: 0.3, duration: 700, delay: 300, easing: backOut }}><Medal place={gs.rank} size="5rem" /></div>{/if}
-						<p class="place">{gs.rank}.</p><p>{L.place} / {gs.players}</p>
+						<p class="place">{gs.rank}.</p><p>{L.place}{#if gs.players} · {L.inGame(gs.players)}{/if}</p>
 					{/if}
 					<p class="g-chip">{pts(gs.me.score)} {L.points}</p>
 					{#if gs.state !== 'ended'}
@@ -544,10 +556,15 @@
 	.big-label { font-size: 1.3rem; font-weight: 900; }
 	.pin { font-size: 2.2rem; text-align: center; letter-spacing: 0.25em; font-variant-numeric: tabular-nums; }
 	.wide { width: 100%; }
+	.join-bar { position: sticky; bottom: 0; z-index: 5; margin: 0 -22px -22px; padding: 12px 22px max(16px, env(safe-area-inset-bottom)); background: var(--surface); border-top: 2px solid rgba(0, 0, 0, 0.1); border-radius: 0 0 var(--radius) var(--radius); }
+	.hint.left { text-align: left; }
 	.hint { text-align: center; font-weight: 600; opacity: 0.8; margin: 0; }
 	.err { background: #fff; color: #b0001e; border: 2px solid #b0001e; padding: 10px 12px; font-weight: 800; margin: 0; }
 	.title { font-size: 1.6rem; margin: 0; text-align: center; }
-	.nick-show { font-size: 1.8rem; font-weight: 900; text-align: center; padding: 8px 0; word-break: break-word; }
+	.nick-show { font-size: 1.8rem; font-weight: 900; text-align: center; padding: 8px 0; display: flex; align-items: center; justify-content: center; gap: 0.35em; }
+	/* Nick zawija się między słowami, nie w środku słowa (obok postaci jest mniej miejsca). */
+	.nick-show span { flex: 0 1 auto; min-width: 0; overflow-wrap: break-word; }
+	@media (max-width: 519px) { .nick-show { font-size: 1.55rem; } }
 	.linkish { background: none; border: 0; font: inherit; font-weight: 700; text-decoration: underline; color: inherit; cursor: pointer; padding: 6px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 0.4em; }
 	.msg { text-align: center; }
 	.msg p { margin: 0; }
@@ -591,6 +608,14 @@
 	   rozpychają siatki (iOS Safari); wysokość z szerokości obrazka, bez procentowej wysokości SVG. */
 	.avatars { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; margin-bottom: 4px; }
 	@media (min-width: 520px) { .avatars { grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 8px; } }
+	/* Telefon: jeden rząd przewijany w bok (ucięta ostatnia postać podpowiada, że jest ich więcej) – dzięki temu
+	   nick i „Dołącz do gry” mieszczą się na ekranie nawet na iPhonie SE. Odstęp u góry na znaczek ✓. */
+	@media (max-width: 519px) {
+		.avatars { display: flex; overflow-x: auto; scroll-snap-type: x proximity; gap: 8px; margin: 0 -22px 4px; padding: 10px 22px 8px; scrollbar-width: none; }
+		.avatars::-webkit-scrollbar { display: none; }
+		/* Stała szerokość i padding w px – procentowy padding liczy się od szerokości całego rzędu. */
+		.avatars .av { flex: 0 0 68px; padding: 8px; scroll-snap-align: center; }
+	}
 	/* Wybrana postać: wyraźnie w każdym motywie (kolor akcentu, czarna ramka, znaczek ✓), pozostałe przygaszone. */
 	.av { position: relative; border: 3px solid transparent; border-radius: 12px; background: rgba(0, 0, 0, 0.04); padding: 6%; margin: 0; cursor: pointer; display: block; width: 100%; min-width: 0; min-height: 0; height: auto; line-height: 0; box-shadow: none; opacity: 0.55; transition: opacity 0.15s, transform 0.15s, background 0.15s; }
 	/* Margines wokół rysunku: uszy (zając, lis) i kołysanie wybranej postaci nie dotykają ramki. */

@@ -716,7 +716,6 @@
 	/* Trzy panele: lista pytań | pytanie | właściwości. */
 	.layout { flex: 1; display: flex; align-items: stretch; flex-wrap: wrap; }
 	.qnav { display: none; }
-	.add-mobile { display: none; }
 	.grow { flex: 1; min-width: 0; }
 	.list { flex: 0 0 17rem; box-sizing: border-box; background: var(--surface); border-right: 1px solid var(--line); min-width: 0; }
 	.list-in { position: sticky; top: 4.1rem; box-sizing: border-box; max-height: calc(100vh - 4.1rem); overflow: auto; padding: 1rem; }
@@ -735,6 +734,8 @@
 	.type { flex: none; font-size: 0.68rem; font-weight: 700; color: #4b5064; background: #fff; border: 1px solid var(--line-strong); padding: 0.1rem 0.35rem; border-radius: 0.3rem; }
 	.warn { flex: none; background: #fdf0d0; color: #6b4300; border-radius: 50%; width: 1.3rem; height: 1.3rem; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem; }
 	.add { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px dashed var(--line-strong); }
+	/* Po regule .add (ta sama waga selektora) – inaczej blok z telefonu pokazywał się na komputerze jako czwarta kolumna. */
+	.add.add-mobile { display: none; }
 	.editor { flex: 999 1 26rem; min-width: 0; box-sizing: border-box; padding: 1.5rem clamp(1rem, 3vw, 2.5rem) 2rem; }
 	.q { max-width: 52rem; margin: 0 auto; border: 1px solid var(--line); background: var(--surface); border-radius: 1.25rem; box-shadow: var(--shadow); padding: clamp(1rem, 3vw, 2rem); display: flex; flex-direction: column; gap: 0.75rem; min-width: 0; }
 	.q > label, .q :global(label) { margin-top: 0; }
@@ -794,7 +795,7 @@
 		.qnav { display: flex; gap: 0.5rem; padding: 0.6rem 1rem; background: var(--surface); border-bottom: 1px solid var(--line); }
 		.qnav button:not(.grow) { width: 2.75rem; padding: 0; flex: none; }
 		.qnav .qnav-add { font-size: 1.5rem; font-weight: 700; line-height: 1; }
-		.add-mobile { display: flex; flex: 1 1 100%; margin: 0; padding: 1rem; border-top: 1px dashed var(--line-strong); background: var(--surface); }
+		.add.add-mobile { display: flex; flex: 1 1 100%; margin: 0; padding: 1rem; border-top: 1px dashed var(--line-strong); background: var(--surface); }
 		.list { display: none; flex: 1 1 100%; border-right: 0; border-bottom: 1px solid var(--line); }
 		.list-in { position: static; max-height: none; }
 		.list.open { display: block; }
