@@ -60,7 +60,17 @@ try {
 	// Pytanie ABCD z obrazkiem i dwiema poprawnymi
 	await p.selectOption('select[aria-label="Typ nowego pytania"]', 'choice');
 	await p.click('button:has-text("+ Dodaj pytanie")');
-	await p.fill('input[placeholder^="np. Jaka to kolęda"]', 'Które kolory są na fladze Polski?');
+	{
+		// Podpowiedź znika po kliknięciu w pole (nie wygląda jak wpisany tekst)
+		const prompt = p.locator('input[placeholder^="np. Jaka jest stolica"]');
+		const phOpacity = () => prompt.evaluate((el) => getComputedStyle(el, '::placeholder').opacity);
+		await p.click('body', { position: { x: 5, y: 5 } });
+		const before = await phOpacity();
+		await prompt.focus();
+		await p.waitForTimeout(250);
+		ok(before !== '0' && (await phOpacity()) === '0', `podpowiedź w polu pytania znika po kliknięciu (${before} → ${await phOpacity()})`);
+	}
+	await p.fill('input[placeholder^="np. Jaka jest stolica"]', 'Które kolory są na fladze Polski?');
 	await answers.nth(0).fill('Biały');
 	await answers.nth(1).fill('Czerwony');
 	await answers.nth(2).fill('Zielony');
@@ -72,18 +82,18 @@ try {
 	// Prawda / fałsz
 	await p.selectOption('select[aria-label="Typ nowego pytania"]', 'truefalse');
 	await p.click('button:has-text("+ Dodaj pytanie")');
-	await p.fill('input[placeholder^="np. Jaka to kolęda"]', 'Mikołaj ma renifery');
+	await p.fill('input[placeholder^="np. Jaka jest stolica"]', 'Mikołaj ma renifery');
 	// Tekst
 	await p.selectOption('select[aria-label="Typ nowego pytania"]', 'text');
 	await p.click('button:has-text("+ Dodaj pytanie")');
-	await p.fill('input[placeholder^="np. Jaka to kolęda"]', 'Jak ma na imię renifer z czerwonym nosem?');
+	await p.fill('input[placeholder^="np. Jaka jest stolica"]', 'Jak ma na imię renifer z czerwonym nosem?');
 	await p.fill('input[aria-label="Akceptowana odpowiedź 1"]', 'Rudolf');
 	await p.click('button:has-text("+ dodaj wariant")');
 	await p.fill('input[aria-label="Akceptowana odpowiedź 2"]', 'Rudolph');
 	// Kolejność
 	await p.selectOption('select[aria-label="Typ nowego pytania"]', 'order');
 	await p.click('button:has-text("+ Dodaj pytanie")');
-	await p.fill('input[placeholder^="np. Jaka to kolęda"]', 'Ułóż zdanie');
+	await p.fill('input[placeholder^="np. Jaka jest stolica"]', 'Ułóż zdanie');
 	for (const [i, w] of ['I', 'love', 'Christmas'].entries()) await p.fill(`input[aria-label="Element ${i + 1}"]`, w);
 
 	ok((await p.locator('.list .item').count()) === 5, '5 pytań na liście');
@@ -127,7 +137,7 @@ try {
 
 	// Błąd walidacji jest czytelny
 	await p.locator('.list .item').nth(2).click();
-	await p.fill('input[placeholder^="np. Jaka to kolęda"]', '');
+	await p.fill('input[placeholder^="np. Jaka jest stolica"]', '');
 	await p.click('button:has-text("Zapisz")');
 	await p.waitForSelector('.status .err');
 	ok(/Pytanie 3/.test(await p.textContent('.status .err')), `czytelny błąd zapisu: ${await p.textContent('.status .err')}`);

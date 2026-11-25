@@ -116,3 +116,6 @@ th { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spa
 .tag { display: inline-block; padding: 0.15rem 0.65rem; border-radius: 999px; font-size: 0.82rem; font-weight: 600; background: var(--soft); color: #4b5064; }
 .tag.ok { background: #e2f4e6; color: #17562c; } .tag.warn { background: #fdf0d0; color: #6b4300; } .tag.off { background: #eceef3; color: #4b5064; }
 code.copy { display: block; padding: 0.7rem; background: var(--soft); border-radius: var(--radius-s); word-break: break-all; user-select: all; }
+/* Podpowiedź w polu znika po kliknięciu – nie wygląda wtedy jak wpisany już tekst. */
+input::placeholder, textarea::placeholder { transition: opacity 0.12s; }
+input:focus::placeholder, textarea:focus::placeholder { opacity: 0; }
