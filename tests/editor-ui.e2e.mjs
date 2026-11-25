@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { chromium } from 'playwright-core';
-import { finish, makeAdmin, makeMp3, ok, sleep, startServer } from './_helpers.mjs';
+import { finish, makeAdmin, makeMp3, ok, sleep, startServer, waitForHydration } from './_helpers.mjs';
 
 const shots = process.argv[2];
 if (shots) fs.mkdirSync(shots, { recursive: true });
@@ -20,7 +20,7 @@ try {
 	const { browser: admin } = await makeAdmin(srv, 'ed@proem.pl');
 	const ctx = await browser.newContext({ viewport: { width: 1400, height: 1000 } });
 	await ctx.addCookies([{ name: 'pq_session', value: admin.jar.pq_session, url: srv.base }]);
-	const p = await ctx.newPage();
+	const p = waitForHydration(await ctx.newPage());
 	const errors = [];
 	p.on('pageerror', (e) => errors.push(String(e)));
 	p.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
@@ -169,8 +169,8 @@ try {
 	await hex.blur();
 	ok((await hex.inputValue()) === '#ffdd00' && (await hex.getAttribute('aria-invalid')) === 'false', 'błędny HEX cofnięty do ostatniego poprawnego koloru (bez oznaczenia błędu)');
 	await snap(p, 'ed-05-kolory-hex');
-	await p.click('button.save');
-	await p.waitForLoadState('networkidle');
+	// Czekamy na odpowiedź zapisu (networkidle bywa spełnione, zanim żądanie w ogóle wyjdzie).
+	await Promise.all([p.waitForResponse((r) => r.request().method() === 'POST' && r.url().includes('/panel/themes/theme_proem')), p.click('button.save')]);
 	await p.goto(`${srv.base}/panel/themes/theme_proem`);
 	ok((await p.getByLabel('Tło (HEX)').inputValue()) === '#ffdd00', 'kolor z pola HEX zapisany w motywie');
 

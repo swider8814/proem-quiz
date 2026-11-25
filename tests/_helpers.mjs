@@ -7,6 +7,30 @@ import net from 'node:net';
 
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/** Czeka, aż SvelteKit skończy hydratację bieżącego dokumentu (znacznik z src/routes/+layout.svelte). */
+export function hydrated(page, timeout = 30000) {
+	return page.waitForSelector('html[data-hydrated]', { state: 'attached', timeout });
+}
+
+/**
+ * Po każdym page.goto / page.waitForURL czeka dodatkowo na hydratację. Bez tego na wolnej maszynie
+ * (CI, 1 rdzeń) test klika w przycisk, zanim Svelte podepnie obsługę zdarzeń.
+ */
+export function waitForHydration(page) {
+	const goto = page.goto.bind(page);
+	const waitForURL = page.waitForURL.bind(page);
+	page.goto = async (...args) => {
+		const res = await goto(...args);
+		await hydrated(page);
+		return res;
+	};
+	page.waitForURL = async (...args) => {
+		await waitForURL(...args);
+		await hydrated(page);
+	};
+	return page;
+}
+
 let fails = 0;
 export function ok(cond, msg) {
 	process.stderr.write(`${cond ? '✔' : '✘'} ${msg}\n`);
