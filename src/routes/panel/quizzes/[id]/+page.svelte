@@ -420,6 +420,7 @@
 		<button type="button" class="secondary" onclick={() => (selected = Math.max(0, selected - 1))} disabled={selected === 0} aria-label={E.prevQ}><Icon name="back" /></button>
 		<button type="button" class="secondary grow" onclick={() => (listOpen = !listOpen)} aria-expanded={listOpen} aria-controls="q-list">{listOpen ? E.hideList : E.listToggle(selected + 1, questions.length)}</button>
 		<button type="button" class="secondary" onclick={() => (selected = Math.min(questions.length - 1, selected + 1))} disabled={selected === questions.length - 1} aria-label={E.nextQ}><Icon name="next" /></button>
+		{#if !ro}<button type="button" class="qnav-add" onclick={add} aria-label={E.addQuestion} title={E.addQuestion}>+</button>{/if}
 	</div>
 {/if}
 
@@ -604,7 +605,10 @@
 									<button type="button" class="secondary" aria-pressed={current.timeLimit === n} onclick={() => (current.timeLimit = n)}>{n}</button>
 								{/each}
 							</div>
-							<input id="q-time" type="number" min="5" max="240" bind:value={current.timeLimit} />
+							<!-- Własny czas: puste, gdy wybrany jest jeden z przycisków (wcześniej wyglądało jak piąty przycisk z tą samą liczbą). -->
+							<input id="q-time" type="number" min="5" max="240" inputmode="numeric" placeholder={E.timeOther} aria-label={E.timeOtherLabel}
+								value={QUICK_TIMES.includes(current.timeLimit) ? '' : current.timeLimit}
+								oninput={(e) => { const v = Number((e.currentTarget as HTMLInputElement).value); if (v >= 5 && v <= 240) current.timeLimit = Math.round(v); }} />
 						</div>
 					</div>
 				{/if}
@@ -642,6 +646,15 @@
 				</div>
 			</fieldset>
 		</aside>
+		{#if !ro}
+			<!-- Telefon: lista pytań jest zwinięta, więc dodawanie kolejnego pytania jest też na dole edytora. -->
+			<div class="add add-mobile">
+				<select bind:value={addType} aria-label={E.newType}>
+					{#each QTYPES as qt}<option value={qt}>{E.types[qt]}</option>{/each}
+				</select>
+				<button type="button" onclick={add}>{E.addQuestion}</button>
+			</div>
+		{/if}
 	{/if}
 </div>
 </div>
@@ -701,6 +714,7 @@
 	/* Trzy panele: lista pytań | pytanie | właściwości. */
 	.layout { flex: 1; display: flex; align-items: stretch; flex-wrap: wrap; }
 	.qnav { display: none; }
+	.add-mobile { display: none; }
 	.grow { flex: 1; min-width: 0; }
 	.list { flex: 0 0 17rem; box-sizing: border-box; background: var(--surface); border-right: 1px solid var(--line); min-width: 0; }
 	.list-in { position: sticky; top: 4.1rem; box-sizing: border-box; max-height: calc(100vh - 4.1rem); overflow: auto; padding: 1rem; }
@@ -777,6 +791,8 @@
 		.settings, .below > .notice { margin-inline: 1rem; }
 		.qnav { display: flex; gap: 0.5rem; padding: 0.6rem 1rem; background: var(--surface); border-bottom: 1px solid var(--line); }
 		.qnav button:not(.grow) { width: 2.75rem; padding: 0; flex: none; }
+		.qnav .qnav-add { font-size: 1.5rem; font-weight: 700; line-height: 1; }
+		.add-mobile { display: flex; flex: 1 1 100%; margin: 0; padding: 1rem; border-top: 1px dashed var(--line-strong); background: var(--surface); }
 		.list { display: none; flex: 1 1 100%; border-right: 0; border-bottom: 1px solid var(--line); }
 		.list-in { position: static; max-height: none; }
 		.list.open { display: block; }
