@@ -4,6 +4,7 @@
 import { chromium } from 'playwright-core';
 import fs from 'node:fs';
 import { finish, makeAdmin, makeAuthor, ok, startServer, waitForHydration } from './_helpers.mjs';
+import { tipOffsets } from './_tip-align.mjs';
 
 // Liczba sekcji z pliku treści (test uruchamia czysty node, bez TypeScriptu).
 const content = fs.readFileSync('src/lib/help/content.ts', 'utf8');
@@ -69,6 +70,19 @@ try {
 			await mp.keyboard.press('Escape');
 		}
 		ok(n >= 3 && bad.length === 0, `telefon ${vp.width} px: ${n} podpowiedzi w edytorze, każdy dymek mieści się na ekranie ${bad.join(' ')}`);
+		// Każde „?” na wysokości środka tekstu etykiety, we wszystkich widokach (edytor, udostępnianie, prowadzenie).
+		const quizUrl = mp.url();
+		const offs = [...(await tipOffsets(mp))];
+		await mp.click('button:has-text("Ustawienia")'); // zamyka ustawienia → widok pytania (Punkty, Tłumaczenie)
+		offs.push(...(await tipOffsets(mp)));
+		for (const sub of ['/share', '/host']) {
+			await mp.goto(quizUrl + sub);
+			offs.push(...(await tipOffsets(mp)));
+		}
+		const off = offs.filter((o) => o.diff === null || o.diff < -1.2 || o.diff > 0.8);
+		ok(offs.length >= 6 && new Set(offs.map((o) => o.id)).size >= 5 && off.length === 0, `telefon ${vp.width} px: ${offs.length} × „?” wyrównane do tekstu etykiety ${JSON.stringify(off)}`);
+		await mp.goto(quizUrl);
+		await mp.click('button:has-text("Ustawienia")');
 		ok((await mp.isChecked('label:has-text("Tryb drużynowy") input[type="checkbox"]')) === teamBefore, `telefon ${vp.width} px: „?” przy trybie drużynowym nie przełącza przełącznika`);
 		await mctx.close();
 	}
@@ -76,6 +90,15 @@ try {
 	const actx = await browser.newContext({ viewport: { width: 390, height: 844 } });
 	await actx.addCookies([{ name: 'pq_session', value: admin.jar.pq_session, url: srv.base }]);
 	const ap = waitForHydration(await actx.newPage());
+	await ap.goto(`${srv.base}/panel/help`);
+	// Udostępnianie (formularz widzi właściciel, gdy jest komu udostępnić – tu admin i autorka).
+	await ap.goto(`${srv.base}/panel`);
+	await ap.fill('input[name="title"]', 'Admina');
+	await ap.click('button:has-text("Utwórz quiz")');
+	await ap.waitForURL(/\/panel\/quizzes\/quiz_/);
+	await ap.goto(ap.url() + '/share');
+	const sh = await tipOffsets(ap);
+	ok(sh.length === 1 && sh[0].diff !== null && sh[0].diff >= -1.2 && sh[0].diff <= 0.8, `telefon: „?” przy Uprawnieniach wyrównane do tekstu (${JSON.stringify(sh)})`);
 	await ap.goto(`${srv.base}/panel/help`);
 	ok((await ap.locator('details.sec').count()) === TOTAL, 'admin: wszystkie sekcje, łącznie z „Dla administratora”');
 	ok((await ap.evaluate(() => document.documentElement.scrollWidth - innerWidth)) <= 1, 'telefon: strona Pomocy bez przewijania w bok');
