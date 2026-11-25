@@ -333,6 +333,16 @@ function playerConnection(socket, games) {
 		reply(ack, game.submitAnswer(player, arg));
 	});
 
+	// Pełny ranking na telefon – tylko po zakończeniu gry i tylko dla gracza tej gry.
+	on(socket, 'ranking', (_arg, ack) => {
+		const game = currentGame();
+		const player = game?.players.get(socket.data.playerId);
+		if (!game || !player || player.kicked || player.socketId !== socket.id) return reply(ack, { error: 'no-session' });
+		if (game.state !== 'ended') return reply(ack, { error: 'not-ended' });
+		if (limited(`ranking:${socket.id}`, 3, 10_000)) return reply(ack, { error: 'rate-limited' });
+		reply(ack, { ranking: game.fullRanking(player) });
+	});
+
 	on(socket, 'leave', (_arg, ack) => {
 		const game = currentGame();
 		const player = game?.players.get(socket.data.playerId);

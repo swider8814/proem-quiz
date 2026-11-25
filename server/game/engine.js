@@ -320,6 +320,22 @@ export class Game {
 	}
 
 	/** Raport: wyniki graczy (tylko nicki) i trudność rozegranych pytań. */
+	/** Podsumowanie na ekran podium: gracze, pytania, % dobrych odpowiedzi, najtrudniejsze pytanie. */
+	summary() {
+		const r = this.report().data;
+		const scored = r.questions.map((q, i) => ({ ...q, n: i + 1 })).filter((q) => q.type !== 'poll' && q.type !== 'slide');
+		const answered = scored.reduce((s, q) => s + q.answered, 0);
+		const correct = scored.reduce((s, q) => s + q.correct, 0);
+		const withAnswers = scored.filter((q) => q.answered > 0);
+		const hardest = withAnswers.length > 1 ? withAnswers.reduce((a, b) => (b.correct / b.answered < a.correct / a.answered ? b : a)) : null;
+		return {
+			players: r.players.length,
+			questions: r.questions.length,
+			correctPct: answered ? Math.round((100 * correct) / answered) : null,
+			hardest: hardest ? { n: hardest.n, prompt: String(hardest.prompt ?? '').slice(0, 70), pct: Math.round((100 * hardest.correct) / hardest.answered) } : null
+		};
+	}
+
 	report() {
 		const played = this.quiz.questions.slice(0, this.index + 1);
 		const active = this.activePlayers();
@@ -467,6 +483,18 @@ export class Game {
 
 	// ── Widoki stanu (co kto widzi) ─────────────────────────────────────
 
+	/** Wiersz rankingu dla telefonu gracza: bez identyfikatorów innych graczy, z flagą „to ja”. */
+	publicRow(r, p) {
+		return { nick: r.nick, avatar: r.avatar, score: r.score, rank: r.rank, ...(r.members ? { members: r.members } : {}), ...(r.id === p.id ? { me: true } : {}) };
+	}
+
+	/** Pełny ranking na telefon gracza (po zakończeniu gry, na żądanie „Pokaż wszystkich”). */
+	fullRanking(p) {
+		return this.ranking()
+			.slice(0, MAX_PLAYERS)
+			.map((r) => this.publicRow(r, p));
+	}
+
 	ranking() {
 		return this.activePlayers()
 			.sort((a, b) => b.score - a.score || a.totalTime - b.totalTime || a.joinedAt - b.joinedAt)
@@ -584,16 +612,17 @@ export class Game {
 		if (this.state === 'leaderboard' || this.state === 'ended') {
 			const prev = this.prevRanks ?? new Map();
 			v.ranking = this.ranking()
-				.slice(0, this.state === 'ended' ? 10 : 5)
+				.slice(0, 10) // między pytaniami i na podium: pierwsza dziesiątka
 				.map((r) => {
 					const pr = prev.get(r.id);
 					return pr ? { ...r, prevRank: pr.rank, prevScore: pr.score } : r;
 				});
 		}
+		if (this.state === 'ended') v.summary = (this.cachedSummary ??= this.summary());
 		// Pełna tabela tylko dla okna prowadzącego (panel boczny), nie trafia na ekran widzów.
 		if (this.state !== 'lobby') {
 			const conn = new Map(this.activePlayers().map((p) => [p.id, p.connected]));
-			v.standings = this.ranking().slice(0, 100).map((r) => ({ ...r, connected: conn.get(r.id) ?? false }));
+			v.standings = this.ranking().slice(0, MAX_PLAYERS).map((r) => ({ ...r, connected: conn.get(r.id) ?? false }));
 		}
 		return v;
 	}
@@ -626,6 +655,11 @@ export class Game {
 			v.players = ranking.length;
 			const ahead = mine && mine.rank > 1 ? ranking[mine.rank - 2] : null;
 			v.behindBy = ahead ? ahead.score - p.score : 0;
+			if (this.state === 'ended') {
+				// Telefon na koniec: pierwsza trójka + „Twoje okolice” (2 osoby nad i 2 pod graczem).
+				v.top = ranking.slice(0, 3).map((r) => this.publicRow(r, p));
+				v.around = mine ? ranking.slice(Math.max(0, mine.rank - 3), mine.rank + 2).map((r) => this.publicRow(r, p)) : [];
+			}
 			if (this.state === 'reveal') {
 				const a = p.answers.get(this.index);
 				v.result = a ? { correct: a.correct, points: a.points, bonus: a.bonus } : { correct: false, points: 0, bonus: 0, missed: true };
