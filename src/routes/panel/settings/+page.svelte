@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { uploadFile } from '#lib/editor/model.js';
+	import { panelDict } from '#lib/i18n/panel.js';
 	let { data, form } = $props();
+	const D = $derived(panelDict(data.lang));
+	const S = $derived(D.settings);
 	let orgName = $state(data.settings.orgName);
 	let orgLogo = $state<string | null>(data.settings.orgLogo);
 	let err = $state('');
@@ -14,8 +17,8 @@
 		err = '';
 		uploading = true;
 		try {
-			const m = await uploadFile(file);
-			if (m.kind !== 'image') throw new Error('Logo musi być obrazkiem (PNG, JPG, WEBP).');
+			const m = await uploadFile(file, D.editor.uploadFailed);
+			if (m.kind !== 'image') throw new Error(D.err.logoImage);
 			orgLogo = m.id;
 		} catch (x) {
 			err = (x as Error).message;
@@ -25,35 +28,35 @@
 	}
 </script>
 
-<svelte:head><title>Ustawienia · Proem Quiz</title></svelte:head>
+<svelte:head><title>{S.title} · Proem Quiz</title></svelte:head>
 
-<h1>Ustawienia</h1>
+<h1>{S.title}</h1>
 {#if form?.error}<p class="error">{form.error}</p>{/if}
-{#if form?.saved}<p class="success">Zapisano. Odśwież stronę, żeby zobaczyć nowe logo w nagłówku.</p>{/if}
+{#if form?.saved}<p class="success">{S.savedLogo}</p>{/if}
 
 <form method="POST" class="card">
-	<h2>Organizacja</h2>
-	<label for="orgName">Nazwa (w nagłówku panelu, gdy nie ma logo)</label>
+	<h2>{S.org}</h2>
+	<label for="orgName">{S.orgName}</label>
 	<input id="orgName" name="orgName" type="text" maxlength="60" bind:value={orgName} required />
 	<input type="hidden" name="orgLogo" value={orgLogo ?? ''} />
-	<label for="logo">Logo w panelu (PNG, JPG lub WEBP, najlepiej jasne na ciemne tło)</label>
+	<label for="logo">{S.logo}</label>
 	<div class="logo-row">
-		{#if orgLogo}<img src="/media/{orgLogo}" alt="Logo organizacji" /><button type="button" class="link" onclick={() => (orgLogo = null)}>Usuń</button>{/if}
-		<label class="btn secondary file">{uploading ? 'Wysyłanie…' : 'Wybierz plik'}
+		{#if orgLogo}<img src="/media/{orgLogo}" alt={S.logoAlt} /><button type="button" class="link" onclick={() => (orgLogo = null)}>{D.common.remove}</button>{/if}
+		<label class="btn secondary file">{uploading ? D.common.uploading : D.common.chooseFile}
 			<input id="logo" type="file" accept="image/png,image/jpeg,image/webp" onchange={pick} disabled={uploading} />
 		</label>
 	</div>
 	{#if err}<p class="error">{err}</p>{/if}
-	<button class="save">Zapisz</button>
+	<button class="save">{D.common.save}</button>
 </form>
 
 <div class="card mail">
-	<h2>E-maile (SendGrid)</h2>
+	<h2>{S.mail}</h2>
 	{#if data.mail}
-		<p><span class="tag ok">Skonfigurowane</span> Nadawca: <code>{data.mailFrom}</code></p>
+		<p><span class="tag ok">{S.configured}</span> {S.sender}: <code>{data.mailFrom}</code></p>
 	{:else}
-		<p><span class="tag warn">Nieskonfigurowane</span> Zaproszenia trzeba przekazywać ręcznie (link w panelu), a reset hasła przez e-mail nie działa.</p>
-		<p class="muted">Dodaj na serwerze w <code>.env</code>: <code>SENDGRID_API_KEY</code>, <code>MAIL_FROM</code> (adres zweryfikowany w SendGrid), opcjonalnie <code>MAIL_FROM_NAME</code>, i zrestartuj aplikację.</p>
+		<p><span class="tag warn">{S.notConfigured}</span> {S.notConfiguredNote}</p>
+		<p class="muted">{S.howTo}</p>
 	{/if}
 </div>
 

@@ -3,10 +3,18 @@
 # Uruchom na serwerze jako root:   bash mikrus-setup.sh
 # Po pierwszym deployu (GitHub Actions):   bash mikrus-setup.sh admin jan@proem.pl "Jan Kowalski"
 # Skrypt można uruchamiać wielokrotnie – niczego nie nadpisuje bez pytania.
+#
+# Bezpieczeństwo wobec innych usług na serwerze (np. app.proem.pl):
+#  - quiz działa w osobnym projekcie Dockera, osobnej sieci, jako osobny użytkownik (uid 10471),
+#    z systemem plików tylko do odczytu, bez uprawnień i z limitami RAM/CPU/procesów;
+#  - widzi wyłącznie katalog ~/proem-quiz/data;
+#  - klucz SSH dla GitHuba może uruchomić TYLKO ~/proem-quiz/deploy.sh (nie daje powłoki);
+#  - docker-compose.yml zmienia się tylko przez ten skrypt, nie przy deployu.
 set -euo pipefail
 
 APP_DIR="${APP_DIR:-$HOME/proem-quiz}"
-APP_UID=1000 # użytkownik aplikacji w kontenerze
+QUIZ_UID=10471
+KEY_TAG=github-actions-proem-quiz
 
 bold() { printf '\n\033[1m%s\033[0m\n' "$*"; }
 info() { printf '  %s\n' "$*"; }
@@ -23,6 +31,9 @@ yes_no() { # yes_no "Pytanie" -> 0 = tak
 }
 random_key() {
 	if command -v openssl >/dev/null; then openssl rand -base64 32; else head -c 32 /dev/urandom | base64; fi
+}
+port_busy() { # port_busy 20123 -> 0, jeśli ktoś już nasłuchuje
+	if command -v ss >/dev/null; then ss -ltnH "sport = :$1" 2>/dev/null | grep -q .; else return 1; fi
 }
 
 # --- tryb: utworzenie pierwszego administratora (po deployu) ---
@@ -42,8 +53,17 @@ fi
 
 [[ $EUID -eq 0 ]] || { echo "Uruchom jako root (na Mikrusie domyślnie jesteś rootem)."; exit 1; }
 
+# --- 0. Co już działa na serwerze ---
+bold "0/5 Stan serwera (inne usługi zostają nietknięte)"
+if command -v docker >/dev/null; then
+	info "Działające kontenery:"
+	docker ps --format '    {{.Names}}  ({{.Image}})  porty: {{.Ports}}' || true
+fi
+info "Pamięć:"; free -h | sed 's/^/    /' || true
+info "Dysk:"; df -h / | sed 's/^/    /' || true
+
 # --- 1. Docker ---
-bold "1/4 Docker"
+bold "1/5 Docker"
 if command -v docker >/dev/null && docker compose version >/dev/null 2>&1; then
 	info "Docker jest zainstalowany: $(docker --version)"
 else
@@ -56,20 +76,25 @@ else
 	fi
 fi
 
-# --- 2. Katalog i .env ---
-bold "2/4 Katalog $APP_DIR i plik .env"
+# --- 2. Katalog, .env, docker-compose.yml, deploy.sh ---
+bold "2/5 Katalog $APP_DIR"
 mkdir -p "$APP_DIR/data"
-chown -R "$APP_UID:$APP_UID" "$APP_DIR/data"
+chmod 750 "$APP_DIR"
+chown -R "$QUIZ_UID:$QUIZ_UID" "$APP_DIR/data"
 chmod 700 "$APP_DIR/data"
-info "Dane aplikacji: $APP_DIR/data (właściciel uid $APP_UID)"
+info "Dane quizu: $APP_DIR/data (właściciel: uid $QUIZ_UID – tylko kontener quizu)"
 
 ENV_FILE="$APP_DIR/.env"
 if [[ -f "$ENV_FILE" ]]; then
-	info ".env już istnieje – zostawiam bez zmian (edycja: nano $ENV_FILE)."
+	info ".env już istnieje – istniejących wartości nie zmieniam (edycja: nano $ENV_FILE)."
 else
-	info "Port: jeden z portów TCP przydzielonych Twojemu Mikrusowi (panel Mikrusa)."
-	port="$(ask 'Port aplikacji' '')"
-	[[ "$port" =~ ^[0-9]{2,5}$ ]] || { warn "Niepoprawny port."; exit 1; }
+	info "Port: jeden z portów TCP przydzielonych Twojemu Mikrusowi (panel Mikrusa), NIE używany przez inne usługi."
+	while :; do
+		port="$(ask 'Port aplikacji' '')"
+		[[ "$port" =~ ^[0-9]{2,5}$ ]] || { warn "Niepoprawny port."; continue; }
+		if port_busy "$port"; then warn "Port $port jest już zajęty (np. przez inną aplikację). Wybierz inny."; continue; fi
+		break
+	done
 	domain="$(ask 'Domena quizu (bez https://)' 'quiz.proem.pl')"
 	domain="${domain#https://}"; domain="${domain#http://}"; domain="${domain%%/*}"
 	sg_key=""
@@ -88,29 +113,174 @@ TRUSTED_PROXIES=
 SENDGRID_API_KEY=$sg_key
 MAIL_FROM=$mail_from
 MAIL_FROM_NAME=Proem Quiz
+# Limity kontenera (żeby quiz nie zabrał zasobów innym usługom)
+QUIZ_UID=$QUIZ_UID
+QUIZ_MEM=600m
+QUIZ_CPUS=1.0
+# Pliki quizów: łączny limit i minimalne wolne miejsce na dysku, poniżej którego wgrywanie jest blokowane
+MEDIA_QUOTA_BYTES=2147483648
+MEDIA_MIN_FREE_BYTES=3221225472
 EOF
 	chmod 600 "$ENV_FILE"
 	info "Zapisano $ENV_FILE (tylko root może go czytać)."
-	warn "TOTP_ENCRYPTION_KEY w tym pliku jest niezbędny do logowania z 2FA – nie zmieniaj go i miej kopię."
+	warn "TOTP_ENCRYPTION_KEY z tego pliku zapisz też w menedżerze haseł – bez niego logowanie z 2FA nie zadziała po odtworzeniu kopii."
 fi
 
-# --- 3. Klucz SSH dla GitHub Actions ---
-bold "3/4 Klucz SSH dla GitHub Actions"
+# Ustawienia dodane w nowszych wersjach skryptu – dopisywane do istniejącego .env, jeśli ich brakuje
+# (wartości ustawione ręcznie zostają). Bez nich aplikacja użyłaby wyższych limitów domyślnych.
+ensure_env() { # ensure_env KLUCZ WARTOŚĆ
+	if ! grep -qE "^$1=" "$ENV_FILE"; then
+		printf '%s=%s\n' "$1" "$2" >>"$ENV_FILE"
+		info "Dopisano do .env: $1=$2"
+	fi
+}
+ensure_env QUIZ_UID "$QUIZ_UID"
+ensure_env QUIZ_MEM 600m
+ensure_env QUIZ_CPUS 1.0
+ensure_env MEDIA_QUOTA_BYTES 2147483648
+ensure_env MEDIA_MIN_FREE_BYTES 3221225472
+chmod 600 "$ENV_FILE"
+
+COMPOSE="$APP_DIR/docker-compose.yml"
+write_compose() {
+	cat >"$1" <<'COMPOSE_EOF'
+# Proem Quiz na Mikrusie – ~/proem-quiz/docker-compose.yml (zapisuje go scripts/mikrus-setup.sh).
+# Plik zmienia się TYLKO ręcznie (ponowne uruchomienie skryptu), nie przy deployu z GitHuba:
+# nawet przejęte repozytorium nie może przez niego dostać się do reszty serwera (np. app.proem.pl).
+# Wartości z .env: PORT, QUIZ_UID, QUIZ_MEM, QUIZ_CPUS (domyślne poniżej).
+name: proem-quiz
+services:
+  app:
+    image: ${QUIZ_IMAGE:-ghcr.io/swider8814/proem-quiz:latest}
+    container_name: proem-quiz
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATA_DIR: /data
+      PORT: 3000
+      # Adresy proxy (Cytrus), którym wolno podawać X-Forwarded-For – ustaw w .env (patrz README).
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+    ports:
+      # Lewa strona = port Mikrusa, na który Cytrus kieruje ruch (z .env).
+      - "${PORT:-3000}:3000"
+    volumes:
+      # Jedyny katalog serwera widoczny dla quizu.
+      - ./data:/data
+    # ── Izolacja od reszty serwera ──
+    user: "${QUIZ_UID:-10471}:${QUIZ_UID:-10471}" # własny numer użytkownika, inny niż inne kontenery
+    read_only: true # system plików kontenera tylko do odczytu (zapis wyłącznie w /data i /tmp)
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    # ── Limity – awaria quizu nie zabierze zasobów innym usługom ──
+    mem_limit: ${QUIZ_MEM:-600m}
+    memswap_limit: ${QUIZ_MEM:-600m}
+    cpus: ${QUIZ_CPUS:-1.0}
+    pids_limit: 256
+    ulimits:
+      nofile: { soft: 4096, hard: 4096 }
+    networks: [quiz]
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# Osobna sieć: quiz nie widzi innych kontenerów na serwerze.
+networks:
+  quiz:
+    name: proem-quiz-net
+COMPOSE_EOF
+}
+
+DEPLOY="$APP_DIR/deploy.sh"
+write_deploy() {
+	cat >"$1" <<'DEPLOY_EOF'
+#!/usr/bin/env bash
+# Proem Quiz – aktualizacja uruchamiana przez GitHub Actions (klucz SSH może wykonać TYLKO ten plik).
+# Na wejściu (stdin) jednorazowy token do pobrania obrazu z ghcr.io. Dotyka wyłącznie projektu proem-quiz.
+set -euo pipefail
+cd "$(dirname "$(readlink -f "$0")")"
+export DOCKER_CONFIG="$PWD/.docker" # osobne dane logowania – nie ruszamy logowań innych usług
+mkdir -p "$DOCKER_CONFIG" && chmod 700 "$DOCKER_CONFIG"
+
+# stdin: "<użytkownik GitHuba> <token>" – nic innego nie jest przyjmowane.
+read -r -t 10 GH_USER TOKEN || { echo "Brak danych na wejściu."; exit 2; }
+[[ "$GH_USER" =~ ^[A-Za-z0-9-]{1,39}(\[bot\])?$ ]] || { echo "Nieprawidłowy użytkownik."; exit 2; }
+[[ "$TOKEN" =~ ^[A-Za-z0-9_.-]{20,400}$ ]] || { echo "Nieprawidłowy token."; exit 2; }
+trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
+printf '%s' "$TOKEN" | docker login ghcr.io -u "$GH_USER" --password-stdin >/dev/null
+
+# Poprzednia wersja na wypadek nieudanej aktualizacji.
+OLD="$(docker compose images -q app 2>/dev/null | head -1 || true)"
+if [[ -n "$OLD" ]]; then docker image tag "$OLD" proem-quiz:previous; fi
+
+docker compose pull -q app
+docker compose up -d app
+
+# Czekamy na zdrowy kontener (healthcheck z obrazu).
+for _ in $(seq 1 30); do
+	st="$(docker inspect -f '{{.State.Health.Status}}' proem-quiz 2>/dev/null || echo none)"
+	if [[ "$st" == healthy ]]; then
+		echo "OK: nowa wersja działa."
+		docker image prune -f --filter "label=org.opencontainers.image.source=https://github.com/swider8814/proem-quiz" >/dev/null || true
+		exit 0
+	fi
+	sleep 3
+done
+
+echo "BŁĄD: nowa wersja nie wstała – przywracam poprzednią." >&2
+docker compose logs --tail 50 app >&2 || true
+if [[ -n "$OLD" ]]; then
+	QUIZ_IMAGE=proem-quiz:previous docker compose up -d app
+	echo "Przywrócono poprzednią wersję (do następnego udanego deployu)." >&2
+fi
+exit 1
+DEPLOY_EOF
+}
+
+install_file() { # install_file <cel> <funkcja-zapisu> <uprawnienia> <opis>
+	local target="$1" writer="$2" mode="$3" label="$4" tmp
+	tmp="$(mktemp)"
+	"$writer" "$tmp"
+	if [[ -f "$target" ]] && cmp -s "$tmp" "$target"; then
+		info "$label: aktualny."
+		rm -f "$tmp"
+	elif [[ ! -f "$target" ]] || yes_no "$label różni się od wersji ze skryptu. Zastąpić (stary zostanie jako .bak)?"; then
+		if [[ -f "$target" ]]; then cp -p "$target" "$target.bak"; fi
+		mv "$tmp" "$target"
+		chown root:root "$target"
+		chmod "$mode" "$target"
+		info "$label: zapisany."
+	else
+		rm -f "$tmp"
+	fi
+}
+install_file "$COMPOSE" write_compose 640 "docker-compose.yml"
+install_file "$DEPLOY" write_deploy 700 "deploy.sh"
+
+# --- 3. Klucz SSH dla GitHub Actions (tylko do uruchomienia deploy.sh) ---
+bold "3/5 Klucz SSH dla GitHub Actions"
 mkdir -p ~/.ssh && chmod 700 ~/.ssh
 touch ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys
-if grep -q 'github-actions-proem-quiz' ~/.ssh/authorized_keys; then
-	info "Klucz dla GitHub Actions jest już dodany."
-	if yes_no "Wygenerować NOWY klucz (stary zostanie usunięty, trzeba podmienić sekret MIKRUS_SSH_KEY)?"; then
-		sed -i '/github-actions-proem-quiz/d' ~/.ssh/authorized_keys
+SKIP_KEY=""
+if grep -q "$KEY_TAG" ~/.ssh/authorized_keys; then
+	if grep "$KEY_TAG" ~/.ssh/authorized_keys | grep -q '^command='; then
+		info "Klucz dla GitHub Actions jest już dodany (ograniczony do deploy.sh)."
+		yes_no "Wygenerować NOWY klucz (trzeba będzie podmienić sekret MIKRUS_SSH_KEY)?" || SKIP_KEY=1
 	else
-		SKIP_KEY=1
+		warn "Znaleziono klucz GitHub Actions BEZ ograniczeń (pełny dostęp root). Zostanie zastąpiony."
 	fi
+	if [[ -z "$SKIP_KEY" ]]; then sed -i "/$KEY_TAG/d" ~/.ssh/authorized_keys; fi
 fi
-if [[ -z "${SKIP_KEY:-}" ]]; then
+if [[ -z "$SKIP_KEY" ]]; then
 	tmp="$(mktemp -d)"
 	trap 'rm -rf "$tmp"' EXIT
-	ssh-keygen -q -t ed25519 -N "" -C github-actions-proem-quiz -f "$tmp/key"
-	cat "$tmp/key.pub" >>~/.ssh/authorized_keys
+	ssh-keygen -q -t ed25519 -N "" -C "$KEY_TAG" -f "$tmp/key"
+	# restrict = bez powłoki, przekierowań portów i agenta; klucz uruchamia wyłącznie deploy.sh
+	printf 'command="%s",restrict %s\n' "$DEPLOY" "$(cat "$tmp/key.pub")" >>~/.ssh/authorized_keys
 	info "Skopiuj CAŁY poniższy blok (z liniami BEGIN/END) do sekretu MIKRUS_SSH_KEY:"
 	echo
 	cat "$tmp/key"
@@ -120,7 +290,7 @@ if [[ -z "${SKIP_KEY:-}" ]]; then
 fi
 
 # --- 4. Wartości sekretów ---
-bold "4/4 Sekrety w GitHubie (repo → Settings → Secrets and variables → Actions)"
+bold "4/5 Sekrety w GitHubie (repo → Settings → Secrets and variables → Actions)"
 info "MIKRUS_HOST            = adres serwera z panelu Mikrusa (np. srv12.mikr.us); ta maszyna: $(hostname)"
 info "MIKRUS_SSH_PORT        = port SSH z panelu Mikrusa"
 info "MIKRUS_USER            = $(id -un)"
@@ -131,8 +301,10 @@ for t in ed25519 ecdsa rsa; do
 	info "MIKRUS_SSH_FINGERPRINT = $(ssh-keygen -lf "$f" | awk '{print $2}')   (klucz $t$([[ $t == ed25519 ]] && echo ', użyj tego'))"
 done
 
-bold "Dalej"
+# --- 5. Dalej ---
+bold "5/5 Dalej"
 info "5. GitHub → Actions → „Build i deploy” → Run workflow."
 info "6. Po zielonym deployu utwórz konto administratora:"
 info "     bash $0 admin twoj@email.pl \"Imię Nazwisko\""
 info "7. Cytrus: domena → http://<adres serwera>:<PORT>, potem test: https://<domena>/test-ws"
+info "8. Sprawdź limity: docker stats --no-stream proem-quiz  (kolumna MEM LIMIT ≈ 600MiB)"

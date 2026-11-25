@@ -41,46 +41,27 @@ leżą w `~/proem-quiz/data` i przetrwają każdą aktualizację.
 
 ## Pierwsze uruchomienie na Mikrusie (jednorazowo, ok. 15 min)
 
-**Szybka droga – skrypt (kroki 1–4 automatycznie):**
-1. Na GitHubie otwórz `scripts/mikrus-setup.sh` → przycisk „Copy raw file”.
-2. Na Mikrusie (SSH): `nano mikrus-setup.sh`, wklej, zapisz (Ctrl+O, Enter, Ctrl+X).
-3. `bash mikrus-setup.sh` – zainstaluje Dockera (jeśli trzeba), zapyta o port i domenę, utworzy `.env`
-   z wygenerowanym kluczem, przygotuje klucz SSH dla GitHub Actions i wypisze wartości sekretów.
-4. Wpisz sekrety w GitHubie (krok 4 niżej) i uruchom deploy (krok 5).
-5. Po deployu: `bash mikrus-setup.sh admin twoj@email.pl "Imię Nazwisko"` – wypisze link do ustawienia
-   hasła i 2FA dla pierwszego administratora.
-6. Dalej kroki 6–9 (Cytrus, test, zaufane proxy, zapora).
+Na Mikrusie działają też inne usługi (np. app.proem.pl), dlatego quiz jest od nich odizolowany:
+- osobny projekt i sieć Dockera (`proem-quiz`), komendy quizu nie dotykają innych kontenerów;
+- kontener działa jako osobny użytkownik (uid 10471), bez uprawnień, z systemem plików tylko do odczytu
+  i widzi wyłącznie `~/proem-quiz/data`;
+- limity: 600 MB RAM, 1 rdzeń, 256 procesów, 2 GB na pliki quizów i blokada wgrywania, gdy na dysku
+  zostaje mniej niż 3 GB (wartości w `.env`: `QUIZ_MEM`, `QUIZ_CPUS`, `MEDIA_QUOTA_BYTES`, `MEDIA_MIN_FREE_BYTES`);
+- klucz SSH GitHuba może uruchomić **tylko** `~/proem-quiz/deploy.sh` (bez powłoki i kopiowania plików),
+  a `docker-compose.yml` zmienia się wyłącznie ręcznie – przejęte repozytorium nie dostanie się do reszty serwera;
+- nieudana aktualizacja (kontener nie wstaje) jest automatycznie cofana do poprzedniej wersji.
 
-**Ręcznie (to samo krok po kroku):**
-
-1. **Zaloguj się na Mikrusa** (SSH, dane z panelu) i zainstaluj Dockera:
+1. **Skrypt przygotowania** (Docker, katalog, `.env`, `docker-compose.yml`, `deploy.sh`, klucz SSH):
+   na GitHubie otwórz `scripts/mikrus-setup.sh` → „Copy raw file”. Na Mikrusie (SSH):
    ```bash
-   curl -fsSL https://get.docker.com | sh
-   docker compose version   # powinno pokazać wersję
+   nano mikrus-setup.sh      # wklej, zapisz: Ctrl+O, Enter, Ctrl+X
+   bash mikrus-setup.sh
    ```
-2. **Utwórz katalog i plik `.env`:**
-   ```bash
-   mkdir -p ~/proem-quiz/data && cd ~/proem-quiz
-   chown -R 1000:1000 data   # aplikacja w kontenerze działa jako zwykły użytkownik (uid 1000), nie root
-   nano .env
-   ```
-   Wklej i uzupełnij:
-   ```
-   PORT=20123                       # jeden z portów przydzielonych Twojemu Mikrusowi
-   ORIGIN=https://quiz.proem.pl
-   TOTP_ENCRYPTION_KEY=...          # wygeneruj: openssl rand -base64 32
-   TRUSTED_PROXIES=                 # na razie puste – uzupełnisz w kroku 8
-   SENDGRID_API_KEY=SG....          # opcjonalnie: e-maile (zaproszenia, reset hasła)
-   MAIL_FROM=quiz@proem.pl          # adres zweryfikowany w SendGrid (Sender Authentication)
-   # opcjonalnie: MEDIA_QUOTA_BYTES=4294967296 (limit wszystkich plików), MEDIA_MIN_FREE_BYTES=1073741824
-   ```
-3. **Klucz SSH dla GitHub Actions:**
-   ```bash
-   ssh-keygen -t ed25519 -f ~/gha_deploy -N "" -C github-actions
-   cat ~/gha_deploy.pub >> ~/.ssh/authorized_keys
-   cat ~/gha_deploy          # skopiuj całość (z BEGIN/END) do sekretu MIKRUS_SSH_KEY
-   rm ~/gha_deploy ~/gha_deploy.pub
-   ```
+   Skrypt najpierw pokaże działające kontenery, wolny RAM i dysk – sprawdź, czy wszystko się zgadza.
+   Port wybierz z przydzielonych w panelu Mikrusa; skrypt odrzuci port, którego używa inna usługa.
+   Skrypt można uruchomić ponownie (np. po zmianie `docker-compose.yml` w repo) – niczego nie nadpisze bez pytania.
+2. **Klucz `TOTP_ENCRYPTION_KEY`** z `~/proem-quiz/.env` zapisz w menedżerze haseł (potrzebny przy odtwarzaniu kopii).
+3. Wartości do sekretów GitHuba skrypt wypisuje na końcu (krok 4).
 4. **Sekrety w GitHubie:** repo → Settings → Secrets and variables → Actions → New repository secret:
 
    | Sekret | Wartość |
@@ -88,12 +69,12 @@ leżą w `~/proem-quiz/data` i przetrwają każdą aktualizację.
    | `MIKRUS_HOST` | adres serwera, np. `srv12.mikr.us` |
    | `MIKRUS_SSH_PORT` | port SSH z panelu Mikrusa (np. `10123`) |
    | `MIKRUS_USER` | `root` |
-   | `MIKRUS_SSH_KEY` | prywatny klucz z kroku 3 |
+   | `MIKRUS_SSH_KEY` | prywatny klucz wypisany przez skrypt |
    | `MIKRUS_SSH_FINGERPRINT` | odcisk klucza serwera – patrz niżej |
 
    **Fingerprint serwera** (bez niego deploy się nie uruchomi – chroni przed podstawionym serwerem).
-   Odczytaj go **na samym serwerze** (konsola w panelu Mikrusa albo sesja SSH, której odcisk już
-   wcześniej potwierdziłeś), nie przez `ssh-keyscan` z zewnątrz:
+   Skrypt wypisuje go z plików serwera. Ręcznie – **na samym serwerze** (konsola w panelu Mikrusa albo
+   sesja SSH, której odcisk już wcześniej potwierdziłeś), nie przez `ssh-keyscan` z zewnątrz:
    ```bash
    ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub | awk '{print $2}'
    # wynik w postaci SHA256:AbCd... wklej w całości jako MIKRUS_SSH_FINGERPRINT
@@ -121,9 +102,13 @@ leżą w `~/proem-quiz/data` i przetrwają każdą aktualizację.
 9. **(Zalecane) Zapora:** port aplikacji jest dostępny z internetu bezpośrednio, z pominięciem Cytrusa.
    Bez wpisu w `TRUSTED_PROXIES` takie połączenie i tak nie podrobi adresu IP, ale lepiej je zablokować:
    ```bash
-   # tylko jeśli Mikrus pozwala na iptables; Docker omija ufw, dlatego reguła w łańcuchu DOCKER-USER
-   iptables -I DOCKER-USER -p tcp --dport 3000 ! -s <ADRES_CYTRUSA> -j DROP
+   # tylko jeśli Mikrus pozwala na iptables; Docker omija ufw, dlatego reguła w łańcuchu DOCKER-USER.
+   # Dopasowanie po PORCIE QUIZU Z .env (--ctorigdstport), nie po porcie w kontenerze (3000) –
+   # inne kontenery (np. app.proem.pl) mogą wewnętrznie też używać 3000 i nie mogą zostać zablokowane.
+   iptables -I DOCKER-USER -p tcp -m conntrack --ctorigdstport <PORT_Z_.env> ! -s <ADRES_CYTRUSA> -j DROP
+   # jeśli Cytrus łączy się po IPv6 (remoteAddress z kroku 8 zawiera „:”), to samo dla ip6tables
    ```
+   Po dodaniu reguły sprawdź, czy app.proem.pl nadal działa.
    Sprawdzenie z innego komputera: `curl -m 5 http://<adres serwera>:<PORT>/health` powinien
    się nie połączyć, a `https://quiz.proem.pl/health` – działać.
 

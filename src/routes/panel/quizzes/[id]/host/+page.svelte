@@ -2,8 +2,10 @@
 	import { onMount } from 'svelte';
 	import { replaceState } from '$app/navigation';
 	import Host from '#lib/game/Host.svelte';
+	import { panelDict } from '#lib/i18n/panel.js';
 
 	let { data, form } = $props();
+	const H = $derived(panelDict(data.lang).host);
 
 	type Game = { pin: string; hostToken: string; qr: string; joinHost: string };
 	const key = $derived(`pq:host:${data.quiz.id}`);
@@ -43,7 +45,7 @@
 	}
 </script>
 
-<svelte:head><title>{data.quiz.title} · Prowadzenie · Proem Quiz</title></svelte:head>
+<svelte:head><title>{data.quiz.title} · {H.title} · Proem Quiz</title></svelte:head>
 
 {#if game}
 	<div class="overlay">
@@ -52,13 +54,13 @@
 {:else}
 	<div class="card start">
 		<h1>{data.quiz.title}</h1>
-		<p class="muted">{data.quiz.questionCount} pytań. Podłącz komputer do rzutnika i nagłośnienia, a potem uruchom grę.</p>
+		<p class="muted">{H.questions(data.quiz.questionCount)}</p>
 		{#if form?.error}<p class="error">{form.error}</p>{/if}
 		<form method="POST" action="?/start">
-			<button disabled={data.quiz.questionCount === 0}>Uruchom grę</button>
+			<button disabled={data.quiz.questionCount === 0}>{H.start}</button>
 		</form>
-		<p class="muted small">Sterowanie: spacja / strzałka w prawo – dalej · F – pełny ekran · R – odtwórz fragment ponownie.</p>
-		<p><a href="/panel/quizzes/{data.quiz.id}">← Wróć do edycji</a></p>
+		<p class="muted small">{H.keys}</p>
+		<p><a href="/panel/quizzes/{data.quiz.id}">{H.backToEdit}</a></p>
 	</div>
 {/if}
 

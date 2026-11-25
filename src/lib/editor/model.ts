@@ -19,21 +19,7 @@ export type EditorQuestion = {
 	data: QData;
 };
 
-export const TYPE_LABELS: Record<QType, string> = {
-	choice: 'Wybór (ABCD)',
-	truefalse: 'Prawda / fałsz',
-	audio: 'Audio – jaka to piosenka?',
-	text: 'Wpisywana odpowiedź',
-	order: 'Ułóż w kolejności'
-};
-
-export const TYPE_SHORT: Record<QType, string> = {
-	choice: 'ABCD',
-	truefalse: 'P/F',
-	audio: 'AUDIO',
-	text: 'TEKST',
-	order: 'KOLEJN.'
-};
+export const QTYPES: QType[] = ['choice', 'truefalse', 'audio', 'text', 'order'];
 
 export const ANSWER_COLORS = ['#ff5d8f', '#3d7bff', '#ffc93c', '#2ec27e'];
 
@@ -50,11 +36,14 @@ export function blankData(type: QType): QData {
 	}
 }
 
-export function newQuestion(type: QType, timeLimit: number): EditorQuestion {
+/** Domyślna treść pytania audio w języku quizu. */
+const AUDIO_PROMPT: Record<string, string> = { pl: 'Jaka to piosenka?', en: 'Name that song!', uk: 'Що це за пісня?' };
+
+export function newQuestion(type: QType, timeLimit: number, locale = 'pl'): EditorQuestion {
 	return {
 		key: newKey(),
 		type,
-		prompt: type === 'audio' ? 'Jaka to piosenka?' : '',
+		prompt: type === 'audio' ? (AUDIO_PROMPT[locale] ?? AUDIO_PROMPT.pl) : '',
 		promptTranslation: null,
 		imageMediaId: null,
 		timeLimit: type === 'order' || type === 'text' ? Math.max(timeLimit, 30) : timeLimit,
@@ -73,18 +62,20 @@ export function changeType(q: EditorQuestion, type: QType): EditorQuestion {
 	return { ...q, type, data: d };
 }
 
-/** Szybka walidacja w przeglądarce (serwer i tak sprawdza wszystko). */
-export function problems(q: EditorQuestion): string[] {
-	const out: string[] = [];
-	if (!q.prompt.trim()) out.push('brak treści pytania');
+export type Problem = 'prompt' | 'answers' | 'emptyCorrect' | 'audio' | 'accepted' | 'items';
+
+/** Szybka walidacja w przeglądarce (serwer i tak sprawdza wszystko). Zwraca klucze – tekst z i18n/panel.ts. */
+export function problems(q: EditorQuestion): Problem[] {
+	const out: Problem[] = [];
+	if (!q.prompt.trim()) out.push('prompt');
 	const d = q.data;
 	if (d.type === 'choice' || d.type === 'audio') {
-		if (d.answers.filter((a) => a.trim()).length < 2) out.push('min. 2 odpowiedzi');
-		if (d.answers.some((a, i) => !a.trim() && d.correct.includes(i))) out.push('poprawna odpowiedź jest pusta');
+		if (d.answers.filter((a) => a.trim()).length < 2) out.push('answers');
+		if (d.answers.some((a, i) => !a.trim() && d.correct.includes(i))) out.push('emptyCorrect');
 	}
-	if (d.type === 'audio' && !d.audioMediaId) out.push('brak pliku audio');
-	if (d.type === 'text' && !d.accepted.some((a) => a.trim())) out.push('brak akceptowanej odpowiedzi');
-	if (d.type === 'order' && d.items.filter((a) => a.trim()).length < 3) out.push('min. 3 elementy');
+	if (d.type === 'audio' && !d.audioMediaId) out.push('audio');
+	if (d.type === 'text' && !d.accepted.some((a) => a.trim())) out.push('accepted');
+	if (d.type === 'order' && d.items.filter((a) => a.trim()).length < 3) out.push('items');
 	return out;
 }
 
@@ -110,12 +101,12 @@ export function toPayload(q: EditorQuestion) {
 	};
 }
 
-export async function uploadFile(file: File): Promise<{ id: string; kind: 'audio' | 'image'; name: string; durationMs: number | null; url: string }> {
+export async function uploadFile(file: File, fallbackError = 'Upload failed.'): Promise<{ id: string; kind: 'audio' | 'image'; name: string; durationMs: number | null; url: string }> {
 	const fd = new FormData();
 	fd.append('file', file);
 	const res = await fetch('/panel/api/media', { method: 'POST', body: fd });
-	const body = await res.json().catch(() => ({ error: 'Błąd wysyłania pliku.' }));
-	if (!res.ok) throw new Error(body.error ?? body.message ?? 'Błąd wysyłania pliku.');
+	const body = await res.json().catch(() => ({ error: fallbackError }));
+	if (!res.ok) throw new Error(body.error ?? body.message ?? fallbackError);
 	return body;
 }
 

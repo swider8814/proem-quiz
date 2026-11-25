@@ -2,11 +2,15 @@
 	import { beforeNavigate } from '$app/navigation';
 	import AudioClipEditor from '#lib/editor/AudioClipEditor.svelte';
 	import {
-		ANSWER_COLORS, TYPE_LABELS, TYPE_SHORT, changeType, newKey, newQuestion, problems, toPayload, uploadFile,
+		ANSWER_COLORS, QTYPES, changeType, newKey, newQuestion, problems, toPayload, uploadFile,
 		type EditorQuestion, type QType
 	} from '#lib/editor/model.js';
+	import { panelDict } from '#lib/i18n/panel.js';
 
 	let { data } = $props();
+	const t = $derived(panelDict(data.lang));
+	const E = $derived(t.editor);
+	const problemText = (q: EditorQuestion) => problems(q).map((p) => E.problems[p]).join(', ');
 
 	// Stan edytora (kopiowany z danych serwera raz, przy wejściu).
 	let quiz = $state(structuredClone(data.quiz));
@@ -31,7 +35,7 @@
 	const ro = $derived(!data.canEdit);
 
 	beforeNavigate(({ cancel, type }) => {
-		if (dirty && type !== 'leave' && !confirm('Masz niezapisane zmiany. Wyjść bez zapisywania?')) cancel();
+		if (dirty && type !== 'leave' && !confirm(E.leaveConfirm)) cancel();
 	});
 	$effect(() => {
 		const handler = (e: BeforeUnloadEvent) => {
@@ -63,7 +67,7 @@
 				body: JSON.stringify({ ...sentQuiz, questions: sentPayload })
 			});
 			const out = await res.json().catch(() => ({}));
-			if (!res.ok) throw new Error(out.error ?? out.message ?? 'Nie udało się zapisać.');
+			if (!res.ok) throw new Error(out.error ?? out.message ?? E.saveFailed);
 			// ID z serwera przypisujemy po stabilnych kluczach (kolejność mogła się zmienić w trakcie).
 			const idByKey = new Map<string, string>(sentQuestions.map((q, i) => [q.key, out.questionIds[i] as string]));
 			for (const q of questions) {
@@ -79,11 +83,11 @@
 	}
 
 	function add() {
-		questions.push(newQuestion(addType, quiz.settings.defaultTimeLimit));
+		questions.push(newQuestion(addType, quiz.settings.defaultTimeLimit, quiz.locale));
 		selected = questions.length - 1;
 	}
 	function remove(i: number) {
-		if (!confirm('Usunąć to pytanie?')) return;
+		if (!confirm(E.removeConfirm)) return;
 		questions.splice(i, 1);
 		selected = Math.min(selected, questions.length - 1);
 	}
@@ -116,8 +120,8 @@
 		if (!file) return;
 		imageError = '';
 		try {
-			const m = await uploadFile(file);
-			if (m.kind !== 'image') throw new Error('To nie jest obrazek.');
+			const m = await uploadFile(file, E.uploadFailed);
+			if (m.kind !== 'image') throw new Error(E.notImage);
 			media[m.id] = { id: m.id, name: m.name, durationMs: null, kind: 'image' };
 			current.imageMediaId = m.id;
 		} catch (x) {
@@ -129,48 +133,48 @@
 </script>
 
 <svelte:window onkeydown={onKey} />
-<svelte:head><title>{quiz.title} · Edytor · Proem Quiz</title></svelte:head>
+<svelte:head><title>{quiz.title} · {E.title} · Proem Quiz</title></svelte:head>
 
 <div class="bar card">
-	<input class="title" bind:value={quiz.title} maxlength="120" aria-label="Tytuł quizu" disabled={ro} />
+	<input class="title" bind:value={quiz.title} maxlength="120" aria-label={E.quizTitle} disabled={ro} />
 	<div class="bar-actions">
 		<span class="status muted" aria-live="polite">
-			{#if saving}Zapisywanie…{:else if saveError}<span class="err">{saveError}</span>{:else if dirty}Niezapisane zmiany{:else}Zapisano{/if}
+			{#if saving}{E.saving}{:else if saveError}<span class="err">{saveError}</span>{:else if dirty}{E.unsaved}{:else}{E.saved}{/if}
 		</span>
-		<button class="secondary" type="button" onclick={() => (showSettings = !showSettings)} aria-expanded={showSettings}>Ustawienia</button>
-		{#if data.canShare}<a class="btn secondary" href="/panel/quizzes/{data.quiz.id}/share">Udostępnij</a>{/if}
-		{#if !ro}<button type="button" onclick={save} disabled={saving || !dirty}>Zapisz</button>{/if}
-		<a class="btn start" href="/panel/quizzes/{data.quiz.id}/host" class:disabled={dirty || questions.length === 0} aria-disabled={dirty || questions.length === 0}>Uruchom grę</a>
+		<button class="secondary" type="button" onclick={() => (showSettings = !showSettings)} aria-expanded={showSettings}>{E.settings}</button>
+		{#if data.canShare}<a class="btn secondary" href="/panel/quizzes/{data.quiz.id}/share">{E.share}</a>{/if}
+		{#if !ro}<button type="button" onclick={save} disabled={saving || !dirty}>{E.save}</button>{/if}
+		<a class="btn start" href="/panel/quizzes/{data.quiz.id}/host" class:disabled={dirty || questions.length === 0} aria-disabled={dirty || questions.length === 0}>{E.start}</a>
 	</div>
 </div>
-{#if ro}<p class="notice">Masz dostęp tylko do prowadzenia tego quizu – edycja jest wyłączona.</p>{/if}
+{#if ro}<p class="notice">{E.readOnly}</p>{/if}
 
 {#if showSettings}
 	<fieldset class="card settings" disabled={ro}>
-		<legend class="sr">Ustawienia quizu</legend>
-		<label>Motyw
+		<legend class="sr">{E.settingsLegend}</legend>
+		<label>{E.theme}
 			<select bind:value={quiz.themeId}>
-				{#each data.themes as t}<option value={t.id}>{t.name}</option>{/each}
+				{#each data.themes as th}<option value={th.id}>{th.name}</option>{/each}
 			</select>
 		</label>
-		<label>Język gry
+		<label>{E.gameLanguage}
 			<select bind:value={quiz.locale}>
 				<option value="pl">Polski</option><option value="en">English</option><option value="uk">Українська</option>
 			</select>
 		</label>
-		<label>Domyślny czas na odpowiedź (s)
+		<label>{E.defaultTime}
 			<input type="number" min="5" max="240" bind:value={quiz.settings.defaultTimeLimit} />
 		</label>
-		<label>Nicki graczy
+		<label>{E.nicknames}
 			<select bind:value={quiz.settings.nicknameMode}>
-				<option value="random-or-custom">Losowe lub własne (z filtrem)</option>
-				<option value="random-only">Tylko losowe (młodsze dzieci)</option>
+				<option value="random-or-custom">{E.nickRandomOrCustom}</option>
+				<option value="random-only">{E.nickRandomOnly}</option>
 			</select>
 		</label>
-		<label class="check"><input type="checkbox" bind:checked={quiz.settings.teamMode} /> Tryb drużynowy (jeden telefon na drużynę)</label>
-		<label class="check"><input type="checkbox" bind:checked={quiz.settings.lateJoin} /> Można dołączyć po rozpoczęciu gry</label>
-		<label class="check"><input type="checkbox" bind:checked={quiz.settings.phoneAnswerText} /> Tekst odpowiedzi na telefonach (nie tylko kolory i kształty)</label>
-		<label class="check"><input type="checkbox" bind:checked={quiz.settings.streakBonus} /> Bonus za serię poprawnych odpowiedzi</label>
+		<label class="check"><input type="checkbox" bind:checked={quiz.settings.teamMode} /> {E.teamMode}</label>
+		<label class="check"><input type="checkbox" bind:checked={quiz.settings.lateJoin} /> {E.lateJoin}</label>
+		<label class="check"><input type="checkbox" bind:checked={quiz.settings.phoneAnswerText} /> {E.phoneText}</label>
+		<label class="check"><input type="checkbox" bind:checked={quiz.settings.streakBonus} /> {E.streak}</label>
 	</fieldset>
 {/if}
 
@@ -181,19 +185,19 @@
 				<li>
 					<button type="button" class="item" class:active={i === selected} onclick={() => (selected = i)}>
 						<span class="n">{i + 1}</span>
-						<span class="t">{q.prompt || 'Bez treści'}</span>
-						<span class="type">{TYPE_SHORT[q.type]}</span>
-						{#if problems(q).length}<span class="warn" title={problems(q).join(', ')} aria-label="Do uzupełnienia">!</span>{/if}
+						<span class="t">{q.prompt || E.noPrompt}</span>
+						<span class="type">{E.typesShort[q.type]}</span>
+						{#if problems(q).length}<span class="warn" title={problemText(q)} aria-label={E.toFill}>!</span>{/if}
 					</button>
 				</li>
 			{/each}
 		</ol>
 		{#if !ro}
 			<div class="add">
-				<select bind:value={addType} aria-label="Typ nowego pytania">
-					{#each Object.entries(TYPE_LABELS) as [t, label]}<option value={t}>{label}</option>{/each}
+				<select bind:value={addType} aria-label={E.newType}>
+					{#each QTYPES as qt}<option value={qt}>{E.types[qt]}</option>{/each}
 				</select>
-				<button type="button" onclick={add}>+ Dodaj pytanie</button>
+				<button type="button" onclick={add}>{E.addQuestion}</button>
 			</div>
 		{/if}
 	</aside>
@@ -201,37 +205,37 @@
 	<section class="editor">
 		{#if !current}
 			<div class="card empty">
-				<p><strong>Quiz nie ma jeszcze pytań.</strong></p>
-				<p class="muted">Wybierz typ po lewej i kliknij „Dodaj pytanie”.</p>
+				<p><strong>{E.noQuestions}</strong></p>
+				<p class="muted">{E.noQuestionsHint}</p>
 			</div>
 		{:else}
 			<fieldset class="q" disabled={ro}>
-				<legend class="sr">Pytanie {selected + 1}</legend>
+				<legend class="sr">{E.question(selected + 1)}</legend>
 				<div class="q-head">
-					<label class="grow">Typ pytania
+					<label class="grow">{E.type}
 						<select value={current.type} onchange={(e) => setType((e.currentTarget as HTMLSelectElement).value as QType)}>
-							{#each Object.entries(TYPE_LABELS) as [t, label]}<option value={t}>{label}</option>{/each}
+							{#each QTYPES as qt}<option value={qt}>{E.types[qt]}</option>{/each}
 						</select>
 					</label>
-					<label>Czas (s)<input type="number" min="5" max="240" bind:value={current.timeLimit} /></label>
-					<label>Punkty
+					<label>{E.time}<input type="number" min="5" max="240" bind:value={current.timeLimit} /></label>
+					<label>{E.points}
 						<select bind:value={current.pointsMultiplier}>
-							<option value={1}>×1</option><option value={2}>×2</option><option value={0}>bez punktów</option>
+							<option value={1}>×1</option><option value={2}>×2</option><option value={0}>{E.noPoints}</option>
 						</select>
 					</label>
 					<div class="q-tools">
-						<button type="button" class="secondary" onclick={() => move(selected, -1)} disabled={selected === 0} aria-label="Przesuń w górę">↑</button>
-						<button type="button" class="secondary" onclick={() => move(selected, 1)} disabled={selected === questions.length - 1} aria-label="Przesuń w dół">↓</button>
-						<button type="button" class="secondary" onclick={() => duplicate(selected)}>Duplikuj</button>
-						<button type="button" class="danger" onclick={() => remove(selected)}>Usuń</button>
+						<button type="button" class="secondary" onclick={() => move(selected, -1)} disabled={selected === 0} aria-label={E.moveUp}>↑</button>
+						<button type="button" class="secondary" onclick={() => move(selected, 1)} disabled={selected === questions.length - 1} aria-label={E.moveDown}>↓</button>
+						<button type="button" class="secondary" onclick={() => duplicate(selected)}>{E.duplicate}</button>
+						<button type="button" class="danger" onclick={() => remove(selected)}>{E.remove}</button>
 					</div>
 				</div>
 
-				<label>Treść pytania
-					<input type="text" bind:value={current.prompt} maxlength="200" placeholder="np. Jaka to kolęda?" />
+				<label>{E.prompt}
+					<input type="text" bind:value={current.prompt} maxlength="200" placeholder={E.promptPlaceholder} />
 				</label>
-				<label>Tłumaczenie / drugi wiersz (opcjonalnie)
-					<input type="text" value={current.promptTranslation ?? ''} oninput={(e) => (current.promptTranslation = (e.currentTarget as HTMLInputElement).value || null)} maxlength="200" placeholder="np. Which Christmas carol is this?" />
+				<label>{E.translation}
+					<input type="text" value={current.promptTranslation ?? ''} oninput={(e) => (current.promptTranslation = (e.currentTarget as HTMLInputElement).value || null)} maxlength="200" placeholder={E.translationPlaceholder} />
 				</label>
 
 				{#if current.data.type === 'audio'}
@@ -265,52 +269,52 @@
 										{:else}<path d={shapes[i]} fill="#111" />{/if}
 									</svg>
 								</span>
-								<input type="text" bind:value={d.answers[i]} maxlength="80" placeholder="Odpowiedź {String.fromCharCode(65 + i)}{i >= 2 ? ' (opcjonalnie)' : ''}" aria-label="Odpowiedź {String.fromCharCode(65 + i)}" />
-								<label class="check small"><input type="checkbox" checked={d.correct.includes(i)} onchange={() => toggleCorrect(i)} /> poprawna</label>
+								<input type="text" bind:value={d.answers[i]} maxlength="80" placeholder={E.answer(String.fromCharCode(65 + i)) + (i >= 2 ? E.optional : '')} aria-label={E.answer(String.fromCharCode(65 + i))} />
+								<label class="check small"><input type="checkbox" checked={d.correct.includes(i)} onchange={() => toggleCorrect(i)} /> {E.correct}</label>
 							</div>
 						{/each}
 					</div>
 				{:else if current.data.type === 'truefalse'}
 					{@const d = current.data}
-					<div class="tf" role="radiogroup" aria-label="Poprawna odpowiedź">
-						<label class="check"><input type="radio" checked={d.correct} onchange={() => (d.correct = true)} /> Prawda jest poprawna</label>
-						<label class="check"><input type="radio" checked={!d.correct} onchange={() => (d.correct = false)} /> Fałsz jest poprawny</label>
+					<div class="tf" role="radiogroup" aria-label={E.correctAnswer}>
+						<label class="check"><input type="radio" checked={d.correct} onchange={() => (d.correct = true)} /> {E.trueCorrect}</label>
+						<label class="check"><input type="radio" checked={!d.correct} onchange={() => (d.correct = false)} /> {E.falseCorrect}</label>
 					</div>
 				{:else if current.data.type === 'text'}
 					{@const d = current.data}
-					<p class="muted">Akceptowane odpowiedzi (wielkość liter, polskie znaki i interpunkcja nie mają znaczenia):</p>
+					<p class="muted">{E.acceptedIntro}</p>
 					{#each d.accepted as _, i}
 						<div class="row">
-							<input type="text" bind:value={d.accepted[i]} maxlength="80" aria-label="Akceptowana odpowiedź {i + 1}" />
-							{#if d.accepted.length > 1}<button type="button" class="secondary" onclick={() => d.accepted.splice(i, 1)} aria-label="Usuń">✕</button>{/if}
+							<input type="text" bind:value={d.accepted[i]} maxlength="80" aria-label={E.accepted(i + 1)} />
+							{#if d.accepted.length > 1}<button type="button" class="secondary" onclick={() => d.accepted.splice(i, 1)} aria-label={E.remove}>✕</button>{/if}
 						</div>
 					{/each}
-					{#if d.accepted.length < 10}<button type="button" class="link" onclick={() => d.accepted.push('')}>+ dodaj wariant</button>{/if}
-					<label>Tolerancja literówek
+					{#if d.accepted.length < 10}<button type="button" class="link" onclick={() => d.accepted.push('')}>{E.addVariant}</button>{/if}
+					<label>{E.typos}
 						<select bind:value={d.typoTolerance}>
-							<option value={0}>Brak – dokładnie</option><option value={1}>1 literówka</option><option value={2}>2 literówki</option>
+							<option value={0}>{E.typos0}</option><option value={1}>{E.typos1}</option><option value={2}>{E.typos2}</option>
 						</select>
 					</label>
 				{:else if current.data.type === 'order'}
 					{@const d = current.data}
-					<p class="muted">Wpisz elementy w POPRAWNEJ kolejności – graczom pokażą się pomieszane.</p>
+					<p class="muted">{E.orderIntro}</p>
 					{#each d.items as _, i}
 						<div class="row">
 							<span class="n">{i + 1}.</span>
-							<input type="text" bind:value={d.items[i]} maxlength="60" aria-label="Element {i + 1}" />
-							{#if d.items.length > 3}<button type="button" class="secondary" onclick={() => d.items.splice(i, 1)} aria-label="Usuń">✕</button>{/if}
+							<input type="text" bind:value={d.items[i]} maxlength="60" aria-label={E.item(i + 1)} />
+							{#if d.items.length > 3}<button type="button" class="secondary" onclick={() => d.items.splice(i, 1)} aria-label={E.remove}>✕</button>{/if}
 						</div>
 					{/each}
-					{#if d.items.length < 6}<button type="button" class="link" onclick={() => d.items.push('')}>+ dodaj element</button>{/if}
-					<label class="check"><input type="checkbox" bind:checked={d.partialCredit} /> Częściowe punkty za część poprawnych pozycji</label>
+					{#if d.items.length < 6}<button type="button" class="link" onclick={() => d.items.push('')}>{E.addItem}</button>{/if}
+					<label class="check"><input type="checkbox" bind:checked={d.partialCredit} /> {E.partial}</label>
 				{/if}
 
 				<div class="image">
 					{#if current.imageMediaId}
-						<img src="/media/{current.imageMediaId}" alt="Obrazek do pytania" />
-						<button type="button" class="link" onclick={() => (current.imageMediaId = null)}>Usuń obrazek</button>
+						<img src="/media/{current.imageMediaId}" alt={E.imageAlt} />
+						<button type="button" class="link" onclick={() => (current.imageMediaId = null)}>{E.removeImage}</button>
 					{:else}
-						<label class="btn secondary file">Dodaj obrazek (PNG, JPG, WEBP)
+						<label class="btn secondary file">{E.addImage}
 							<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onchange={pickImage} />
 						</label>
 					{/if}
@@ -318,7 +322,7 @@
 				</div>
 
 				{#if problems(current).length}
-					<p class="notice">Do uzupełnienia: {problems(current).join(', ')}.</p>
+					<p class="notice">{E.toFillList(problemText(current))}</p>
 				{/if}
 			</fieldset>
 		{/if}

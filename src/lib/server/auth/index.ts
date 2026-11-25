@@ -43,9 +43,10 @@ export const hashPassword = (pw: string) => withHashSlot(() => hash(pw, { memory
 export const verifyPassword = (hashStr: string, pw: string) =>
 	withHashSlot(() => verify(hashStr, pw).catch(() => false));
 
-export function passwordProblem(pw: string): string | null {
-	if (pw.length < 10) return 'Hasło musi mieć co najmniej 10 znaków.';
-	if (pw.length > 200) return 'Hasło jest za długie.';
+/** Zwraca klucz błędu (src/lib/i18n/panel.ts → err) albo null. */
+export function passwordProblem(pw: string): 'passwordShort' | 'passwordLong' | null {
+	if (pw.length < 10) return 'passwordShort';
+	if (pw.length > 200) return 'passwordLong';
 	return null;
 }
 

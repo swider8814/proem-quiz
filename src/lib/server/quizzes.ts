@@ -5,6 +5,7 @@ import { newId } from './auth/crypto.js';
 import { MediaError, cutClip, mediaUrl } from './media.js';
 import { canUseMedia } from './media-access.js';
 import type { User } from './auth/index.js';
+import type { ErrKey } from '#lib/i18n/panel.js';
 import { DEFAULT_QUIZ_SETTINGS, type QuestionData, type QuizSettings } from './db/schema.js';
 
 // ── Uprawnienia ──────────────────────────────────────────────────────────
@@ -48,20 +49,20 @@ export function listShares(quizId: string) {
 }
 
 /** Ustawia (albo usuwa, gdy permission = null) dostęp innej osoby do quizu. Zwraca komunikat błędu lub null. */
-export function setShare(actor: User, quizId: string, targetId: string, permission: SharePermission | null): string | null {
+export function setShare(actor: User, quizId: string, targetId: string, permission: SharePermission | null): ErrKey | null {
 	const access = quizAccess(actor, quizId);
-	if (!canManageShares(actor, access)) return 'Brak uprawnień do udostępniania tego quizu.';
+	if (!canManageShares(actor, access)) return 'shareNoRights';
 	const quiz = db.select({ ownerId: schema.quizzes.ownerId }).from(schema.quizzes).where(eq(schema.quizzes.id, quizId)).get();
-	if (!quiz) return 'Nie znaleziono quizu.';
+	if (!quiz) return 'quizNotFound';
 	const target = db.select({ id: schema.users.id, disabled: schema.users.disabled }).from(schema.users).where(eq(schema.users.id, targetId)).get();
-	if (!target) return 'Nie znaleziono konta.';
-	if (target.id === quiz.ownerId) return 'Właściciel ma zawsze pełny dostęp.';
+	if (!target) return 'accountNotFound';
+	if (target.id === quiz.ownerId) return 'ownerAlways';
 	const where = and(eq(schema.quizShares.quizId, quizId), eq(schema.quizShares.userId, target.id));
 	if (permission === null) {
 		db.delete(schema.quizShares).where(where).run();
 		return null;
 	}
-	if (target.disabled) return 'To konto jest zablokowane.';
+	if (target.disabled) return 'accountBlocked';
 	db.insert(schema.quizShares)
 		.values({ quizId, userId: target.id, permission })
 		.onConflictDoUpdate({ target: [schema.quizShares.quizId, schema.quizShares.userId], set: { permission } })
@@ -129,15 +130,15 @@ export function duplicateQuiz(user: User, quizId: string) {
 // ── Walidacja zapisu z edytora ───────────────────────────────────────────
 
 const str = (max: number) => z.string().trim().max(max);
-const answerList = z.array(str(80).min(1, 'Pusta odpowiedź')).min(2).max(4);
-const correctList = z.array(z.number().int().min(0).max(3)).min(1, 'Zaznacz poprawną odpowiedź').max(4);
+const answerList = z.array(str(80).min(1, 'emptyAnswer')).min(2).max(4);
+const correctList = z.array(z.number().int().min(0).max(3)).min(1, 'markCorrect').max(4);
 const mediaId = z.string().regex(/^med_[A-Za-z0-9_-]{10,20}$/);
 
 const questionSchema = z
 	.object({
 		id: z.string().max(40).optional(),
 		type: z.enum(['choice', 'truefalse', 'audio', 'text', 'order']),
-		prompt: str(200).min(1, 'Wpisz treść pytania'),
+		prompt: str(200).min(1, 'writePrompt'),
 		promptTranslation: str(200).nullable().optional(),
 		imageMediaId: mediaId.nullable().optional(),
 		timeLimit: z.number().int().min(5).max(240),
@@ -160,22 +161,22 @@ const questionSchema = z
 		])
 	})
 	.superRefine((q, ctx) => {
-		if (q.type !== q.data.type) ctx.addIssue({ code: 'custom', message: 'Niespójny typ pytania' });
+		if (q.type !== q.data.type) ctx.addIssue({ code: 'custom', message: 'typeMismatch' });
 		const d = q.data;
 		if ((d.type === 'choice' || d.type === 'audio') && d.correct.some((c) => c >= d.answers.length)) {
-			ctx.addIssue({ code: 'custom', message: 'Poprawna odpowiedź poza listą' });
+			ctx.addIssue({ code: 'custom', message: 'correctOutOfRange' });
 		}
 		if (q.data.type === 'audio') {
 			const len = q.data.endMs - q.data.startMs;
-			if (len < 1000 || len > 60_000) ctx.addIssue({ code: 'custom', message: 'Fragment audio musi mieć od 1 do 60 sekund' });
+			if (len < 1000 || len > 60_000) ctx.addIssue({ code: 'custom', message: 'clipLength' });
 			if (q.data.revealEndMs != null && q.data.revealEndMs <= q.data.endMs) {
-				ctx.addIssue({ code: 'custom', message: 'Dłuższy fragment musi kończyć się po głównym' });
+				ctx.addIssue({ code: 'custom', message: 'revealAfter' });
 			}
 		}
 	});
 
 export const quizSaveSchema = z.object({
-	title: str(120).min(1, 'Podaj tytuł'),
+	title: str(120).min(1, 'giveTitleShort'),
 	description: str(500).nullable().optional(),
 	themeId: z.string().max(40).nullable(),
 	locale: z.enum(['pl', 'en', 'uk']),
@@ -193,9 +194,9 @@ export const quizSaveSchema = z.object({
 export type QuizSave = z.infer<typeof quizSaveSchema>;
 
 /** Zapis całego quizu. Wycina fragmenty audio, gdy zmienił się zakres. */
-export async function saveQuiz(user: User, quizId: string, input: QuizSave) {
+export async function saveQuiz(user: User, quizId: string, input: QuizSave): Promise<{ error: ErrKey; detail?: string } | { ok: true; questionIds: string[] }> {
 	if (input.themeId && !db.select().from(schema.themes).where(eq(schema.themes.id, input.themeId)).get()) {
-		return { error: 'Nieznany motyw' };
+		return { error: 'themeNotFound' as ErrKey };
 	}
 	// Media muszą istnieć (i nie mogą być cudzymi plikami audio spoza dostępnych – sprawdzamy istnienie i typ).
 	const ids = new Set<string>();
@@ -206,13 +207,13 @@ export async function saveQuiz(user: User, quizId: string, input: QuizSave) {
 	const media = ids.size ? db.select().from(schema.media).where(inArray(schema.media.id, [...ids])).all() : [];
 	const byId = new Map(media.map((m) => [m.id, m]));
 	// Wolno używać tylko plików, do których ma się dostęp (własne, admin, albo z dostępnego quizu).
-	for (const m of media) if (!canUseMedia(user, m)) return { error: 'Brak dostępu do jednego z plików' };
+	for (const m of media) if (!canUseMedia(user, m)) return { error: 'mediaAccess' as ErrKey };
 	for (const q of input.questions) {
-		if (q.imageMediaId && byId.get(q.imageMediaId)?.kind !== 'image') return { error: 'Nieprawidłowy obrazek w pytaniu' };
+		if (q.imageMediaId && byId.get(q.imageMediaId)?.kind !== 'image') return { error: 'badImage' as ErrKey };
 		if (q.data.type === 'audio') {
 			const m = byId.get(q.data.audioMediaId);
-			if (m?.kind !== 'audio') return { error: 'Nieprawidłowy plik audio' };
-			if (m.durationMs && q.data.endMs > m.durationMs + 500) return { error: `Fragment wykracza poza długość utworu (${q.prompt})` };
+			if (m?.kind !== 'audio') return { error: 'badAudio' as ErrKey };
+			if (m.durationMs && q.data.endMs > m.durationMs + 500) return { error: 'clipBeyond' as ErrKey, detail: q.prompt };
 		}
 	}
 
@@ -227,10 +228,10 @@ export async function saveQuiz(user: User, quizId: string, input: QuizSave) {
 			try {
 				clipMediaId = reuse ? prev.clipMediaId : await cutClip(user.id, data.audioMediaId, data.startMs, data.endMs);
 			} catch (e) {
-				if (e instanceof MediaError) return { error: e.message };
+				if (e instanceof MediaError) return { error: e.key };
 				throw e;
 			}
-			if (!clipMediaId) return { error: `Nie udało się wyciąć fragmentu audio (${q.prompt})` };
+			if (!clipMediaId) return { error: 'clipCut' as ErrKey, detail: q.prompt };
 			data = { ...data, clipMediaId };
 		}
 		rows.push({

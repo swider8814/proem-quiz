@@ -1,8 +1,11 @@
-# Na Mikrusie: katalog ~/proem-quiz z tym plikiem i plikiem .env.
-# Plik jest kopiowany na serwer automatycznie przy każdym deployu.
+# Proem Quiz na Mikrusie – ~/proem-quiz/docker-compose.yml (zapisuje go scripts/mikrus-setup.sh).
+# Plik zmienia się TYLKO ręcznie (ponowne uruchomienie skryptu), nie przy deployu z GitHuba:
+# nawet przejęte repozytorium nie może przez niego dostać się do reszty serwera (np. app.proem.pl).
+# Wartości z .env: PORT, QUIZ_UID, QUIZ_MEM, QUIZ_CPUS (domyślne poniżej).
+name: proem-quiz
 services:
   app:
-    image: ghcr.io/swider8814/proem-quiz:latest
+    image: ${QUIZ_IMAGE:-ghcr.io/swider8814/proem-quiz:latest}
     container_name: proem-quiz
     restart: unless-stopped
     env_file: .env
@@ -15,10 +18,31 @@ services:
       # Lewa strona = port Mikrusa, na który Cytrus kieruje ruch (z .env).
       - "${PORT:-3000}:3000"
     volumes:
+      # Jedyny katalog serwera widoczny dla quizu.
       - ./data:/data
-    mem_limit: 700m
+    # ── Izolacja od reszty serwera ──
+    user: "${QUIZ_UID:-10471}:${QUIZ_UID:-10471}" # własny numer użytkownika, inny niż inne kontenery
+    read_only: true # system plików kontenera tylko do odczytu (zapis wyłącznie w /data i /tmp)
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    # ── Limity – awaria quizu nie zabierze zasobów innym usługom ──
+    mem_limit: ${QUIZ_MEM:-600m}
+    memswap_limit: ${QUIZ_MEM:-600m}
+    cpus: ${QUIZ_CPUS:-1.0}
+    pids_limit: 256
+    ulimits:
+      nofile: { soft: 4096, hard: 4096 }
+    networks: [quiz]
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
+
+# Osobna sieć: quiz nie widzi innych kontenerów na serwerze.
+networks:
+  quiz:
+    name: proem-quiz-net

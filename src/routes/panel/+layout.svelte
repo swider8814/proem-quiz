@@ -1,19 +1,22 @@
 <script lang="ts">
 	import '#lib/styles/panel.css';
 	import { page } from '$app/state';
+	import { panelDict } from '#lib/i18n/panel.js';
+	import LangSwitch from '#lib/i18n/LangSwitch.svelte';
 	let { data, children } = $props();
+	const t = $derived(panelDict(data.lang));
 
 	const setupOnly = $derived(data.user.role === 'admin' && !data.user.totpEnabled);
 	const links = $derived([
-		{ href: '/panel', label: 'Quizy' },
+		{ href: '/panel', label: t.nav.quizzes },
 		...(data.user.role === 'admin'
 			? [
-					{ href: '/panel/themes', label: 'Motywy' },
-					{ href: '/panel/users', label: 'Użytkownicy' },
-					{ href: '/panel/settings', label: 'Ustawienia' }
+					{ href: '/panel/themes', label: t.nav.themes },
+					{ href: '/panel/users', label: t.nav.users },
+					{ href: '/panel/settings', label: t.nav.settings }
 				]
 			: []),
-		{ href: '/panel/security', label: 'Bezpieczeństwo' }
+		{ href: '/panel/security', label: t.nav.security }
 	]);
 </script>
 
@@ -30,8 +33,9 @@
 		</nav>
 	{/if}
 	<div class="who">
-		<span>{data.user.name}{data.user.role === 'admin' ? ' · admin' : ''}</span>
-		<form method="POST" action="/logout"><button class="secondary">Wyloguj</button></form>
+		<span>{data.user.name}{data.user.role === 'admin' ? ` · ${t.nav.admin}` : ''}</span>
+		<LangSwitch light />
+		<form method="POST" action="/logout"><button class="secondary">{t.nav.logout}</button></form>
 	</div>
 </header>
 

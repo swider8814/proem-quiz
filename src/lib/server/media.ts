@@ -15,9 +15,12 @@ const MIN_FREE_BYTES = Number(process.env.MEDIA_MIN_FREE_BYTES) || 1024 ** 3; //
 const FFMPEG_CONCURRENCY = 1;
 const FFMPEG_MAX_PENDING = 8;
 
+import type { ErrKey } from '#lib/i18n/panel.js';
+
+/** Błąd pliku; message = klucz z src/lib/i18n/panel.ts (err). */
 export class MediaError extends Error {
-	constructor(message: string, public status = 400) {
-		super(message);
+	constructor(public key: ErrKey, public status = 400) {
+		super(key);
 	}
 }
 
@@ -28,7 +31,7 @@ const waiting: (() => void)[] = [];
 
 async function inQueue<T>(fn: () => Promise<T>): Promise<T> {
 	if (active >= FFMPEG_CONCURRENCY) {
-		if (waiting.length >= FFMPEG_MAX_PENDING) throw new MediaError('Serwer przetwarza teraz inne pliki. Spróbuj za chwilę.', 503);
+		if (waiting.length >= FFMPEG_MAX_PENDING) throw new MediaError('ffmpegBusy', 503);
 		await new Promise<void>((r) => waiting.push(r));
 	}
 	active++;
@@ -81,11 +84,11 @@ const usedBytes = () =>
 /** Czy zmieści się kolejne `bytes` (limit sumy mediów + wolne miejsce na dysku). */
 async function ensureSpace(bytes: number) {
 	if (usedBytes() + bytes > QUOTA_BYTES) {
-		throw new MediaError('Brak miejsca na pliki (limit mediów). Usuń nieużywane quizy albo poproś administratora.', 507);
+		throw new MediaError('quota', 507);
 	}
 	try {
 		const st = await fs.statfs(mediaDir);
-		if (st.bavail * st.bsize - bytes < MIN_FREE_BYTES) throw new MediaError('Na serwerze kończy się miejsce na dysku.', 507);
+		if (st.bavail * st.bsize - bytes < MIN_FREE_BYTES) throw new MediaError('diskFull', 507);
 	} catch (e) {
 		if (e instanceof MediaError) throw e;
 	}
@@ -114,8 +117,8 @@ async function sizeOf(file: string) {
  */
 export async function saveUpload(ownerId: string, originalName: string, data: Uint8Array) {
 	const type = sniff(data);
-	if (!type) throw new MediaError('Nieobsługiwany format pliku. Audio: MP3, M4A, WAV, OGG, FLAC. Obrazy: PNG, JPG, WEBP, GIF.');
-	if (data.byteLength > LIMITS[type.kind]) throw new MediaError(`Plik jest za duży (max ${LIMITS[type.kind] / 1024 / 1024} MB).`, 413);
+	if (!type) throw new MediaError('unsupported');
+	if (data.byteLength > LIMITS[type.kind]) throw new MediaError('fileTooBig', 413);
 	await fs.mkdir(mediaDir, { recursive: true });
 	await ensureSpace(type.kind === 'audio' ? MAX_OUTPUT_BYTES : data.byteLength);
 
@@ -130,13 +133,13 @@ export async function saveUpload(ownerId: string, originalName: string, data: Ui
 			await fs.writeFile(tmp, data, { mode: 0o640 });
 			durationMs = await inQueue(async () => {
 				const inDur = await probeDuration(tmp);
-				if (!inDur) throw new MediaError('Nie udało się odczytać pliku audio.');
-				if (inDur > MAX_AUDIO_MS) throw new MediaError('Utwór jest za długi (max 15 minut).');
+				if (!inDur) throw new MediaError('audioRead');
+				if (inDur > MAX_AUDIO_MS) throw new MediaError('audioLong');
 				try {
 					await run('ffmpeg', ['-nostdin', '-hide_banner', '-loglevel', 'error', '-y', '-i', tmp, '-t', String(MAX_AUDIO_MS / 1000),
 						'-vn', '-map_metadata', '-1', '-ac', '2', '-ar', '44100', '-b:a', '160k', '-fs', String(MAX_OUTPUT_BYTES), '-f', 'mp3', out], 120_000);
 				} catch {
-					throw new MediaError('Nie udało się przetworzyć pliku audio.');
+					throw new MediaError('audioProcess');
 				}
 				return probeDuration(out);
 			});
@@ -144,7 +147,7 @@ export async function saveUpload(ownerId: string, originalName: string, data: Ui
 			await fs.writeFile(out, data, { mode: 0o640 });
 		}
 		const size = await sizeOf(out);
-		if (size === 0 || size >= MAX_OUTPUT_BYTES) throw new MediaError('Plik wynikowy jest nieprawidłowy lub za duży.');
+		if (size === 0 || size >= MAX_OUTPUT_BYTES) throw new MediaError('outputBad');
 		const row = db
 			.insert(schema.media)
 			.values({
