@@ -757,7 +757,7 @@
 	.players { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 0.6em; align-content: flex-start; flex: 1; overflow: auto; }
 	.player { font-size: 1.15em; }
 	.player.off { opacity: 0.5; }
-	.mini { border: 0; background: rgba(0, 0, 0, 0.12); color: inherit; border-radius: 50%; width: 1.8em; height: 1.8em; padding: 0; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font: inherit; font-size: 0.8em; }
+	.mini { flex: none; box-sizing: border-box; min-width: 0; min-height: 0; aspect-ratio: 1; border: 0; background: rgba(0, 0, 0, 0.12); color: inherit; border-radius: 50%; width: 1.8em; height: 1.8em; padding: 0; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font: inherit; font-size: 0.8em; }
 	.waiting { font-weight: 800; font-size: 1.3em; opacity: 0.8; }
 	.stage { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 2vh; }
 	.intro { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3vh; text-align: center; }
@@ -822,4 +822,24 @@
 	.controls .g-btn { font-size: 0.85em; }
 	.spacer { flex: 1; }
 	.err { font-weight: 800; background: #fff; color: #b0001e; padding: 0.3em 0.8em; }
+
+	/* Telefon / wąskie okno: wszystko w jednej kolumnie, strona się przewija, przyciski zawijają się
+	   zamiast wyjeżdżać poza ekran. Ekran dla widzów (projektor) jest szeroki – tego nie dotyczy. */
+	@media (max-width: 760px) {
+		.host { height: auto; min-height: 100dvh; overflow: visible; padding: 3vw; gap: 3vw; font-size: 15px; }
+		.main { flex-direction: column; gap: 3vw; }
+		.side { width: auto; max-height: 40vh; }
+		.lobby { flex-direction: column; gap: 3vw; }
+		.join { flex-wrap: wrap; gap: 3vw; padding: 4vw; }
+		.join > div { flex: 1 1 10em; min-width: 0; }
+		.pin { font-size: clamp(2.6em, 15vw, 4em); letter-spacing: 0.04em; }
+		.qr { width: 8em; height: 8em; }
+		.count { width: auto; flex-direction: row; gap: 0.5em; padding: 0.6em 1em; }
+		.count .n { font-size: 2em; }
+		.players { overflow: visible; }
+		.controls { flex-wrap: wrap; gap: 0.5em; }
+		.controls .spacer { display: none; }
+		.controls .g-btn { flex: 1 1 calc(50% - 0.5em); justify-content: center; min-width: 0; }
+		.controls .err, .controls .screen-on { flex: 1 1 100%; }
+	}
 </style>
