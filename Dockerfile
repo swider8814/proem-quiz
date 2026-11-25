@@ -22,7 +22,9 @@ ENV NODE_ENV=production \
 	PORT=3000 \
 	DATA_DIR=/data
 ARG APP_VERSION=dev
-ENV APP_VERSION=$APP_VERSION
+ARG APP_BUILD=
+ARG APP_BUILT_AT=
+ENV APP_VERSION=$APP_VERSION APP_BUILD=$APP_BUILD APP_BUILT_AT=$APP_BUILT_AT
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/build ./build
 COPY --from=build /app/package.json ./

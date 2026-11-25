@@ -59,7 +59,7 @@
 						<strong>{data.user.name}</strong>
 						{#if data.user.role === 'admin'}<span class="role">{t.nav.admin}</span>{/if}
 					</span>
-					<span class="acts">
+					<span class="acts compact-m">
 						<LangSwitch />
 						<form method="POST" action="/logout"><button class="secondary">{t.nav.logout}</button></form>
 					</span>
@@ -71,11 +71,18 @@
 	<main>
 		<div class="inner">
 			{@render children()}
+			{#if !bare}
+				<footer class="ver">
+					Proem Quiz {data.version.label}{#if data.version.builtAt}{' · '}{data.version.builtAt}{/if}{#if data.version.short}{' · '}<a href={data.version.commitUrl} target="_blank" rel="noopener">{data.version.short}</a>{/if}
+				</footer>
+			{/if}
 		</div>
 	</main>
 </div>
 
 <style>
+	.ver { margin-top: 2.5rem; padding-top: 0.75rem; border-top: 1px solid var(--line); font-size: 0.78rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+	.ver a { color: inherit; }
 	.shell { display: flex; align-items: flex-start; min-height: 100vh; }
 	.sidebar {
 		flex: none; width: 15rem; box-sizing: border-box; position: sticky; top: 0; height: 100vh; overflow-y: auto;
@@ -128,8 +135,11 @@
 		}
 		.menu.open { display: flex; }
 		nav a { min-height: 3.25rem; font-size: 1.1rem; }
-		.who { border: 0; border-top: 1px solid var(--line); border-radius: 0; padding: 1rem 0 0; }
+		/* Profil, język i wylogowanie w jednej linii: [D] Imię Nazwisko · EN · Wyloguj */
+		.who { flex-wrap: nowrap; border: 0; border-top: 1px solid var(--line); border-radius: 0; padding: 1rem 0 0; }
+		.acts { flex: none; flex-basis: auto; justify-content: flex-end; gap: 0.25rem; }
 		.acts button { min-height: 2.75rem; }
+		.acts :global(.lang button) { min-width: 2.75rem; padding: 0 0.5rem; }
 		main { padding: 1rem 1rem 2rem; }
 	}
 </style>

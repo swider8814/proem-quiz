@@ -84,6 +84,16 @@ export const MIME: Record<string, string> = {
 const usedBytes = () =>
 	db.select({ n: sql<number>`coalesce(sum(${schema.media.sizeBytes}), 0)` }).from(schema.media).get()!.n;
 
+/** Do Ustawień → O aplikacji: pliki quizów vs limit i wolne miejsce na dysku serwera. */
+export async function mediaUsage() {
+	let free: number | null = null;
+	try {
+		const st = await fs.statfs(mediaDir);
+		free = st.bavail * st.bsize;
+	} catch {}
+	return { used: usedBytes(), quota: QUOTA_BYTES, free };
+}
+
 /** Czy zmieści się kolejne `bytes` (limit sumy mediów + wolne miejsce na dysku). */
 async function ensureSpace(bytes: number) {
 	if (usedBytes() + bytes > QUOTA_BYTES) {
