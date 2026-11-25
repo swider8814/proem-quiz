@@ -320,6 +320,22 @@ export class Game {
 	}
 
 	/** Raport: wyniki graczy (tylko nicki) i trudność rozegranych pytań. */
+	/** Podsumowanie na ekran podium: gracze, pytania, % dobrych odpowiedzi, najtrudniejsze pytanie. */
+	summary() {
+		const r = this.report().data;
+		const scored = r.questions.map((q, i) => ({ ...q, n: i + 1 })).filter((q) => q.type !== 'poll' && q.type !== 'slide');
+		const answered = scored.reduce((s, q) => s + q.answered, 0);
+		const correct = scored.reduce((s, q) => s + q.correct, 0);
+		const withAnswers = scored.filter((q) => q.answered > 0);
+		const hardest = withAnswers.length > 1 ? withAnswers.reduce((a, b) => (b.correct / b.answered < a.correct / a.answered ? b : a)) : null;
+		return {
+			players: r.players.length,
+			questions: r.questions.length,
+			correctPct: answered ? Math.round((100 * correct) / answered) : null,
+			hardest: hardest ? { n: hardest.n, prompt: String(hardest.prompt ?? '').slice(0, 70), pct: Math.round((100 * hardest.correct) / hardest.answered) } : null
+		};
+	}
+
 	report() {
 		const played = this.quiz.questions.slice(0, this.index + 1);
 		const active = this.activePlayers();
@@ -602,6 +618,7 @@ export class Game {
 					return pr ? { ...r, prevRank: pr.rank, prevScore: pr.score } : r;
 				});
 		}
+		if (this.state === 'ended') v.summary = (this.cachedSummary ??= this.summary());
 		// Pełna tabela tylko dla okna prowadzącego (panel boczny), nie trafia na ekran widzów.
 		if (this.state !== 'lobby') {
 			const conn = new Map(this.activePlayers().map((p) => [p.id, p.connected]));

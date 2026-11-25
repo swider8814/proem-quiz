@@ -2,7 +2,7 @@
 	import { page } from '$app/state';
 	import { panelDict } from '#lib/i18n/panel.js';
 	const PH = $derived(panelDict(page.data.lang).host);
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import type { Socket } from 'socket.io-client';
 	import './game.css';
 	import Shape from './Shape.svelte';
@@ -52,6 +52,7 @@
 		solution?: { correct?: number[] | boolean; accepted?: string[]; order?: string[]; value?: number; margin?: number; unit?: string };
 		distribution?: { counts?: number[]; correct?: number; wrong?: number; average?: number | null };
 		ranking?: { id: string; nick: string; avatar?: number; score: number; rank: number; members?: string[]; prevRank?: number; prevScore?: number }[];
+		summary?: { players: number; questions: number; correctPct: number | null; hardest: { n: number; prompt: string; pct: number } | null };
 		standings?: { id: string; nick: string; avatar?: number; score: number; rank: number; connected: boolean }[];
 	};
 	type ScreenMsg =
@@ -88,6 +89,8 @@
 	// Podium: 3. miejsce, potem 2., na końcu 1. z konfetti i fanfarą (ms od wejścia na ekran).
 	const PODIUM_DELAY: Record<number, number> = { 2: 700, 1: 2300, 0: 4100 };
 	const PODIUM_REST = 5600;
+	/** Czas nabijania punktów na stopniu podium (ms). */
+	const PODIUM_COUNT = 1200;
 	let showPlayers = $state(false);
 	const disconnected = $derived(hs?.standings?.filter((r) => !r.connected).length ?? 0);
 
@@ -166,6 +169,34 @@
 	const BOARD_HOLD = 1200;
 	const BOARD_MOVE = 1000;
 	let boardBefore = $state(false);
+
+	// Podium wypełnia ekran: gdy pod listą zostaje wolne miejsce (mało graczy, niski ekran),
+	// stopnie, zwierzątka i nicki rosną (do ×1,45); resztę miejsca dzielimy równo nad i pod.
+	let boardEl: HTMLElement | undefined = $state();
+	let podiumEl: HTMLElement | undefined = $state();
+	let pk = $state(1);
+	async function fitPodium() {
+		if (!boardEl || !podiumEl) return;
+		pk = 1;
+		await tick();
+		if (!boardEl || !podiumEl) return;
+		// Wolne miejsce = wysokość sekcji − (wysokości elementów + odstępy); marginesy auto pomijamy.
+		const kids = [...boardEl.children].filter((el) => getComputedStyle(el).position !== 'fixed');
+		const gap = parseFloat(getComputedStyle(boardEl).rowGap) || 0;
+		const content = kids.reduce((sum, el) => sum + el.getBoundingClientRect().height, 0) + gap * Math.max(0, kids.length - 1);
+		const free = boardEl.clientHeight - content - 12;
+		const ph = podiumEl.getBoundingClientRect().height;
+		pk = Math.max(1, Math.min(1.45, 1 + free / Math.max(ph, 1)));
+	}
+	$effect(() => {
+		if (hs?.state !== 'ended') return;
+		void hs.ranking?.length;
+		void hs.summary;
+		void fitPodium();
+		const onResize = () => void fitPodium();
+		window.addEventListener('resize', onResize);
+		return () => window.removeEventListener('resize', onResize);
+	});
 	let boardTimer: ReturnType<typeof setTimeout> | undefined;
 	function animateBoard(s: HS) {
 		clearTimeout(boardTimer);
@@ -604,20 +635,27 @@
 					{/if}
 			</section>
 		{:else if hs.state === 'leaderboard' || hs.state === 'ended'}
-			<section class="board">
+			<section class="board" class:ended={hs.state === 'ended'} bind:this={boardEl}>
 				<h1>{hs.state === 'ended' ? L.podium : L.leaderboard}</h1>
 				{#if hs.state === 'ended' && hs.ranking?.length}
-					<div class="podium">
+					<div class="podium" bind:this={podiumEl} style:--pk={pk}>
 						{#each [1, 0, 2] as idx}
 							{#if hs.ranking[idx]}
 								<div class="step s{idx + 1}" in:fly|global={{ y: 260, delay: PODIUM_DELAY[idx], duration: 800, easing: backOut }}>
 									<div class="pod-top">
 										{#if hs.ranking[idx].avatar != null}<Avatar id={hs.ranking[idx].avatar ?? 0} size="4.2em" animated />{/if}
-										<Medal place={idx + 1} size="2.6em" />
 									</div>
 									<span class="who">{hs.ranking[idx].nick}</span>
 									{#if hs.ranking[idx].members?.length}<span class="members">{hs.ranking[idx].members?.join(', ')}</span>{/if}
-									<div class="g-box block"><span class="place">{idx + 1}</span><span>{hs.ranking[idx].score}</span></div>
+									<!-- Punkty „nabijają się” od zera po wjeździe stopnia, a na koniec wskakuje medal. -->
+									<div class="g-box block">
+										<span class="medal-slot" style:--ms={`calc(${idx === 0 ? 10 : idx === 1 ? 7.5 : 5.6}vh * var(--pk, 1))`}>
+											<span class="medal-in" in:scale|global={{ start: 0.2, delay: PODIUM_DELAY[idx] + 700 + PODIUM_COUNT, duration: 500, easing: backOut }}>
+												<Medal place={idx + 1} size="100%" />
+											</span>
+										</span>
+										<span class="pts"><CountUp to={hs.ranking[idx].score} delay={PODIUM_DELAY[idx] + 700} duration={PODIUM_COUNT} /></span>
+									</div>
 								</div>
 							{:else}
 								<div class="step"></div>
@@ -626,8 +664,8 @@
 					</div>
 					<Confetti delay={PODIUM_DELAY[0] + 150} />
 				{/if}
-				<div class="board-row">
 				{#if hs.state === 'leaderboard'}
+				<div class="board-row">
 					<ol class="rank" class:many={boardRows.length > 5}>
 						{#each boardRows as r, i (r.id)}
 							{@const place = boardBefore ? (r.prevRank ?? null) : r.rank}
@@ -641,18 +679,6 @@
 							</li>
 						{/each}
 					</ol>
-				{:else}
-					<ol class="rank rest">
-						{#each hs.ranking?.slice(3) ?? [] as r, i (r.id)}
-							<li class="g-box" in:fly|global={{ x: -50, delay: PODIUM_REST + i * 110, duration: 400 }}>
-								<span class="pos">{r.rank}.</span>
-								{#if r.avatar != null}<Avatar id={r.avatar} size="1.6em" />{/if}
-								<span class="nm">{r.nick}{#if r.members?.length}<small class="members"> · {r.members.join(', ')}</small>{/if}</span><span class="sc">{r.score}</span>
-							</li>
-						{/each}
-					</ol>
-				{/if}
-				{#if hs.state === 'leaderboard'}
 					<!-- Między pytaniami: kod do powrotu dla tych, którzy wypadli z gry (np. „wstecz” na telefonie). -->
 					<div class="rejoin g-box" in:fly={{ y: 20, delay: 500, duration: 400 }}>
 						<img class="qr-sm" src={qr} alt={PH.qrAlt} />
@@ -660,8 +686,39 @@
 						<p class="hint">{L.rejoinHint}</p>
 						{#if disconnected > 0}<p class="g-chip">{L.disconnected(disconnected)}</p>{/if}
 					</div>
-				{/if}
 				</div>
+				{:else}
+					{@const rest = hs.ranking?.slice(3) ?? []}
+					{@const sm = hs.summary}
+					<!-- Przy nieparzystej liczbie miejsc 4–10 w dwóch kolumnach zostaje pusta komórka – wtedy podsumowanie trafia w nią. -->
+					{@const inCell = !!sm && rest.length > 3 && rest.length % 2 === 1}
+					{@const sumDelay = PODIUM_REST + rest.length * 110 + 300}
+					<ol class="rank rest" class:fill-end={!sm || inCell} class:single={rest.length <= 3} style:grid-template-rows={`repeat(${rest.length <= 3 ? rest.length : Math.ceil(rest.length / 2)}, auto)`}>
+						{#each rest as r, i (r.id)}
+							<li class="g-box" in:fly|global={{ x: -50, delay: PODIUM_REST + i * 110, duration: 400 }}>
+								<span class="pos">{r.rank}.</span>
+								{#if r.avatar != null}<Avatar id={r.avatar} size="1.6em" />{/if}
+								<span class="nm">{r.nick}{#if r.members?.length}<small class="members"> · {r.members.join(', ')}</small>{/if}</span><span class="sc">{r.score}</span>
+							</li>
+						{/each}
+						{#if inCell && sm}
+							<li class="g-box sum-cell" in:fly|global={{ y: 20, delay: sumDelay, duration: 500 }}>
+								<span>{L.sumPlayers(sm.players)}</span>
+								{#if sm.correctPct != null}<span>{L.sumCorrectShort(sm.correctPct)}</span>{/if}
+								{#if sm.hardest}<span>{L.sumHardestShort(sm.hardest.n)}</span>{/if}
+							</li>
+						{/if}
+					</ol>
+					{#if sm && !inCell}
+						<!-- Podsumowanie gry pod listą – wypełnia dół ekranu czymś ciekawym dla sali. -->
+						<div class="summary g-box fill-end" in:fly|global={{ y: 30, delay: sumDelay, duration: 500 }}>
+							<span>{L.sumPlayers(sm.players)}</span>
+							<span>{L.sumQuestions(sm.questions)}</span>
+							{#if sm.correctPct != null}<span>{L.sumCorrect(sm.correctPct)}</span>{/if}
+							{#if sm.hardest}<span>{L.sumHardest(sm.hardest.n, sm.hardest.pct)}</span>{/if}
+						</div>
+					{/if}
+				{/if}
 			</section>
 		{/if}
 
@@ -806,10 +863,19 @@
 	.board { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; align-items: center; gap: 2vh; }
 	.board h1 { margin: 0; font-size: 2.5em; }
 	.podium { display: flex; align-items: flex-end; gap: 2vw; }
-	.step { display: flex; flex-direction: column; align-items: center; gap: 0.5em; width: 14vw; }
+	.step { display: flex; flex-direction: column; align-items: center; gap: 0.5em; }
 	.who { font-weight: 900; font-size: 1.3em; text-align: center; word-break: break-word; }
 	.block { width: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: 800; }
-	.s1 .block { height: 24vh; background: var(--accent); } .s2 .block { height: 17vh; } .s3 .block { height: 12vh; }
+	.s1 .block { height: calc(21vh * var(--pk, 1)); background: var(--accent); } .s2 .block { height: calc(15.5vh * var(--pk, 1)); } .s3 .block { height: calc(11.5vh * var(--pk, 1)); }
+	/* Delikatne kolory stopni: srebrny i brązowy (złoty = kolor akcentu motywu). */
+	.s2 .block { background: #e9edf2; } .s3 .block { background: #f3dcc6; }
+	.block { gap: 0.15em; color: #111; } .block .pts { font-size: 1.2em; font-weight: 900; line-height: 1.1; font-variant-numeric: tabular-nums; }
+	.medal-slot { width: var(--ms); height: var(--ms); display: grid; place-items: center; } .medal-in { display: block; }
+	.podium { font-size: calc(1em * var(--pk, 1)); }
+	.step { width: calc(14vw * var(--pk, 1)); }
+	/* Podium: grupa (stopnie + lista + podsumowanie) wyśrodkowana w pionie pod tytułem. */
+	.board.ended > .podium { margin-top: auto; }
+	.board.ended > .fill-end { margin-bottom: auto; }
 	.place { font-size: 3em; font-weight: 900; line-height: 1; }
 	.rank { list-style: none; padding: 0; margin: 0; width: min(60vw, 900px); display: flex; flex-direction: column; gap: 1vh; }
 	.rank li { display: flex; align-items: center; gap: 1em; padding: 0.6em 1em; font-weight: 800; font-size: 1.2em; }
@@ -826,8 +892,23 @@
 	.rank.many li { font-size: 1em; padding: 0.35em 0.9em; }
 	.rank.many li.top { font-size: 1.12em; }
 	/* Podium: miejsca 4–10 w dwóch kolumnach (4–7 i 8–10) pod stopniami. */
-	.rank.rest { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: repeat(4, auto); grid-auto-flow: column; column-gap: 1.5vw; row-gap: 0.8vh; width: min(84vw, 1300px); }
+	.podium { flex: none; }
+	.rank.rest { flex: none; display: grid; grid-template-columns: 1fr 1fr; grid-auto-flow: column; column-gap: 1.5vw; row-gap: 0.8vh; width: min(84vw, 1300px); }
+	.rank.rest.single { grid-template-columns: 1fr; width: min(42vw, 640px); }
 	.rank.rest li { font-size: 1em; padding: 0.35em 0.9em; }
+	.summary { flex: none; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 0.4em 0; width: max-content; max-width: min(84vw, 1300px); box-sizing: border-box; padding: 0.55em 1.2em; font-weight: 800; font-size: 0.95em; }
+	.summary span { white-space: nowrap; }
+	/* Niski ekran (np. projektor 1366×768): ciaśniej, żeby podium, dziesiątka i podsumowanie się zmieściły. */
+	@media (max-height: 820px) {
+		.rank.rest { row-gap: 0.5vh; }
+		.rank.rest li { padding: 0.22em 0.9em; }
+		.summary { padding: 0.35em 1em; }
+		.board { gap: 1.6vh; }
+	}
+	.rank.rest li.sum-cell { justify-content: center; gap: 0; font-weight: 800; font-size: 0.9em; white-space: nowrap; overflow: hidden; color: color-mix(in srgb, currentColor 78%, transparent); }
+	.rank.rest li.sum-cell span { flex: none; width: auto; text-align: center; }
+	.rank.rest li.sum-cell span + span::before { content: '·'; margin: 0 0.6em; opacity: 0.5; }
+	.summary span + span::before { content: '·'; margin: 0 0.7em; opacity: 0.5; }
 	.controls { display: flex; align-items: center; gap: 0.8em; }
 	.controls .g-btn { font-size: 0.85em; }
 	.spacer { flex: 1; }

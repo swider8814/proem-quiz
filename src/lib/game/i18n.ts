@@ -89,6 +89,12 @@ const pl = {
 	endGame: 'Zakończ grę',
 	leaderboard: 'Ranking',
 	podium: 'Zwycięzcy',
+	sumPlayers: (n: number) => `${n} ${n === 1 ? 'gracz' : 'graczy'}`,
+	sumQuestions: (n: number) => `${n} ${n === 1 ? 'pytanie' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? 'pytania' : 'pytań'}`,
+	sumCorrect: (p: number) => `${p}% dobrych odpowiedzi`,
+	sumHardest: (n: number, p: number) => `najtrudniejsze: pytanie ${n} (${p}% dobrze)`,
+	sumCorrectShort: (p: number) => `${p}% dobrze`,
+	sumHardestShort: (n: number) => `najtrudniejsze: pyt. ${n}`,
 	listen: 'Słuchaj uważnie…',
 	replay: 'Odtwórz ponownie',
 	fullscreen: 'Pełny ekran',
@@ -127,7 +133,7 @@ const en: Dict = {
 	},
 	joinAt: 'Go to', andEnterPin: 'and enter PIN', players: 'players', teams: 'teams', start: 'Start', soundTest: 'Sound test',
 	waitingForPlayers: 'Waiting for players…', answers: 'answers', next: 'Next', skip: 'End question', endGame: 'End game',
-	leaderboard: 'Leaderboard', podium: 'Winners', listen: 'Listen carefully…', replay: 'Play again', fullscreen: 'Full screen',
+	leaderboard: 'Leaderboard', podium: 'Winners', sumPlayers: (n: number) => `${n} ${n === 1 ? 'player' : 'players'}`, sumQuestions: (n: number) => `${n} ${n === 1 ? 'question' : 'questions'}`, sumCorrect: (p: number) => `${p}% correct answers`, sumHardest: (n: number, p: number) => `hardest: question ${n} (${p}% correct)`, sumCorrectShort: (p: number) => `${p}% correct`, sumHardestShort: (n: number) => `hardest: Q${n}`, listen: 'Listen carefully…', replay: 'Play again', fullscreen: 'Full screen',
 	removePlayer: 'Remove player', randomNick: 'Random nickname', correctAnswer: 'Correct answer', accepted: 'Accepted answers',
 	correctOrder: 'Correct order', correctCount: 'correct', wrongCount: 'wrong'
 };
@@ -156,7 +162,7 @@ const uk: Dict = {
 	},
 	joinAt: 'Зайдіть на', andEnterPin: 'і введіть PIN', players: 'гравців', teams: 'команд', start: 'Починаємо', soundTest: 'Тест звуку',
 	waitingForPlayers: 'Чекаємо на гравців…', answers: 'відповідей', next: 'Далі', skip: 'Завершити питання', endGame: 'Завершити гру',
-	leaderboard: 'Рейтинг', podium: 'Переможці', listen: 'Слухайте уважно…', replay: 'Відтворити знову', fullscreen: 'Повний екран',
+	leaderboard: 'Рейтинг', podium: 'Переможці', sumPlayers: (n: number) => `гравців: ${n}`, sumQuestions: (n: number) => `питань: ${n}`, sumCorrect: (p: number) => `${p}% правильних відповідей`, sumHardest: (n: number, p: number) => `найскладніше: питання ${n} (${p}% правильно)`, sumCorrectShort: (p: number) => `${p}% правильно`, sumHardestShort: (n: number) => `найскладніше: пит. ${n}`, listen: 'Слухайте уважно…', replay: 'Відтворити знову', fullscreen: 'Повний екран',
 	removePlayer: 'Видалити гравця', randomNick: 'Випадковий нік', correctAnswer: 'Правильна відповідь', accepted: 'Прийняті відповіді',
 	correctOrder: 'Правильний порядок', correctCount: 'правильно', wrongCount: 'неправильно'
 };
