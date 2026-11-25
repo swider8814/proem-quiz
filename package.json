@@ -20,7 +20,7 @@
 		"test:e2e": "node tests/e2e-auth.test.mjs && node tests/http-security.test.mjs && node tests/panel.test.mjs && node tests/i18n.test.mjs && node tests/backup.test.mjs",
 		"test:load": "node tests/load/run.mjs 300 10",
 		"test:load:media": "node tests/load/media.mjs 300 3",
-		"test:ui": "node tests/game-ui.e2e.mjs && node tests/image-answers.e2e.mjs && node tests/types-ui.e2e.mjs && node tests/editor-ui.e2e.mjs && node tests/auth-ui.e2e.mjs"
+		"test:ui": "node tests/game-ui.e2e.mjs && node tests/image-answers.e2e.mjs && node tests/types-ui.e2e.mjs && node tests/editor-ui.e2e.mjs && node tests/auth-ui.e2e.mjs && node tests/nick-own.e2e.mjs"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-auto": "^8.0.0",

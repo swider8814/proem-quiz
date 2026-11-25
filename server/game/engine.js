@@ -82,7 +82,7 @@ export function shuffled(quiz) {
  * }} QuestionSnap
  * @typedef {{
  *   quizId: string, title: string, locale: 'pl'|'en'|'uk',
- *   settings: { countdown?: number, streakBonus: boolean, nicknameMode: 'random-or-custom'|'random-only', teamMode: boolean, lateJoin: boolean, phoneAnswerText: boolean },
+ *   settings: { countdown?: number, streakBonus: boolean, nicknameMode: 'random-or-custom'|'random-only'|'custom-only', teamMode: boolean, lateJoin: boolean, phoneAnswerText: boolean },
  *   theme: any, blockedWords: string[], questions: QuestionSnap[]
  * }} QuizSnapshot
  */
@@ -147,7 +147,9 @@ export class Game {
 		if (active >= MAX_PLAYERS) return { error: 'full' };
 
 		let finalNick;
-		if (random || this.quiz.settings.nicknameMode === 'random-only') {
+		const mode = this.quiz.settings.nicknameMode;
+		// „Tylko własny”: gracz musi wpisać imię/nick – prośba o losowy jest ignorowana (sprawdzamy wpisany).
+		if (mode === 'random-only' || (random && mode !== 'custom-only')) {
 			finalNick = randomNick(this.quiz.locale, this.takenNicks());
 		} else {
 			finalNick = cleanNick(nick);

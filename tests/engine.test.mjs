@@ -367,6 +367,17 @@ for (const cd of [0, 3]) {
 	ok(shuffled(quiz) === quiz, 'bez ustawień – bez zmian');
 }
 
+// Tryb „tylko własny nick”: losowy nick nie przechodzi, wpisane imię tak (te same zasady filtra).
+{
+	const g = registry().get(registry().create({ ...quiz, quizId: 'own', settings: { ...quiz.settings, nicknameMode: 'custom-only' } }, 'user1').pin);
+	ok(g.addPlayer({ random: true, deviceId: 'own1' }).error === 'nick-short', 'tylko własny: prośba o losowy nick bez imienia odrzucona');
+	const own = g.addPlayer({ nick: 'Marta', random: true, deviceId: 'own2' });
+	ok(own.player?.nick === 'Marta', 'tylko własny: wpisane imię użyte (nawet z random=true)');
+	ok(g.addPlayer({ nick: 'k.u.r.w.a', deviceId: 'own3' }).error === 'nick-blocked', 'tylko własny: filtr słów działa');
+	const ro = registry().get(registry().create({ ...quiz, quizId: 'ro', settings: { ...quiz.settings, nicknameMode: 'random-only' } }, 'user1').pin);
+	ok(ro.addPlayer({ nick: 'Marta', deviceId: 'ro1' }).player?.nick !== 'Marta', 'tylko losowe: wpisany nick ignorowany (bez zmian)');
+}
+
 // PIN brute force
 const brute = mk();
 let limitedHit = false;

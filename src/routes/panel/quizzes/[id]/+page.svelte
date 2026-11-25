@@ -311,6 +311,7 @@
 					<select id="s-nick" bind:value={quiz.settings.nicknameMode}>
 						<option value="random-or-custom">{E.nickRandomOrCustom}</option>
 						<option value="random-only">{E.nickRandomOnly}</option>
+						<option value="custom-only">{E.nickCustomOnly}</option>
 					</select>
 				</div>
 			</div>

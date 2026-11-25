@@ -174,7 +174,7 @@
 		info = r;
 		suggestion = r.suggestion;
 		nick = '';
-		ownNick = false;
+		ownNick = r.nicknameMode === 'custom-only'; // tylko własny nick: od razu pole do wpisania
 		phase = 'nick';
 	}
 
@@ -277,7 +277,9 @@
 					{/if}
 				{:else}
 					<input class="g-input" maxlength="20" bind:value={nick} autocomplete="off" autocapitalize="words" aria-label={team ? L.teamName : L.yourNick} />
-					<button type="button" class="linkish" onclick={() => (ownNick = false)}><Icon name="dice" /> {L.drawAgain}</button>
+					{#if info.nicknameMode !== 'custom-only'}
+						<button type="button" class="linkish" onclick={() => (ownNick = false)}><Icon name="dice" /> {L.drawAgain}</button>
+					{/if}
 				{/if}
 				{#if team}
 					<span class="big-label small-label">{L.members}</span>
