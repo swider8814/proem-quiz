@@ -45,6 +45,34 @@ try {
 	await p.waitForTimeout(300);
 	ok(await p.locator('details#settings').evaluate((d) => d.open), 'link „Więcej w Pomocy” otwiera sekcję „Ustawienia quizu”');
 
+	// Telefon: każde „?” w edytorze otwiera dymek w całości na ekranie (także przy prawej krawędzi),
+	// a kliknięcie „?” w wierszu z przełącznikiem nie przełącza go.
+	for (const vp of [{ width: 390, height: 844 }, { width: 320, height: 640 }]) {
+		const mctx = await browser.newContext({ viewport: vp, isMobile: true, hasTouch: true });
+		await mctx.addCookies([{ name: 'pq_session', value: author.jar.pq_session, url: srv.base }]);
+		const mp = waitForHydration(await mctx.newPage());
+		await mp.goto(p.url().replace(/\/panel\/help.*/, '/panel'));
+		await mp.fill('input[name="title"]', 'Telefon pomoc');
+		await mp.click('button:has-text("Utwórz quiz")');
+		await mp.waitForURL(/\/panel\/quizzes\/quiz_/);
+		await mp.click('.add:not(.add-mobile) button:has-text("Dodaj pytanie")');
+		await mp.click('button:has-text("Ustawienia")');
+		const teamBefore = await mp.isChecked('label:has-text("Tryb drużynowy") input[type="checkbox"]');
+		const n = await mp.locator('.helptip button.q').count();
+		const bad = [];
+		for (let i = 0; i < n; i++) {
+			const q = mp.locator('.helptip button.q').nth(i);
+			await q.scrollIntoViewIfNeeded();
+			await q.click();
+			const r = await mp.locator('.helptip .pop').evaluate((el) => { const b = el.getBoundingClientRect(); return { l: b.left, r: b.right, t: b.top, b: b.bottom, vw: document.documentElement.clientWidth, vh: innerHeight }; });
+			if (r.l < 0 || r.r > r.vw || r.t < 0 || r.b > r.vh) bad.push(`#${i} ${JSON.stringify(r)}`);
+			await mp.keyboard.press('Escape');
+		}
+		ok(n >= 3 && bad.length === 0, `telefon ${vp.width} px: ${n} podpowiedzi w edytorze, każdy dymek mieści się na ekranie ${bad.join(' ')}`);
+		ok((await mp.isChecked('label:has-text("Tryb drużynowy") input[type="checkbox"]')) === teamBefore, `telefon ${vp.width} px: „?” przy trybie drużynowym nie przełącza przełącznika`);
+		await mctx.close();
+	}
+
 	const actx = await browser.newContext({ viewport: { width: 390, height: 844 } });
 	await actx.addCookies([{ name: 'pq_session', value: admin.jar.pq_session, url: srv.base }]);
 	const ap = waitForHydration(await actx.newPage());
