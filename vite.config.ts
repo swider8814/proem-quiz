@@ -17,6 +17,8 @@ const realtimeDev: Plugin = {
 };
 
 export default defineConfig({
+	// Fonty i grafiki zawsze jako osobne pliki (CSP: font-src/img-src 'self', bez data: dla fontów).
+	build: { assetsInlineLimit: 0 },
 	plugins: [
 		sveltekit({
 			compilerOptions: {
