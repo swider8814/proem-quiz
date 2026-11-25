@@ -63,8 +63,21 @@ jobs:
         run: |
           docker compose exec -T app ffmpeg -nostdin -hide_banner -loglevel error -f lavfi -i sine=duration=1 -y /data/media/smoke.mp3
           docker compose exec -T app ffprobe -v error -show_entries format=duration -of csv=p=0 /data/media/smoke.mp3
+          # Obrazki: miniatury WebP (libwebp) w obrazie produkcyjnym
+          docker compose exec -T app ffmpeg -nostdin -hide_banner -loglevel error -f lavfi -i testsrc=size=640x480 -frames:v 1 -c:v libwebp -quality 75 -f webp -y /data/media/smoke.webp
+          docker compose exec -T app ffprobe -v error -show_entries stream=codec_name -of csv=p=0 /data/media/smoke.webp | grep -q webp
           ! docker compose exec -T app sh -c 'touch /app/x' 2>/dev/null
           ! docker compose exec -T app sh -c 'touch /etc/x' 2>/dev/null
+      - name: Próba lokalna (docker-compose.local.yml) też startuje
+        run: |
+          docker compose down
+          printf 'ORIGIN=http://localhost:3000\nTOTP_ENCRYPTION_KEY=%s\n' "$(openssl rand -base64 32)" > .env.local
+          docker tag proem-quiz:test proem-quiz:local
+          docker compose -f docker-compose.local.yml --env-file .env.local up -d --no-build
+          for i in $(seq 1 30); do curl -fsS http://localhost:3000/health && break; sleep 2; done
+          curl -fsS http://localhost:3000/health
+          docker compose -f docker-compose.local.yml --env-file .env.local exec -T app node server/cli.js create-admin local@example.com "Local" | grep -q '/invite/'
+          docker compose -f docker-compose.local.yml --env-file .env.local down -v
       - name: deploy.sh i docker-compose.yml ze skryptu są spójne z repo
         run: node tests/deploy-files.test.mjs
       - name: Logi kontenera

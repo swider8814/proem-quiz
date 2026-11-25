@@ -15,7 +15,7 @@ export const load: PageServerLoad = ({ locals }) => {
 		styles: panelDict(locals.lang).themes.styles,
 		themes: listThemes().map((t) => ({
 			id: t.id, name: t.name, style: t.style, colors: t.colors, isDefault: t.isDefault,
-			logoUrl: mediaUrl(t.logoLight), quizzes: usage.get(t.id) ?? 0
+			logoUrl: mediaUrl(t.logoLight), logoDarkUrl: mediaUrl(t.logoDark), quizzes: usage.get(t.id) ?? 0
 		}))
 	};
 };

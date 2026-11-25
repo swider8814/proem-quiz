@@ -2,7 +2,7 @@
 import http from 'node:http';
 import { io as connect } from 'socket.io-client';
 import { attachRealtime } from '../server/realtime.js';
-import { registry } from '../server/game/engine.js';
+import { registry, shuffled } from '../server/game/engine.js';
 
 const server = http.createServer();
 attachRealtime(server);
@@ -108,9 +108,12 @@ const rv = await p1reveal;
 ok(rv.result.correct && rv.result.points > 900, `szybka poprawna odpowiedź: ${rv.result.points} pkt`);
 
 // Kolejne pytania – przejście przez leaderboard
+const boards = [];
 async function toQuestion() {
 	const w = nextState(p1, (s) => s.state === 'question');
+	const lb = nextState(host, (s) => s.state === 'leaderboard');
 	await emit(host, 'host:next', {}); // -> leaderboard
+	boards.push(await lb);
 	await emit(host, 'host:next', {}); // -> intro
 	return w;
 }
@@ -122,6 +125,13 @@ const ra = await rvAudio;
 ok(ra.result.points > 1800, `mnożnik ×2: ${ra.result.points} pkt`);
 
 q = await toQuestion();
+// Tablica wyników zna miejsca i punkty sprzed pytania (animacja przesunięć jak w Kahoot)
+{
+	const [b1, b2] = boards;
+	const before = new Map(b1.ranking.map((r) => [r.id, r]));
+	ok(b1.ranking.every((r) => r.prevScore === 0 && r.prevRank >= 1), 'pierwsza tablica: punkty sprzed pytania = 0');
+	ok(b2.ranking.every((r) => r.prevScore === before.get(r.id)?.score && r.prevRank === before.get(r.id)?.rank), 'druga tablica: poprzednie miejsca i punkty z pierwszej tablicy');
+}
 const rvText = nextState(p1, (s) => s.state === 'reveal');
 await Promise.all([emit(p1, 'answer', { index: 2, text: '  warszwa! ' }), emit(p2, 'answer', { index: 2, text: 'Kraków' }), emit(p4, 'answer', { index: 2, text: 'WARSZAWA' })]);
 ok((await rvText).result.correct, 'tekst z literówką i bez wielkich liter zaliczony');
@@ -161,6 +171,201 @@ await emit(host, 'host:next', {}); // leaderboard
 await emit(host, 'host:next', {}); // ended (ostatnie pytanie)
 const fin = await endState;
 ok(fin.rank === 1, `koniec gry: Kasia na miejscu ${fin.rank} z ${fin.me.score} pkt`);
+
+// Odliczanie z ustawień quizu: 0 = od razu pytanie, 3 s = intro z czasem końca odliczania
+for (const cd of [0, 3]) {
+	const g = registry().create({ ...quiz, quizId: `cd${cd}`, settings: { ...quiz.settings, countdown: cd } }, 'user1');
+	const h = connect(URL, { auth: { role: 'host', pin: g.pin, token: g.hostToken }, transports: ['websocket'] });
+	await nextState(h);
+	let hostSt = null;
+	h.on('state', (x) => (hostSt = x));
+	const pa = mk();
+	const pb = mk();
+	await emit(pa, 'join', { pin: g.pin, nick: `Ala${cd}`, deviceId: `cda${cd}` });
+	await emit(pb, 'join', { pin: g.pin, nick: `Ola${cd}`, deviceId: `cdb${cd}` });
+	const first = nextState(pa, (st) => st.state === 'intro' || st.state === 'question');
+	const t0 = Date.now();
+	await emit(h, 'host:next', {});
+	const st = await first;
+	if (cd === 0) ok(st.state === 'question', 'bez odliczania: od razu pytanie');
+	else ok(st.state === 'intro' && Math.abs(st.introEnds - t0 - 3000) < 500, `odliczanie 3 s: koniec za ${st.introEnds - t0} ms`);
+	if (cd === 0) {
+		// Wyrzucenie w trakcie pytania: gdy pozostali już odpowiedzieli, pytanie się kończy
+		await emit(pa, 'answer', { index: 0, choice: 1 });
+		const pbId = (hostSt?.standings ?? []).find((x) => x.nick === 'Ola0')?.id;
+		const reveal = nextState(pa, (x) => x.state === 'reveal');
+		const kr = await emit(h, 'host:kick', { playerId: pbId });
+		ok(kr.ok !== false && !kr.error, 'wyrzucenie w trakcie pytania');
+		const rv = await Promise.race([reveal, sleep(2000).then(() => null)]);
+		ok(rv?.state === 'reveal', 'po wyrzuceniu jedynego brakującego gracza od razu wyniki');
+	}
+	h.close();
+	pa.close();
+	pb.close();
+}
+
+// Tryb drużynowy: członkowie drużyny, filtr imion, czas na naradę wydłuża odliczanie
+{
+	const g = registry().create({ ...quiz, quizId: 'team', settings: { ...quiz.settings, teamMode: true, countdown: 3, teamTalk: 5 } }, 'user1');
+	const h = connect(URL, { auth: { role: 'host', pin: g.pin, token: g.hostToken }, transports: ['websocket'] });
+	let hostSt = null;
+	h.on('state', (x) => (hostSt = x));
+	await nextState(h);
+	const ta = mk();
+	let jr = await emit(ta, 'join', { pin: g.pin, nick: 'Stolik 1', deviceId: 'team1', members: ['Ala', 'zakazane'] });
+	ok(jr.error === 'nick-blocked', 'drużyna: niecenzuralne imię członka odrzucone');
+	jr = await emit(ta, 'join', { pin: g.pin, nick: 'Stolik 1', deviceId: 'team1', members: ['Ala', '  Ola ', { x: 1 }, 'B'.repeat(500), '', 'Jan', 'Ewa', 'Iza', 'Kuba', 'Zosia'] });
+	ok(jr.ok, 'drużyna dołączyła z członkami');
+	await sleep(100);
+	const tm = hostSt.players?.find((p) => p.nick === 'Stolik 1')?.members ?? [];
+	ok(JSON.stringify(tm) === JSON.stringify(['Ala', 'Ola', 'Jan', 'Ewa', 'Iza', 'Kuba']), `członkowie oczyszczeni i ograniczeni do 6: ${tm}`);
+	const intro = nextState(ta, (x) => x.state === 'intro');
+	const t0 = Date.now();
+	await emit(h, 'host:next', {});
+	const st = await intro;
+	ok(Math.abs(st.introEnds - t0 - 8000) < 500 && st.question.answers?.length === 4, `narada: odliczanie 3 s + 5 s, odpowiedzi widoczne (${st.introEnds - t0} ms)`);
+	// Raport po grze drużynowej: bez imion członków (review Codexa – dane dzieci)
+	const gg = registry().get(g.pin);
+	let rep = null;
+	gg.onEnd = (r) => (rep = r);
+	await emit(h, 'host:end', {});
+	await sleep(50);
+	ok(rep && rep.data.players.length === 1 && !JSON.stringify(rep).includes('Ala') && !('members' in rep.data.players[0]), 'raport drużyny bez imion członków');
+	h.close();
+	ta.close();
+}
+
+// Ankieta, suwak i slajd
+{
+	const qz = {
+		...quiz, quizId: 'types', settings: { ...quiz.settings, countdown: 0 },
+		questions: [
+			{ id: 's1', type: 'slide', prompt: 'Witajcie!', timeLimit: 20, multiplier: 1, data: { type: 'slide', text: 'Zaczynamy' } },
+			{ id: 'p1', type: 'poll', prompt: 'Ulubiona kolęda?', timeLimit: 20, multiplier: 1, data: { answers: ['Cicha noc', 'Lulajże'] } },
+			{ id: 'r1', type: 'slider', prompt: 'Ile dni ma grudzień?', timeLimit: 20, multiplier: 1, data: { min: 0, max: 100, step: 1, correct: 31, margin: 'low', unit: 'dni' } }
+		]
+	};
+	const g = registry().create(qz, 'user1');
+	const h = connect(URL, { auth: { role: 'host', pin: g.pin, token: g.hostToken }, transports: ['websocket'] });
+	let hs = null;
+	h.on('state', (x) => (hs = x));
+	await nextState(h);
+	const a = mk();
+	const b = mk();
+	await emit(a, 'join', { pin: g.pin, nick: 'Ania', deviceId: 'ty1' });
+	await emit(b, 'join', { pin: g.pin, nick: 'Bartek', deviceId: 'ty2' });
+	const slide = nextState(a, (x) => x.state === 'question');
+	await emit(h, 'host:next', {});
+	const sl = await slide;
+	ok(sl.question.type === 'slide' && sl.question.text === 'Zaczynamy' && sl.deadline === null, 'slajd: bez czasu, z tekstem');
+	ok((await emit(a, 'answer', { index: 0, choice: 0 })).error === 'invalid', 'slajd: odpowiedź odrzucona');
+	ok((await emit(h, 'host:skip', {})).error === 'invalid-state', 'slajd: „zakończ pytanie” nie działa');
+	const poll = nextState(a, (x) => x.state === 'question' && x.question.index === 1);
+	await emit(h, 'host:next', {}); // slajd → od razu następne pytanie
+	const pq = await poll;
+	ok(pq.question.type === 'poll' && pq.question.answers.length === 2, 'po slajdzie od razu ankieta');
+	const pr = nextState(a, (x) => x.state === 'reveal');
+	await emit(a, 'answer', { index: 1, choice: 1 });
+	await emit(b, 'answer', { index: 1, choice: 1 });
+	const prv = await pr;
+	ok(prv.result.poll && prv.result.voted && prv.me.score === 0, 'ankieta: bez punktów, głos policzony');
+	{
+		const gg = registry().get(g.pin);
+		const times = [...gg.players.values()].map((p) => p.totalTime);
+		ok(times.every((t) => t === 0), `ankieta nie zmienia czasu rozstrzygającego remisy (review Codexa): ${times}`);
+	}
+	await sleep(50);
+	ok(JSON.stringify(hs.distribution.counts) === '[0,2]', `ankieta: rozkład głosów ${JSON.stringify(hs.distribution.counts)}`);
+	await emit(h, 'host:next', {}); // ranking
+	const sq = nextState(a, (x) => x.state === 'question' && x.question.index === 2);
+	await emit(h, 'host:next', {});
+	const sv = await sq;
+	ok(sv.question.slider?.max === 100 && sv.question.slider.unit === 'dni' && sv.question.correct === undefined, 'suwak: zakres bez poprawnej wartości');
+	ok((await emit(a, 'answer', { index: 2, value: 101 })).error === 'invalid', 'suwak: wartość spoza zakresu odrzucona');
+	ok((await emit(a, 'answer', { index: 2, value: '31' })).error === 'invalid', 'suwak: tekst zamiast liczby odrzucony');
+	ok((await emit(a, 'answer', { index: 2, value: 30.5 })).error === 'invalid', 'suwak: wartość poza krokiem odrzucona (review Codexa)');
+	const rr = nextState(a, (x) => x.state === 'reveal');
+	const rb = nextState(b, (x) => x.state === 'reveal');
+	await emit(a, 'answer', { index: 2, value: 31 });
+	await emit(b, 'answer', { index: 2, value: 34 });
+	const [ra, rb2] = await Promise.all([rr, rb]);
+	ok(ra.result.correct && rb2.result.correct && ra.result.points > rb2.result.points && rb2.result.points > 0, `suwak: dokładnie ${ra.result.points} > blisko ${rb2.result.points} > 0`);
+	ok(ra.solution.value === 31 && rb2.result.value === 34, 'suwak: wynik pokazuje poprawną wartość i odpowiedź gracza');
+	h.close();
+	a.close();
+	b.close();
+}
+
+// Awatary: wybrany zostaje, niepoprawny → losowy z zakresu
+{
+	const g = registry().create({ ...quiz, quizId: 'av' }, 'user1');
+	const h = connect(URL, { auth: { role: 'host', pin: g.pin, token: g.hostToken }, transports: ['websocket'] });
+	let hs = null;
+	h.on('state', (x) => (hs = x));
+	await nextState(h);
+	const a = mk();
+	const b = mk();
+	await emit(a, 'join', { pin: g.pin, nick: 'Awa', deviceId: 'av1', avatar: 5 });
+	await emit(b, 'join', { pin: g.pin, nick: 'Bwa', deviceId: 'av2', avatar: 999 });
+	await sleep(100);
+	const pa = hs.players.find((p) => p.nick === 'Awa');
+	const pb = hs.players.find((p) => p.nick === 'Bwa');
+	ok(pa.avatar === 5 && Number.isInteger(pb.avatar) && pb.avatar >= 0 && pb.avatar < 24, `awatary: wybrany ${pa.avatar}, losowy ${pb.avatar}`);
+	h.close();
+	a.close();
+	b.close();
+}
+// Postacie wyłączone w ustawieniach quizu: telefon wie, że ma nie pokazywać wyboru; gracz bez postaci
+{
+	const g = registry().create({ ...quiz, quizId: 'noav', settings: { ...quiz.settings, avatars: false } }, 'user1');
+	const h = connect(URL, { auth: { role: 'host', pin: g.pin, token: g.hostToken }, transports: ['websocket'] });
+	let hs = null;
+	h.on('state', (x) => (hs = x));
+	await nextState(h);
+	const a = mk();
+	const chk = await emit(a, 'check', { pin: g.pin });
+	ok(chk.ok && chk.avatars === false, 'postacie wyłączone: telefon dostaje avatars=false');
+	await emit(a, 'join', { pin: g.pin, nick: 'Bezpostaci', deviceId: 'noav1', avatar: 5 });
+	await sleep(100);
+	const p = hs.players.find((x) => x.nick === 'Bezpostaci');
+	ok(p && p.avatar == null, `postacie wyłączone: gracz bez postaci (${p?.avatar})`);
+	const b = mk();
+	const chk2 = await emit(b, 'check', { pin: (registry().create({ ...quiz, quizId: 'avon' }, 'user1')).pin });
+	ok(chk2.ok && chk2.avatars === true, 'domyślnie postacie włączone (avatars=true)');
+	h.close();
+	a.close();
+	b.close();
+}
+
+// Losowa kolejność pytań i odpowiedzi
+{
+	const base = {
+		...quiz,
+		settings: { ...quiz.settings, shuffleQuestions: true, shuffleAnswers: true },
+		questions: [
+			{ id: 'sl', type: 'slide', prompt: 'Start', timeLimit: 20, multiplier: 1, data: { type: 'slide', text: '' } },
+			...Array.from({ length: 6 }, (_, i) => ({ id: `q${i}`, type: 'choice', prompt: `P${i}`, timeLimit: 20, multiplier: 1, data: { answers: ['a', 'b', 'c', 'd'], correct: [i % 4], images: ['m0', null, 'm2', null] } }))
+		]
+	};
+	let orderChanged = false;
+	let answersChanged = false;
+	let consistent = true;
+	for (let n = 0; n < 50; n++) {
+		const s = shuffled(base);
+		if (s.questions[0].id !== 'sl') consistent = false;
+		if (s.questions.map((q) => q.id).join() !== base.questions.map((q) => q.id).join()) orderChanged = true;
+		for (const q of s.questions.slice(1)) {
+			const orig = base.questions.find((x) => x.id === q.id);
+			if (q.data.answers.join() !== 'a,b,c,d') answersChanged = true;
+			if ([...q.data.answers].sort().join() !== 'a,b,c,d') consistent = false;
+			if (q.data.answers[q.data.correct[0]] !== orig.data.answers[orig.data.correct[0]]) consistent = false;
+			q.data.answers.forEach((a, i) => { if (q.data.images[i] !== orig.data.images[orig.data.answers.indexOf(a)]) consistent = false; });
+		}
+	}
+	ok(orderChanged && answersChanged, 'tasowanie zmienia kolejność pytań i odpowiedzi');
+	ok(consistent, 'tasowanie: slajd na miejscu, poprawna odpowiedź i obrazki idą za odpowiedzią');
+	ok(shuffled(quiz) === quiz, 'bez ustawień – bez zmian');
+}
 
 // PIN brute force
 const brute = mk();

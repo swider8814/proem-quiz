@@ -25,7 +25,7 @@ try {
 		settings: { defaultTimeLimit: 20, streakBonus: true, nicknameMode: 'random-or-custom', teamMode: false, lateJoin: true, phoneAnswerText: true },
 		questions: [
 			{ ...base, type: 'audio', prompt: 'Jaka to kolęda?', promptTranslation: 'Which carol is this?', data: { type: 'audio', answers: ['Cicha noc', 'Wśród nocnej ciszy', 'Lulajże, Jezuniu', 'Dzisiaj w Betlejem'], correct: [0], audioMediaId: audio.id, startMs: 500, endMs: 3500, loop: false, revealEndMs: null } },
-			{ ...base, type: 'truefalse', prompt: 'Boże Narodzenie jest 25 grudnia', data: { type: 'truefalse', correct: true } },
+			{ ...base, type: 'truefalse', prompt: 'Boże Narodzenie jest 25 grudnia', data: { type: 'truefalse', correct: true, thumbs: true } },
 			{ ...base, type: 'text', prompt: 'Jak ma na imię renifer z czerwonym nosem?', data: { type: 'text', accepted: ['Rudolf', 'Rudolph'], typoTolerance: 1 } },
 			{ ...base, type: 'order', prompt: 'Ułóż zdanie', data: { type: 'order', items: ['I', 'love', 'Christmas'], partialCredit: false } }
 		]
@@ -36,6 +36,15 @@ try {
 	// ── Prowadzący ────────────────────────────────────────────────────────
 	const hostCtx = await browser.newContext({ viewport: { width: 1600, height: 900 } });
 	await hostCtx.addCookies([{ name: 'pq_session', value: admin.jar.pq_session, url: srv.base }]);
+	// Zapis odtwarzanych dźwięków (muzyka w tle, podium) – Audio nie trafia do DOM.
+	await hostCtx.addInitScript(() => {
+		window.__plays = [];
+		const play = HTMLMediaElement.prototype.play;
+		HTMLMediaElement.prototype.play = function () {
+			window.__plays.push(new URL(this.src, location.href).pathname);
+			return play.call(this).catch(() => {});
+		};
+	});
 	const host = await hostCtx.newPage();
 	const hostErrors = [];
 	host.on('pageerror', (e) => hostErrors.push(String(e)));
@@ -85,7 +94,28 @@ try {
 
 	await host.waitForFunction(() => document.querySelectorAll('.players .player').length === 3);
 	ok(true, 'prowadzący widzi 3 graczy');
+	ok((await host.$('button:has-text("Wycisz muzykę")')) !== null, 'muzyka w poczekalni z przyciskiem wyciszenia');
+	ok((await host.evaluate(() => window.__plays)).includes('/sounds/music-background.mp3'), 'w poczekalni gra nagranie muzyki w tle');
 	await snap(host, '04-prowadzacy-poczekalnia');
+
+	// ── Ekran dla widzów (osobne okno na projektor) ───────────────────────
+	const [screen] = await Promise.all([host.waitForEvent('popup'), host.click('button:has-text("Otwórz ekran dla widzów")')]);
+	screen.errors = [];
+	screen.on('pageerror', (e) => screen.errors.push(String(e)));
+	await screen.setViewportSize({ width: 1920, height: 1080 });
+	await screen.waitForSelector('.pin');
+	ok((await screen.textContent('.pin')).replace(/\s/g, '') === pin, 'ekran widzów pokazuje PIN');
+	ok(new URL(screen.url()).searchParams.get('pin') === pin, 'okno widzów przypięte do PIN-u tej gry (kanał per gra)');
+	// Inna gra tego samego quizu w tej samej przeglądarce nie miesza się z tym ekranem
+	await host.evaluate(([qid]) => new BroadcastChannel(`pq-screen-${qid}-000000`).postMessage({ t: 'closed' }), [quizId]);
+	await sleep(300);
+	ok((await screen.$('.pin')) !== null, 'komunikat z kanału innej gry ignorowany');
+	ok(await screen.$eval('.qr', (i) => i.src.startsWith('data:image/')), 'ekran widzów pokazuje kod QR');
+	ok((await screen.$$('.game .controls, .game .mini, .game button')).length === 0, 'ekran widzów nie ma żadnych przycisków');
+	await screen.waitForFunction(() => document.querySelectorAll('.players .player').length === 3);
+	await host.waitForSelector('text=Ekran widzów połączony');
+	ok(true, 'prowadzący widzi, że ekran widzów jest połączony');
+	await snap(screen, '04b-ekran-widzow-poczekalnia');
 
 	// ── Pytanie 1: audio ──────────────────────────────────────────────────
 	await host.click('button:has-text("Zaczynamy")');
@@ -105,6 +135,69 @@ try {
 	await snap(phones[0], '07-telefon-dobrze');
 	await snap(phones[1], '08-telefon-zle');
 	await snap(host, '09-prowadzacy-wyniki');
+	// Przyciski prowadzącego muszą być widoczne także na mniejszym ekranie laptopa
+	// (np. 1280×720 przy skalowaniu Windows), bez przewijania.
+	const footerFits = async (label) => {
+		for (const vp of [{ width: 1600, height: 900 }, { width: 1280, height: 600 }, { width: 1024, height: 560 }]) {
+			await host.setViewportSize(vp);
+			await sleep(150);
+			const m = await host.evaluate(() => {
+				const f = document.querySelector('.controls').getBoundingClientRect();
+				return { bottom: Math.round(f.bottom), vh: innerHeight, scroll: document.scrollingElement.scrollHeight };
+			});
+			ok(m.bottom <= m.vh && m.scroll <= m.vh, `${label} ${vp.width}×${vp.height}: przyciski na dole widoczne ${JSON.stringify(m)}`);
+		}
+		await host.setViewportSize({ width: 1600, height: 900 });
+	};
+	await footerFits('wyniki pytania audio');
+	await screen.waitForSelector('.dist .barv');
+	ok(true, 'ekran widzów pokazuje wyniki pytania');
+	await host.waitForSelector('.side li');
+	ok((await host.$$('.side li')).length === 3, 'prowadzący ma ranking na żywo w panelu bocznym');
+	ok((await screen.$$('.side')).length === 0, 'ranking na żywo nie trafia na ekran widzów');
+	await snap(screen, '09b-ekran-widzow-wyniki');
+	// Spacja w oknie widzów (np. pilot do prezentacji) przełącza grę u prowadzącego.
+	await screen.keyboard.press('Space');
+	await host.waitForSelector('.board');
+	await screen.waitForSelector('.board');
+	ok(true, 'spacja w oknie widzów → ranking u prowadzącego i na ekranie');
+	// Tablica jak w Kahoot: najpierw punkty sprzed pytania, potem przesunięcia i nowe punkty
+	const scoresNow = () => host.$$eval('.rank li .sc', (els) => els.map((e) => Number(e.textContent)));
+	ok((await scoresNow()).every((x) => x === 0), `tablica startuje od punktów sprzed pytania (${await scoresNow()})`);
+	await sleep(3000);
+	const after = await scoresNow();
+	const places = await host.$$eval('.rank li', (els) => els.map((e) => e.querySelector('.pos')?.textContent ?? 'medal'));
+	ok(after.some((x) => x > 0) && after.every((x, i) => i === 0 || after[i - 1] >= x), `potem punkty dobiegają i kolejność według wyników (${after}; ${places})`);
+	await snap(host, '09a-prowadzacy-tablica');
+	await screen.waitForSelector('.rejoin .qr-sm');
+	ok(true, 'między pytaniami ekran widzów pokazuje kod QR do powrotu');
+
+	// „Wstecz” na telefonie nie wyrzuca z gry
+	await phones[0].goBack();
+	await phones[0].waitForSelector('.toast');
+	ok(new URL(phones[0].url()).pathname === '/play' && (await phones[0].$('text=Jesteś w grze. Aby z niej wyjść')) !== null, 'wstecz w trakcie gry: zostaje w grze i widzi podpowiedź');
+	// Wyjście ze strony i powrót przez kod QR → to samo konto (nick i punkty)
+	const nickBefore = await phones[1].textContent('.g-chip.nick');
+	await phones[1].goto('about:blank');
+	await host.waitForSelector('.side li.off');
+	ok(true, 'prowadzący widzi rozłączonego gracza');
+	await phones[1].goto(`${srv.base}/play?pin=${pin}`);
+	await phones[1].waitForSelector('.g-chip.nick');
+	ok((await phones[1].textContent('.g-chip.nick')) === nickBefore, `po powrocie przez kod QR ten sam gracz: ${nickBefore}`);
+	await host.waitForFunction(() => !document.querySelector('.side li.off'));
+	ok(true, 'gracz znów połączony');
+	await host.keyboard.press('Space');
+	// Odliczanie przed pytaniem (domyślnie 5 s) na ekranie i na telefonie
+	await host.waitForSelector('.intro .cd');
+	const cd1 = Number(await host.textContent('.intro .cd'));
+	await phones[0].waitForSelector('.cd');
+	await snap(host, '09c-prowadzacy-odliczanie');
+	await snap(phones[0], '09d-telefon-odliczanie');
+	await sleep(1300);
+	const cd2 = Number(await host.textContent('.intro .cd'));
+	ok(cd1 >= 4 && cd1 <= 5 && cd2 < cd1, `odliczanie przed pytaniem: ${cd1} → ${cd2}`);
+	await phones[0].waitForSelector('.prompt');
+	await phones[0].waitForFunction(() => !document.body.innerText.includes('Przygotuj się'), null, { timeout: 8000 });
 
 	const nextQ = async () => {
 		await host.keyboard.press('Space'); // ranking
@@ -115,8 +208,10 @@ try {
 	};
 
 	// ── Pytanie 2: prawda/fałsz ───────────────────────────────────────────
-	await nextQ();
-	for (const p of phones) await p.click('button:has-text("Prawda")');
+	await phones[0].waitForSelector('button.thumb[aria-label="Prawda"] svg');
+	ok((await host.$$('.answers .thumb svg')).length === 2, 'prawda/fałsz jako kciuki: telefon i ekran');
+	await snap(phones[0], '09e-telefon-kciuki');
+	for (const p of phones) await p.click('button[aria-label="Prawda"]');
 	await phones[0].waitForSelector('text=Dobrze!');
 	ok(true, 'prawda/fałsz działa');
 	await host.waitForSelector('.dist .barv');
@@ -138,8 +233,32 @@ try {
 
 	// ── Pytanie 4: kolejność ──────────────────────────────────────────────
 	await nextQ();
-	for (const p of phones) {
-		for (const w of ['I', 'love', 'Christmas']) await p.locator('.order-btn', { hasText: new RegExp(`^\\s*${w}\\s*$`) }).click();
+	const words = ['I', 'love', 'Christmas'];
+	const orderNow = (p) => p.$$eval('.order .item .label', (els) => els.map((e) => e.textContent.trim()));
+	// Telefon 1: przeciąganie palcem/myszą
+	for (let k = 0; k < words.length; k++) {
+		const cur = await orderNow(phones[0]);
+		const from = cur.indexOf(words[k]);
+		if (from === k) continue;
+		const items = await phones[0].$$('.order .item');
+		const a = await items[from].boundingBox();
+		const b = await items[k].boundingBox();
+		await phones[0].mouse.move(a.x + 40, a.y + a.height / 2);
+		await phones[0].mouse.down();
+		for (let t = 1; t <= 8; t++) await phones[0].mouse.move(a.x + 40, a.y + a.height / 2 + ((b.y - a.y) * t) / 8);
+		await phones[0].mouse.up();
+		await sleep(100);
+	}
+	ok(JSON.stringify(await orderNow(phones[0])) === JSON.stringify(words), `przeciąganie ułożyło kolejność: ${await orderNow(phones[0])}`);
+	// Pozostałe: strzałki (dostępność, klawiatura)
+	for (const p of phones.slice(1)) {
+		for (let k = 0; k < words.length; k++) {
+			let cur = await orderNow(p);
+			while (cur.indexOf(words[k]) > k) {
+				await p.click(`.order .item:nth-child(${cur.indexOf(words[k]) + 1}) .arrow[aria-label^="Wyżej"]`);
+				cur = await orderNow(p);
+			}
+		}
 	}
 	await snap(phones[0], '11-telefon-kolejnosc');
 	for (const p of phones) await p.click('button:has-text("Wyślij")');
@@ -149,20 +268,59 @@ try {
 	// ── Koniec ────────────────────────────────────────────────────────────
 	await host.keyboard.press('Space'); // ranking
 	await host.waitForSelector('.board');
+	// Wyrzucenie gracza w trakcie gry – z potwierdzeniem
+	host.once('dialog', (d) => d.dismiss());
+	await host.click('.side li:has-text("Ola") .mini');
+	await sleep(300);
+	ok((await host.$$('.side li')).length === 3, 'anulowane potwierdzenie → gracz zostaje');
+	host.once('dialog', (d) => d.accept());
+	await host.click('.side li:has-text("Ola") .mini');
+	await phones[2].waitForSelector('text=Prowadzący usunął Cię z gry.');
+	await host.waitForFunction(() => document.querySelectorAll('.side li').length === 2);
+	ok(true, 'wyrzucenie w trakcie gry: gracz dostaje komunikat, znika z rankingu');
 	await host.keyboard.press('Space'); // podium
 	await host.waitForSelector('.podium');
+	// Podium po kolei: 3. → 2. → 1. miejsce (na początku zwycięzcy jeszcze nie widać)
+	const op = (sel) => host.$eval(sel, (e) => Number(getComputedStyle(e).opacity)).catch(() => 1);
+	const early = await op('.step.s1');
+	await sleep(4800);
+	ok(early < 0.5 && (await op('.step.s1')) === 1, `podium wjeżdża po kolei: 1. miejsce na początku ukryte (${early}), potem widoczne`);
+	ok((await host.evaluate(() => window.__plays)).includes('/sounds/podium-fanfare.mp3'), 'na podium gra nagranie fanfary');
 	await phones[0].waitForSelector('text=Koniec gry!');
 	await snap(host, '12-prowadzacy-podium');
 	await snap(phones[0], '13-telefon-koniec');
 	const first = await host.textContent('.step.s1 .who');
 	ok(first === 'Kasia', `zwyciężczyni na podium: ${first}`);
+	await screen.waitForSelector('.podium');
+	await sleep(6500); // 3. → 2. → 1. miejsce, konfetti, reszta listy
+	await snap(screen, '12b-ekran-widzow-podium');
+	ok(true, 'ekran widzów pokazuje podium');
+	await footerFits('podium');
+
+	// Po końcu gry „wstecz” znów wychodzi ze strony (review Codexa)
+	await phones[0].goBack();
+	await sleep(300);
+	await phones[0].goBack().catch(() => {});
+	await sleep(300);
+	ok(!phones[0].url().includes('/play'), `po zakończeniu gry „wstecz” nie jest blokowane (${phones[0].url()})`);
 
 	// ── Odświeżenie telefonu w trakcie gry nie gubi gracza ───────────────
 	await phones[1].reload();
 	await phones[1].waitForSelector('text=Koniec gry!');
 	ok(true, 'po odświeżeniu telefon wraca do gry');
 
+	// Prowadzący zamyka zakończoną grę: telefony zostają na wynikach, bez paska „Łączenie…”
+	host.once('dialog', (d) => d.accept());
+	await host.click('.game button.g-btn:has-text("Zakończ grę")');
+	await sleep(2500);
+	ok((await phones[1].$$('.offline')).length === 0 && (await phones[1].isVisible('text=Koniec gry!')), 'po zamknięciu gry telefon zostaje na wynikach bez paska „Łączenie…”');
+
 	ok(hostErrors.length === 0, `brak błędów JS u prowadzącego ${hostErrors.join(' | ')}`);
+	// Zamknięcie okna prowadzącego: ekran widzów nie może zostać zamrożony na ostatnim widoku.
+	await host.close();
+	await screen.waitForSelector('text=czekam na okno prowadzącego', { timeout: 5000 });
+	ok(true, 'po zamknięciu okna prowadzącego ekran widzów pokazuje komunikat');
+	ok(screen.errors.length === 0, `brak błędów JS na ekranie widzów ${screen.errors.join(' | ')}`);
 	ok(phones.every((p) => p.errors.length === 0), `brak błędów JS na telefonach ${phones.flatMap((p) => p.errors).join(' | ')}`);
 } catch (e) {
 	ok(false, `wyjątek: ${e.stack}`);

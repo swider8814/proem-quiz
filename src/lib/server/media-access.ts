@@ -3,12 +3,30 @@ import path from 'node:path';
 import { eq, lt, or, sql } from 'drizzle-orm';
 import { db, mediaDir, schema } from './db/index.js';
 import { quizAccess } from './quizzes.js';
+import { thumbPath } from './media.js';
 import type { User } from './auth/index.js';
 
 type Media = typeof schema.media.$inferSelect;
 
-/** Quizy, których pytania używają danego pliku (obrazek, utwór albo wycięty fragment). */
+/** Quizy, których pytania (obrazek, utwór, wycięty fragment) albo dźwięk na podium używają danego pliku. */
 export function quizzesUsingMedia(mediaId: string): string[] {
+	const podium = db
+		.select({ quizId: schema.quizzes.id })
+		.from(schema.quizzes)
+		.where(
+			or(
+				sql`json_extract(${schema.quizzes.settings}, '$.podiumAudio.mediaId') = ${mediaId}`,
+				sql`json_extract(${schema.quizzes.settings}, '$.podiumAudio.clipMediaId') = ${mediaId}`,
+				sql`json_extract(${schema.quizzes.settings}, '$.musicAudio.mediaId') = ${mediaId}`,
+				sql`json_extract(${schema.quizzes.settings}, '$.musicAudio.clipMediaId') = ${mediaId}`
+			)
+		)
+		.all()
+		.map((r) => r.quizId);
+	return [...podium, ...questionsUsing(mediaId)];
+}
+
+function questionsUsing(mediaId: string): string[] {
 	return db
 		.select({ quizId: schema.questions.quizId })
 		.from(schema.questions)
@@ -16,7 +34,8 @@ export function quizzesUsingMedia(mediaId: string): string[] {
 			or(
 				eq(schema.questions.imageMediaId, mediaId),
 				sql`json_extract(${schema.questions.data}, '$.audioMediaId') = ${mediaId}`,
-				sql`json_extract(${schema.questions.data}, '$.clipMediaId') = ${mediaId}`
+				sql`json_extract(${schema.questions.data}, '$.clipMediaId') = ${mediaId}`,
+				sql`EXISTS (SELECT 1 FROM json_each(${schema.questions.data}, '$.images') WHERE json_each.value = ${mediaId})`
 			)
 		)
 		.all()
@@ -60,9 +79,16 @@ function referencedIds(): Set<string> {
 	const ids = new Set<string>();
 	for (const q of db.select({ img: schema.questions.imageMediaId, data: schema.questions.data }).from(schema.questions).all()) {
 		if (q.img) ids.add(q.img);
-		const d = q.data as { audioMediaId?: string; clipMediaId?: string };
+		const d = q.data as { audioMediaId?: string; clipMediaId?: string; images?: (string | null)[] };
 		if (d.audioMediaId) ids.add(d.audioMediaId);
+		for (const im of d.images ?? []) if (im) ids.add(im);
 		if (d.clipMediaId) ids.add(d.clipMediaId);
+	}
+	for (const q of db.select({ s: schema.quizzes.settings }).from(schema.quizzes).all()) {
+		for (const a of [q.s?.podiumAudio, q.s?.musicAudio]) {
+			if (a?.mediaId) ids.add(a.mediaId);
+			if (a?.clipMediaId) ids.add(a.clipMediaId);
+		}
 	}
 	for (const t of db.select().from(schema.themes).all()) {
 		for (const v of [t.logoLight, t.logoDark, t.background, t.jingleMediaId, t.lobbyMusicMediaId]) if (v) ids.add(v);
@@ -89,6 +115,7 @@ export async function sweepOrphanMedia(): Promise<number> {
 		if (used.has(m.id)) continue;
 		db.delete(schema.media).where(eq(schema.media.id, m.id)).run();
 		await fs.rm(path.join(mediaDir, path.basename(m.file)), { force: true });
+		await fs.rm(thumbPath(m.file), { force: true });
 		removed++;
 	}
 	return removed;

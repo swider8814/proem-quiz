@@ -12,7 +12,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 	const t = getTheme(params.id);
 	if (!t) error(404, panelDict(locals.lang).err.themeNotFound);
 	return {
-		theme: { id: t.id, name: t.name, style: t.style, headingFont: t.headingFont, colors: t.colors, logoLight: t.logoLight, logoDark: t.logoDark, isDefault: t.isDefault },
+		theme: { id: t.id, name: t.name, style: t.style, headingFont: t.headingFont, colors: t.colors, logoLight: t.logoLight, logoDark: t.logoDark, decor: t.decor, isDefault: t.isDefault },
 		quizzes: themeUsage().get(t.id) ?? 0,
 		styles: panelDict(locals.lang).themes.styles,
 		presets: STYLE_PRESETS,

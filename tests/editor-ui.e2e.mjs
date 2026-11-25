@@ -94,6 +94,16 @@ try {
 	await p.locator('.list .item').nth(4).click();
 	await p.click('button[aria-label="Przesuń w górę"]');
 	ok(/Ułóż zdanie/.test(await p.locator('.list .item').nth(3).textContent()), 'przesunięcie pytania w górę');
+	// Przeciąganie myszą: ostatnie na początek i z powrotem
+	{
+		const names = async () => (await p.locator('.list .item .t').allTextContents()).map((t) => t.trim());
+		const before = await names();
+		await p.locator('.list li').nth(4).dragTo(p.locator('.list li').nth(0));
+		const after = await names();
+		ok(after[0] === before[4] && after.length === 5, `przeciąganie pytania na liście (${after[0]})`);
+		await p.locator('.list li').nth(0).dragTo(p.locator('.list li').nth(4));
+		ok(JSON.stringify(await names()) === JSON.stringify(before), 'przeciąganie z powrotem przywraca kolejność');
+	}
 
 	// Zapis (Ctrl+S)
 	await p.keyboard.press('Control+s');
@@ -127,7 +137,13 @@ try {
 	await phone.addCookies([{ name: 'pq_session', value: admin.jar.pq_session, url: srv.base }]);
 	const m = await phone.newPage();
 	await m.goto(p.url());
+	await m.waitForSelector('.qnav button[aria-controls="q-list"]');
+	ok(!(await m.isVisible('.list .item')), 'telefon: lista pytań schowana pod przyciskiem');
+	await m.click('.qnav button[aria-controls="q-list"]');
 	await m.waitForSelector('.list .item');
+	await m.locator('.list .item').nth(1).click();
+	ok(!(await m.isVisible('.list .item')) && /Pytanie 2 z 5/.test(await m.textContent('.qnav button[aria-controls="q-list"]')), 'telefon: wybór pytania z listy zamyka ją i pokazuje „Pytanie 2 z 5”');
+	await m.click('.qnav button[aria-controls="q-list"]');
 	const overflow = await m.evaluate(() => {
 		if (document.documentElement.scrollWidth > document.documentElement.clientWidth + 1) return 'strona';
 		for (const el of document.querySelectorAll('.list .item, header nav, .card')) {
@@ -139,6 +155,43 @@ try {
 	});
 	ok(!overflow, 'edytor na telefonie bez poziomego przewijania');
 	await snap(m, 'ed-03-telefon');
+
+	// Kolory motywu: pole HEX obok próbnika (wpisanie, skrót #rgb, błędna wartość, zapis)
+	await p.goto(`${srv.base}/panel/themes/theme_proem`);
+	const hex = p.getByLabel('Tło (HEX)');
+	await hex.fill('#12ab9f');
+	ok((await p.getByLabel('Tło', { exact: true }).inputValue()) === '#12ab9f', 'HEX wpisany → próbnik koloru zaktualizowany');
+	await hex.fill('#fd0');
+	await hex.blur();
+	ok((await hex.inputValue()) === '#ffdd00' && (await p.getByLabel('Tło', { exact: true }).inputValue()) === '#ffdd00', 'skrót #fd0 rozwinięty do #ffdd00 po wyjściu z pola');
+	await hex.fill('zielony');
+	ok((await hex.getAttribute('aria-invalid')) === 'true', 'błędny HEX oznaczony');
+	await hex.blur();
+	ok((await hex.inputValue()) === '#ffdd00' && (await hex.getAttribute('aria-invalid')) === 'false', 'błędny HEX cofnięty do ostatniego poprawnego koloru (bez oznaczenia błędu)');
+	await snap(p, 'ed-05-kolory-hex');
+	await p.click('button.save');
+	await p.waitForLoadState('networkidle');
+	await p.goto(`${srv.base}/panel/themes/theme_proem`);
+	ok((await p.getByLabel('Tło (HEX)').inputValue()) === '#ffdd00', 'kolor z pola HEX zapisany w motywie');
+
+	// Foldery na liście quizów: nowy folder, przeniesienie z listy rozwijanej (bez przeładowania strony)
+	await p.goto(`${srv.base}/panel`);
+	await p.click('button.chip.add');
+	await p.fill('form[action="?/folderCreate"] input[name=name]', 'Zimowisko');
+	await p.click('form[action="?/folderCreate"] button:not([type])');
+	await p.waitForURL(/f=fld_/);
+	ok((await p.textContent('.folder-bar')).includes('Zimowisko'), 'folder utworzony i otwarty');
+	await p.click('.chip >> text=Wszystkie');
+	await p.waitForURL(/\/panel$/);
+	const fid = await p.$eval('.chip.folder', (a) => new URL(a.href).searchParams.get('f'));
+	await p.click('.list li >> nth=0 >> details.more summary');
+	await p.selectOption('.list li >> nth=0 >> select[name=folder]', fid);
+	await p.waitForFunction(() => document.querySelector('.chip.folder span')?.textContent === '1');
+	ok(/\/panel$/.test(p.url()), 'przeniesienie do folderu bez zmiany widoku listy');
+	await p.click('.chip.folder');
+	await p.waitForURL(/f=fld_/);
+	ok((await p.$$('.list li')).length === 1, 'quiz widoczny w folderze');
+	await snap(p, 'ed-04-foldery');
 
 	ok(errors.filter((e) => !/Failed to load resource/.test(e)).length === 0, `brak błędów JS ${errors.join(' | ')}`);
 } catch (e) {

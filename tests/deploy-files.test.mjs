@@ -30,6 +30,8 @@ ok(deploy?.includes('DOCKER_CONFIG='), 'deploy.sh używa osobnych danych logowan
 ok(!/docker (system|container|volume|network) prune|docker rm |docker stop /.test(deploy ?? ''), 'deploy.sh nie zatrzymuje ani nie usuwa cudzych kontenerów');
 ok(/prune -f --filter "label=org\.opencontainers\.image\.source=https:\/\/github\.com\/swider8814\/proem-quiz"/.test(deploy ?? ''), 'deploy.sh usuwa tylko obrazy quizu');
 ok(/command="%s",restrict/.test(setup), 'klucz GitHuba ograniczony do deploy.sh (restrict)');
+ok(/OLD_DIR="\$HOME\/proem-quiz"/.test(setup) && /exit 1/.test(setup.split('OLD_DIR=')[1] ?? ''), 'stara instalacja w ~/proem-quiz wykrywana – bez drugiej, pustej instalacji (review Codexa #5)');
+ok(/\^command=\\"\$DEPLOY\\",/.test(setup), 'klucz GitHuba wskazujący inny deploy.sh jest wymieniany');
 for (const key of ['QUIZ_UID', 'QUIZ_MEM', 'QUIZ_CPUS', 'MEDIA_QUOTA_BYTES', 'MEDIA_MIN_FREE_BYTES']) {
 	ok(new RegExp(`ensure_env ${key} `).test(setup), `${key} dopisywany także do istniejącego .env (review Codexa #4)`);
 }
@@ -47,6 +49,39 @@ for (const [name, body] of [['setup.sh', setup], ['deploy.sh', deploy ?? '']]) {
 	ok(syntax, `${name}: poprawna składnia bash`);
 }
 fs.rmSync(tmp, { recursive: true, force: true });
+
+// ── Kopie zapasowe ──
+const bsetup = fs.readFileSync('scripts/mikrus-backup-setup.sh', 'utf8');
+const backupSh = bsetup.match(/<<'BACKUP_EOF'\n([\s\S]*?)\nBACKUP_EOF\n/)?.[1] ?? '';
+ok(/command="%s -ro %s\/data\/",restrict/.test(bsetup), 'klucz NAS-a: tylko odczyt katalogu danych (rrsync -ro, restrict)');
+ok(!/passwd -l/.test(bsetup) && /usermod -p '\*'/.test(bsetup), 'konto kopii bez hasła, ale nie zablokowane (sshd przyjmie klucz)');
+ok(/--read-only/.test(backupSh) && /--cap-drop ALL --cap-add DAC_READ_SEARCH/.test(backupSh) && /data:\/data:ro/.test(backupSh), 'rclone w zamkniętym kontenerze, dane tylko do odczytu');
+ok(/install -d -m 700 -o root -g root "\$CFG"/.test(bsetup), 'konfiguracja Dysku (klucze, hasła) dostępna tylko dla roota');
+ok(/use_trash = true/.test(bsetup), 'kasowanie na Dysku przez kosz');
+const backupCode = backupSh.split('\n').filter((l) => !/^\s*#/.test(l)).join('\n');
+ok(!/\b(find|rm|mv|mktemp|chmod|chown|install|touch|ln)\b[^\n]*data/.test(backupCode) && !/>\s*"?data\//.test(backupCode), 'backup.sh (root) nie zapisuje ani nie kasuje niczego w katalogu danych');
+{
+	const fw = fs.readFileSync('scripts/mikrus-firewall.sh', 'utf8');
+	const bridge = fw.match(/BRIDGE="\$\{PQ_BRIDGE:-([a-z-]+)\}"/)?.[1];
+	ok(!!bridge && fs.readFileSync('docker-compose.yml', 'utf8').includes(`com.docker.network.bridge.name: ${bridge}`), `zapora i compose: ta sama nazwa mostka (${bridge})`);
+}
+const nas = fs.readFileSync('scripts/nas-pull.sh', 'utf8');
+ok(/StrictHostKeyChecking=yes/.test(nas) && /SERVER_FINGERPRINT/.test(nas), 'NAS weryfikuje odcisk klucza serwera');
+for (const [name, body] of [['mikrus-backup-setup.sh', bsetup], ['backup.sh', backupSh], ['nas-pull.sh', nas]]) {
+	const f = path.join(os.tmpdir(), `pq-syntax-${name}`);
+	fs.writeFileSync(f, body);
+	let good = true;
+	try { execFileSync('bash', ['-n', f], { stdio: 'pipe' }); } catch { good = false; }
+	fs.rmSync(f, { force: true });
+	ok(good, `${name}: poprawna składnia bash`);
+}
+
+// Pliki, do których odsyła README, są w repozytorium (nie ignorowane przez .gitignore) – review Codexa #5
+for (const f of ['.env.example', '.env.local.example', 'docker-compose.local.yml', 'scripts/nas-pull.sh', 'scripts/mikrus-backup-setup.sh', 'scripts/mikrus-firewall.sh']) {
+	let tracked = true;
+	try { execFileSync('git', ['ls-files', '--error-unmatch', f], { stdio: 'pipe' }); } catch { tracked = false; }
+	ok(tracked, `${f} jest w repozytorium`);
+}
 
 const wf = fs.readFileSync('.github/workflows/deploy.yml', 'utf8');
 ok(!/scp-action|ssh-action/.test(wf), 'deploy nie kopiuje plików ani nie uruchamia dowolnych komend na serwerze');

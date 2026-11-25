@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { asc, eq, inArray } from 'drizzle-orm';
 import { db, schema } from './db/index.js';
 import { newId } from './auth/crypto.js';
-import type { ThemeColors, ThemeStyle } from './db/schema.js';
+import { THEME_DECORS, type ThemeColors, type ThemeStyle } from './db/schema.js';
 
 export const FONTS = ['Archivo', 'Montserrat', 'Plus Jakarta Sans', 'Inter'] as const;
 
@@ -22,7 +22,8 @@ export const themeSchema = z.object({
 	headingFont: z.enum(FONTS),
 	colors: z.object({ background: hex, surface: hex, text: hex, accent: hex, answers: z.tuple([hex, hex, hex, hex]) }),
 	logoLight: mediaId,
-	logoDark: mediaId
+	logoDark: mediaId,
+	decor: z.enum(THEME_DECORS).default('none')
 });
 
 export const listThemes = () => db.select().from(schema.themes).orderBy(asc(schema.themes.name)).all();
@@ -52,7 +53,7 @@ export function updateTheme(id: string, input: z.infer<typeof themeSchema>) {
 	if (!getTheme(id)) return { error: 'Nie znaleziono motywu.' };
 	if (!validImage(input.logoLight) || !validImage(input.logoDark)) return { error: 'logoImage' as const };
 	db.update(schema.themes)
-		.set({ name: input.name, style: input.style, headingFont: input.headingFont, colors: input.colors, logoLight: input.logoLight, logoDark: input.logoDark })
+		.set({ name: input.name, style: input.style, headingFont: input.headingFont, colors: input.colors, logoLight: input.logoLight, logoDark: input.logoDark, decor: input.decor })
 		.where(eq(schema.themes.id, id))
 		.run();
 	return { ok: true };

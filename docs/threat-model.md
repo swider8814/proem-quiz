@@ -18,7 +18,9 @@ za reverse proxy Nginx (Cytrus). Stan gier w pamięci procesu.
 ## Zasoby do ochrony (od najważniejszych)
 1. **Konta admina** – przejęcie = pełna kontrola, w tym tworzenie kont i usuwanie danych.
 2. **Dzieci jako gracze** – nie mogą zobaczyć treści nieodpowiednich (nicki innych graczy na rzutniku),
-   nie zbieramy ich danych osobowych (tylko nick, nic po grze nie zostaje).
+   nie zbieramy ich danych osobowych. W trakcie gry: nick (domyślnie losowy) i opcjonalne imiona
+   członków drużyny – tylko w pamięci. Po grze zostaje wyłącznie raport z nickami i punktami
+   (bez imion członków drużyn), widoczny dla osób z dostępem do quizu i usuwany po 90 dniach.
 3. **Dostępność gry w trakcie wydarzenia** – awaria procesu przerywa wszystkie trwające gry.
 4. **Uczciwość gry** – poprawne odpowiedzi nie mogą wyciec przed końcem pytania; czas i punkty liczy serwer.
 5. **Pliki** – nagrania audio (prawa autorskie) i zdjęcia nie mogą być publiczne.
@@ -44,6 +46,12 @@ za reverse proxy Nginx (Cytrus). Stan gier w pamięci procesu.
 | Dostęp do cudzych plików | `canUseMedia` (właściciel / admin / dostęp do quizu, który używa pliku) |
 | XSS | Svelte escapuje treści; CSP z nonce; kolory motywu tylko `#hex`; brak `{@html}` |
 | CSRF | kontrola Origin (SvelteKit + własna dla `/panel/api`), SameSite=Lax |
+| Obrazki odpowiedzi dla telefonów bez logowania | `/game-media/<PIN>/<id>`: tylko obrazki odpowiedzi BIEŻĄCEGO pytania trwającej gry, miniatury 480 px |
+| Metadane zdjęć (np. GPS), „bomby” pikselowe | każdy obrazek przekodowany bez metadanych; > 40 Mpx odrzucane przed dekodowaniem |
+| Formuły w eksporcie CSV (nick „=…”) | komórki zaczynające się od `= + - @` poprzedzone apostrofem |
+| Dane dzieci w raportach | tylko nicki i punkty (bez imion członków drużyn), usuwane po 90 dniach |
+| Przejęty kontener → serwer / app.proem.pl | osobny użytkownik, sieć, limity, tylko `./data`; zapora `scripts/mikrus-firewall.sh` (host i sieci prywatne zablokowane) |
+| Okno widzów przejęte przez obcą stronę | BroadcastChannel działa tylko w tej samej domenie; kanał per gra (PIN) |
 
 ## Poza zakresem
 Ataki fizyczne na VPS, kompromitacja kont GitHub/ChatGPT, DDoS na poziomie sieci (poza limitami aplikacji).

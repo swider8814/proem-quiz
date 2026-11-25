@@ -1,7 +1,8 @@
 <script lang="ts">
 	import '#lib/game/game.css';
 	import Shape from '#lib/game/Shape.svelte';
-	import { shapeColor, themeVars } from '#lib/game/theme.js';
+	import { logoFor, shapeColor, themeVars } from '#lib/game/theme.js';
+	import ColorField from '#lib/editor/ColorField.svelte';
 	import { uploadFile } from '#lib/editor/model.js';
 	import { panelDict } from '#lib/i18n/panel.js';
 
@@ -12,8 +13,8 @@
 	let uploadError = $state('');
 	let uploading = $state(false);
 
-	const preview = $derived({ name: t.name, style: t.style, colors: t.colors, headingFont: t.headingFont, logoUrl: t.logoLight ? `/media/${t.logoLight}` : null });
-	const payload = $derived(JSON.stringify({ name: t.name, style: t.style, headingFont: t.headingFont, colors: t.colors, logoLight: t.logoLight, logoDark: t.logoDark }));
+	const preview = $derived({ name: t.name, style: t.style, colors: t.colors, headingFont: t.headingFont, logoUrl: t.logoLight ? `/media/${t.logoLight}` : null, logoDarkUrl: t.logoDark ? `/media/${t.logoDark}` : null, decor: t.decor });
+	const payload = $derived(JSON.stringify({ name: t.name, style: t.style, headingFont: t.headingFont, colors: t.colors, logoLight: t.logoLight, logoDark: t.logoDark, decor: t.decor }));
 	const colorFields = ['background', 'surface', 'text', 'accent'] as const;
 
 	function applyPreset() {
@@ -66,13 +67,19 @@
 			{#each data.fonts as f}<option value={f}>{f}</option>{/each}
 		</select>
 
+		<label for="decor">{T.decor}</label>
+		<select id="decor" bind:value={t.decor}>
+			<option value="none">{T.decorNone}</option>
+			<option value="snow">{T.decorSnow}</option>
+		</select>
+
 		<fieldset>
 			<legend>{T.colors}</legend>
 			{#each colorFields as key}
-				<label class="color"><input type="color" bind:value={t.colors[key]} /> {T[key]} <code>{t.colors[key]}</code></label>
+				<ColorField bind:value={t.colors[key]} label={T[key]} />
 			{/each}
 			{#each t.colors.answers as _, i}
-				<label class="color"><input type="color" bind:value={t.colors.answers[i]} /> {T.answer(String.fromCharCode(65 + i))} <code>{t.colors.answers[i]}</code></label>
+				<ColorField bind:value={t.colors.answers[i]} label={T.answer(String.fromCharCode(65 + i))} />
 			{/each}
 		</fieldset>
 
@@ -98,7 +105,7 @@
 	<section class="previews" aria-label={T.preview}>
 		<div class="game pv host" data-style={t.style} style={themeVars(preview)}>
 			<div class="pv-top">
-				{#if preview.logoUrl}<img src={preview.logoUrl} alt="" />{:else}<b>{t.name.split(' – ')[0]}</b>{/if}
+				{#if logoFor(preview)}<img src={logoFor(preview)} alt="" />{:else}<b>{t.name.split(' – ')[0]}</b>{/if}
 				<span class="g-chip">PIN 482 913</span>
 			</div>
 			<div class="g-box pv-q">{T.pvQuestion}</div>
@@ -137,11 +144,10 @@
 	.fields { flex: 1 1 22rem; display: flex; flex-direction: column; }
 	fieldset { border: 1px solid var(--line); border-radius: 0.5rem; margin: 1rem 0 0; padding: 0.5rem 1rem 1rem; }
 	legend { font-weight: 700; }
-	.color { display: flex; align-items: center; gap: 0.6rem; font-weight: 400; margin: 0.5rem 0 0; }
-	.color input { width: 2.6rem; height: 2rem; padding: 0; border: 1px solid #c9cbd3; border-radius: 0.3rem; background: none; }
 	.logo-row { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.6rem; flex-wrap: wrap; }
 	.logo-row img { max-height: 2.5rem; max-width: 8rem; background: #eee; padding: 0.2rem; border-radius: 0.3rem; }
-	.file { position: relative; overflow: hidden; padding: 0.45rem 0.8rem; font-size: 0.85rem; background: #e7e8ee; color: var(--text); }
+	.file { position: relative; overflow: hidden; }
+	.fields :global(button.link) { align-self: flex-start; margin-top: 0.4rem; }
 	.file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 	.small { font-size: 0.8rem; }
 	.save { margin-top: 1.25rem; align-self: flex-start; }
@@ -157,5 +163,7 @@
 	.pv-ptiles { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; flex: 1; }
 	.pv-ptiles .g-tile { justify-content: center; cursor: default; }
 	.phone .g-btn { font-size: 0.85rem; min-height: 0; padding: 0.5em; }
-	.danger-zone { display: flex; gap: 1rem; align-items: center; margin-top: 1.5rem; }
+	.danger-zone { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; margin-top: 1.5rem; }
+	/* Telefon: podgląd nad formularzem – zmiany kolorów widać od razu. */
+	@media (max-width: 720px) { .previews { order: -1; } }
 </style>

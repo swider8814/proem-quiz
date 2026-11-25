@@ -247,6 +247,7 @@ function playerConnection(socket, games) {
 		socket.join(game.playerRoom);
 		game.sendPlayerState(player);
 		if (game.state === 'lobby') game.broadcastLobby();
+		else game.hostSoon(); // prowadzący widzi, że gracz wrócił
 	}
 
 	const boundTo = () => (socket.data.playerId ? { pin: socket.data.pin, playerId: socket.data.playerId } : null);
@@ -267,6 +268,7 @@ function playerConnection(socket, games) {
 			theme: game.quiz.theme,
 			nicknameMode: game.quiz.settings.nicknameMode,
 			teamMode: game.quiz.settings.teamMode,
+			avatars: game.quiz.settings.avatars !== false,
 			suggestion: randomNick(game.quiz.locale, game.takenNicks())
 		});
 	});
@@ -291,10 +293,14 @@ function playerConnection(socket, games) {
 		}
 		const nick = arg.nick === undefined ? '' : str(arg.nick, 100);
 		if (nick === null) return reply(ack, { error: 'invalid' });
+		// Członkowie drużyny: tylko tablica krótkich napisów (resztę odrzucamy po cichu).
+		const members = Array.isArray(arg.members) ? arg.members.slice(0, 20).map((m) => str(m, 40)).filter((m) => m !== null) : [];
 		const res = game.addPlayer({
 			nick,
 			random: arg.random === true,
-			deviceId: str(arg.deviceId, 64)
+			deviceId: str(arg.deviceId, 64),
+			avatar: Number.isInteger(arg.avatar) ? arg.avatar : undefined,
+			members
 		});
 		if ('error' in res) return reply(ack, { error: res.error });
 		reply(ack, { ok: true, token: res.token, pin: game.pin });
@@ -348,7 +354,10 @@ function playerConnection(socket, games) {
 				player.connected = false;
 				player.socketId = null;
 				if (game.state === 'lobby') game.broadcastLobby();
-				else game.io.to(game.hostRoom).emit('answers', { count: game.answeredCount(), total: game.connectedCount() });
+				else {
+					game.io.to(game.hostRoom).emit('answers', { count: game.answeredCount(), total: game.connectedCount() });
+					game.hostSoon(); // prowadzący widzi rozłączonego gracza
+				}
 			}
 		} catch (err) {
 			console.error('[realtime] błąd przy rozłączeniu:', err);

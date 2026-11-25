@@ -5,6 +5,7 @@ export type GameTheme = {
 	headingFont?: string;
 	logoUrl?: string | null;
 	logoDarkUrl?: string | null;
+	decor?: 'none' | 'snow';
 } | null;
 
 const HEX = /^#[0-9a-fA-F]{3,8}$/;
@@ -41,3 +42,22 @@ export const styleOf = (theme: GameTheme) => theme?.style ?? 'poster';
 
 /** Kolor kształtu na kaflu: na jasnych kaflach (styl C, B) ciemny, w stylu A biały. */
 export const shapeColor = (style: string) => (style === 'vivid' ? '#ffffff' : '#111111');
+
+/** Czy kolor #hex jest ciemny (względna luminancja WCAG < 0,4). */
+export function isDark(hex: string | undefined): boolean {
+	if (!hex || !HEX.test(hex)) return false;
+	let h = hex.slice(1);
+	if (h.length === 3 || h.length === 4) h = [...h.slice(0, 3)].map((x) => x + x).join('');
+	const [r, g, b] = [0, 2, 4].map((i) => {
+		const v = parseInt(h.slice(i, i + 2), 16) / 255;
+		return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+	});
+	return 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.4;
+}
+
+/** Logo na tło gry: na ciemnym tle wersja „na ciemne tło”, gdy jest; inaczej zwykła. */
+export function logoFor(theme: GameTheme): string | null {
+	if (!theme) return null;
+	if (theme.logoDarkUrl && isDark(theme.colors?.background)) return theme.logoDarkUrl;
+	return theme.logoUrl ?? null;
+}

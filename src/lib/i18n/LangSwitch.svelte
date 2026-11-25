@@ -17,6 +17,6 @@
 
 <style>
 	.lang { display: inline; margin: 0; }
-	.lang button { font-size: 0.85rem; }
+	.lang button { font-size: 0.87rem; min-height: 2.25rem; }
 	.light button { color: #cfd3f5; }
 </style>

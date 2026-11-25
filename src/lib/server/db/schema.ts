@@ -74,6 +74,9 @@ export type ThemeColors = {
 export const THEME_STYLES = ['poster', 'vivid', 'calm'] as const;
 export type ThemeStyle = (typeof THEME_STYLES)[number];
 
+export const THEME_DECORS = ['none', 'snow'] as const;
+export type ThemeDecor = (typeof THEME_DECORS)[number];
+
 export const themes = sqliteTable('themes', {
 	id: text('id').primaryKey(),
 	slug: text('slug').notNull().unique(),
@@ -84,6 +87,8 @@ export const themes = sqliteTable('themes', {
 	logoDark: text('logo_dark'),
 	colors: text('colors', { mode: 'json' }).$type<ThemeColors>().notNull(),
 	headingFont: text('heading_font').notNull().default('Inter'),
+	// Dekoracja ekranów gry (np. padający śnieg w motywie świątecznym).
+	decor: text('decor', { enum: THEME_DECORS }).notNull().default('none'),
 	background: text('background'), // media id lub CSS gradient
 	jingleMediaId: text('jingle_media_id'),
 	lobbyMusicMediaId: text('lobby_music_media_id'),
@@ -93,20 +98,53 @@ export const themes = sqliteTable('themes', {
 
 // ── Quizy ────────────────────────────────────────────────────────────────
 
+export const PODIUM_SOUNDS = ['fanfare', 'triumph', 'drumroll', 'custom', 'none'] as const;
+export type PodiumSound = (typeof PODIUM_SOUNDS)[number];
+
+// Wbudowane nagrania w static/sounds/music-*.mp3; „calm”/„upbeat” to dawne nazwy (zamieniane przy zapisie).
+export const MUSIC_KINDS = ['lounge', 'elevator', 'background', 'onhold', 'christmas', 'custom', 'none'] as const;
+export const LEGACY_MUSIC: Record<string, MusicKind> = { calm: 'background', upbeat: 'lounge' };
+export type MusicKind = (typeof MUSIC_KINDS)[number];
+/** Własny dźwięk: plik + zakres; clipMediaId = wycięty i wyrównany głośnościowo fragment (liczy serwer). */
+export type CustomAudio = { mediaId: string; startMs: number; endMs: number; clipMediaId?: string };
+
 export type QuizSettings = {
 	defaultTimeLimit: number; // sekundy
+	countdown: number; // odliczanie przed każdym pytaniem w sekundach, 0 = bez odliczania
+	podiumSound: PodiumSound; // dźwięk przy 1. miejscu na podium
+	/** Własny dźwięk na podium: plik + zakres; clipMediaId = wycięty i wyrównany głośnościowo fragment. */
+	podiumAudio: CustomAudio | null;
+	music: MusicKind; // muzyka w tle
+	musicAudio: CustomAudio | null; // własna muzyka (pętla)
+	musicLobby: boolean; // muzyka w poczekalni
+	musicQuestions: boolean; // muzyka w trakcie odliczania i pytań (bez pytań audio)
 	streakBonus: boolean;
 	nicknameMode: 'random-or-custom' | 'random-only';
+	avatars: boolean; // gracze wybierają postać (zwierzątko) przy dołączaniu
 	teamMode: boolean;
+	teamTalk: number; // tryb drużynowy: sekundy na naradę przed odpowiedzią (0–30)
+	shuffleQuestions: boolean; // losowa kolejność pytań w każdej grze (slajdy zostają na miejscu)
+	shuffleAnswers: boolean; // losowa kolejność odpowiedzi ABCD
 	lateJoin: boolean; // dołączanie po starcie gry
 	phoneAnswerText: boolean; // tekst odpowiedzi na telefonie (nie tylko kształty)
 };
 
 export const DEFAULT_QUIZ_SETTINGS: QuizSettings = {
 	defaultTimeLimit: 20,
+	countdown: 5,
+	podiumSound: 'fanfare',
+	podiumAudio: null,
+	music: 'background',
+	musicAudio: null,
+	musicLobby: true,
+	musicQuestions: true,
 	streakBonus: true,
 	nicknameMode: 'random-or-custom',
+	avatars: true,
 	teamMode: false,
+	teamTalk: 10,
+	shuffleQuestions: false,
+	shuffleAnswers: false,
 	lateJoin: true,
 	phoneAnswerText: true
 };
@@ -154,12 +192,12 @@ export const media = sqliteTable('media', {
 	createdAt: createdAt()
 });
 
-export type QuestionType = 'choice' | 'truefalse' | 'audio' | 'text' | 'order';
+export type QuestionType = 'choice' | 'truefalse' | 'audio' | 'text' | 'order' | 'poll' | 'slider' | 'slide';
 // Pytanie "z obrazkiem" to dowolny typ z ustawionym imageMediaId.
 
 export type QuestionData =
-	| { type: 'choice'; answers: string[]; correct: number[] }
-	| { type: 'truefalse'; correct: boolean }
+	| { type: 'choice'; answers: string[]; correct: number[]; images?: (string | null)[] } // images: obrazek odpowiedzi (podpis może być pusty)
+	| { type: 'truefalse'; correct: boolean; thumbs?: boolean } // thumbs: kciuk w górę/w dół zamiast słów
 	| {
 			type: 'audio';
 			answers: string[];
@@ -172,7 +210,10 @@ export type QuestionData =
 			revealEndMs?: number; // dłuższy fragment po odpowiedzi
 	  }
 	| { type: 'text'; accepted: string[]; typoTolerance: 0 | 1 | 2 }
-	| { type: 'order'; items: string[]; partialCredit: boolean };
+	| { type: 'order'; items: string[]; partialCredit: boolean }
+	| { type: 'poll'; answers: string[]; images?: (string | null)[] } // ankieta: bez poprawnej odpowiedzi i punktów
+	| { type: 'slider'; min: number; max: number; step: number; correct: number; margin: 'none' | 'low' | 'medium' | 'high'; unit?: string }
+	| { type: 'slide'; text: string }; // slajd: tytuł (prompt) + tekst + obrazek, bez odpowiedzi
 
 export const questions = sqliteTable(
 	'questions',
@@ -182,7 +223,7 @@ export const questions = sqliteTable(
 			.notNull()
 			.references(() => quizzes.id, { onDelete: 'cascade' }),
 		position: integer('position').notNull(),
-		type: text('type', { enum: ['choice', 'truefalse', 'audio', 'text', 'order'] }).notNull(),
+		type: text('type', { enum: ['choice', 'truefalse', 'audio', 'text', 'order', 'poll', 'slider', 'slide'] }).notNull(),
 		prompt: text('prompt').notNull(),
 		promptTranslation: text('prompt_translation'), // opcjonalny 2. wiersz (np. EN + PL)
 		imageMediaId: text('image_media_id').references(() => media.id),
@@ -207,3 +248,69 @@ export const appSettings = sqliteTable('app_settings', {
 	key: text('key').primaryKey(), // np. 'org_name', 'org_logo_media_id'
 	value: text('value').notNull()
 });
+
+/** Raport z rozegranej gry (wyniki i trudność pytań). Tylko nicki – bez danych osobowych dzieci; usuwany po 90 dniach. */
+export type GameReportData = {
+	teamMode: boolean;
+	questions: { prompt: string; type: string; answered: number; correct: number; wrong: number; avgMs: number | null }[];
+	players: {
+		nick: string;
+		score: number;
+		rank: number;
+		correct: number;
+		answered: number;
+		/** Na pytanie: null = brak odpowiedzi; c = poprawna (null w ankiecie/slajdzie), p = punkty, ms = czas. */
+		perQuestion: ({ c: boolean | null; p: number; ms: number } | null)[];
+	}[];
+};
+
+export const gameReports = sqliteTable(
+	'game_reports',
+	{
+		id: text('id').primaryKey(),
+		quizId: text('quiz_id')
+			.notNull()
+			.references(() => quizzes.id, { onDelete: 'cascade' }),
+		hostId: text('host_id'),
+		title: text('title').notNull(),
+		playerCount: integer('player_count').notNull(),
+		startedAt: integer('started_at', { mode: 'timestamp_ms' }).notNull(),
+		endedAt: integer('ended_at', { mode: 'timestamp_ms' }).notNull(),
+		data: text('data', { mode: 'json' }).$type<GameReportData>().notNull(),
+		createdAt: createdAt()
+	},
+	(t) => [index('game_reports_quiz_idx').on(t.quizId, t.endedAt)]
+);
+
+// ── Foldery quizów ───────────────────────────────────────────────────────
+// Foldery są prywatne dla każdego użytkownika: autor układa po swojemu także quizy, które ktoś mu
+// udostępnił. Quiz jest w co najwyżej jednym folderze danego użytkownika. Usunięcie folderu nie usuwa quizów.
+
+export const quizFolders = sqliteTable(
+	'quiz_folders',
+	{
+		id: text('id').primaryKey(),
+		userId: text('user_id')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		name: text('name').notNull(),
+		createdAt: createdAt()
+	},
+	(t) => [index('quiz_folders_user_idx').on(t.userId)]
+);
+
+export const quizFolderItems = sqliteTable(
+	'quiz_folder_items',
+	{
+		userId: text('user_id')
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		quizId: text('quiz_id')
+			.notNull()
+			.references(() => quizzes.id, { onDelete: 'cascade' }),
+		folderId: text('folder_id')
+			.notNull()
+			.references(() => quizFolders.id, { onDelete: 'cascade' })
+	},
+	(t) => [primaryKey({ columns: [t.userId, t.quizId] }), index('quiz_folder_items_folder_idx').on(t.folderId)]
+);

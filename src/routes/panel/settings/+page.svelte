@@ -60,12 +60,34 @@
 	{/if}
 </div>
 
+<div class="card">
+	<h2>{S.backup}</h2>
+	{#if !data.backup}
+		<p><span class="tag warn">—</span> {S.backupNone}</p>
+	{:else}
+		<p>
+			{S.lastBackup}: <strong>{new Date(data.backup.at).toLocaleString(S.dateLocale)}</strong>
+			{#if data.backup.snapshotOk}<span class="tag ok">OK</span>{:else}<span class="tag off">✕</span>{/if}
+			<span class="muted">· {(data.backup.snapshotBytes / 1024).toFixed(0)} KB</span>
+		</p>
+		<p>
+			{S.driveLabel}:
+			{#if data.backup.drive === 'ok'}<span class="tag ok">{S.driveOk}</span>
+			{:else if data.backup.drive === 'failed'}<span class="tag off">{S.driveFailed}</span>
+			{:else}<span class="tag warn">{S.driveOff}</span>{/if}
+		</p>
+		{#if !data.backup.snapshotOk}<p class="error">{S.backupFailed}</p>{/if}
+		{#if data.backup.stale}<p class="error">{S.backupStale}</p>{/if}
+		<p class="muted">{S.nasNote}</p>
+	{/if}
+</div>
+
 <style>
-	h2 { font-size: 1.1rem; margin-top: 0; }
+	h2 { margin-top: 0; }
 	.card { margin-bottom: 1.5rem; max-width: 40rem; }
 	.logo-row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
 	.logo-row img { max-height: 3rem; max-width: 12rem; background: #1b1f3b; padding: 0.4rem; border-radius: 0.4rem; }
-	.file { position: relative; overflow: hidden; padding: 0.45rem 0.8rem; font-size: 0.85rem; background: #e7e8ee; color: var(--text); }
+	.file { position: relative; overflow: hidden; }
 	.file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 	.save { margin-top: 1.25rem; }
 </style>

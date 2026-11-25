@@ -12,6 +12,9 @@ const MAX_AUDIO_MS = 15 * 60 * 1000; // dłuższe utwory odrzucamy
 const MAX_OUTPUT_BYTES = 25 * 1024 * 1024; // twardy limit pliku wynikowego ffmpeg
 const QUOTA_BYTES = Number(process.env.MEDIA_QUOTA_BYTES) || 4 * 1024 ** 3; // suma wszystkich mediów
 const MIN_FREE_BYTES = Number(process.env.MEDIA_MIN_FREE_BYTES) || 1024 ** 3; // zapas wolnego miejsca
+const MAX_IMAGE_SIDE = 1600; // większe zdjęcia z telefonu są zmniejszane (ekran i tak ma ~1920 px)
+const THUMB_SIDE = 480; // miniatura dla telefonów (obrazki odpowiedzi) – kilkadziesiąt KB zamiast MB
+const MAX_IMAGE_PIXELS = 40_000_000; // „bomby” z ogromnymi wymiarami odrzucamy przed dekodowaniem
 const FFMPEG_CONCURRENCY = 1;
 const FFMPEG_MAX_PENDING = 8;
 
@@ -104,6 +107,49 @@ async function probeDuration(file: string): Promise<number | null> {
 	}
 }
 
+/** Miniatura obrazka: obok pliku, <id>_t.webp (pasuje do wzorca plików mediów – trafia do kopii). */
+export function thumbPath(file: string) {
+	return path.join(mediaDir, path.basename(file).replace(/\.[a-z0-9]+$/, '') + '_t.webp');
+}
+
+/**
+ * Obrazek: sprawdzenie wymiarów (bez dekodowania), zmniejszenie do 1600 px, usunięcie metadanych
+ * (np. GPS ze zdjęć z telefonu) i miniatura 480 px WebP dla telefonów. GIF jest przekodowywany
+ * z zachowaniem animacji (duży zmniejszany do 1600 px), miniatura z pierwszej klatki.
+ */
+async function processImage(src: string, out: string, thumb: string, ext: string) {
+	let w = 0;
+	let h = 0;
+	try {
+		const dims = await run('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'csv=p=0:s=x', src], 15_000);
+		[w, h] = dims.trim().split('x').map(Number);
+	} catch {
+		throw new MediaError('imageRead');
+	}
+	if (!(w > 0 && h > 0)) throw new MediaError('imageRead');
+	if (w * h > MAX_IMAGE_PIXELS) throw new MediaError('imageHuge');
+	const fit = (side: number) => `scale='min(${side},iw)':'min(${side},ih)':force_original_aspect_ratio=decrease`;
+	const base = ['-nostdin', '-hide_banner', '-loglevel', 'error', '-y', '-i', src, '-map_metadata', '-1', '-frames:v', '1'];
+	try {
+		if (ext === 'gif') {
+			// Animowany GIF jest zawsze przekodowywany (usuwa komentarze i XMP), z zachowaniem animacji;
+			// duży jest przy tym zmniejszany do 1600 px – projektor nie dekoduje ogromnych klatek.
+			const vf = `${fit(MAX_IMAGE_SIDE)}:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer`;
+			await run('ffmpeg', ['-nostdin', '-hide_banner', '-loglevel', 'error', '-y', '-i', src, '-map_metadata', '-1', '-vf', vf, '-loop', '0', '-f', 'gif', out], 60_000);
+		} else {
+			const codec = ext === 'png' ? ['-c:v', 'png', '-f', 'image2'] : ext === 'webp' ? ['-c:v', 'libwebp', '-quality', '85', '-f', 'webp'] : ['-c:v', 'mjpeg', '-q:v', '3', '-f', 'image2'];
+			await run('ffmpeg', [...base, '-vf', fit(MAX_IMAGE_SIDE), ...codec, out], 60_000);
+		}
+		await run('ffmpeg', [...base, '-vf', fit(THUMB_SIDE), '-c:v', 'libwebp', '-quality', '75', '-f', 'webp', `${thumb}.part`], 60_000);
+		await fs.chmod(`${thumb}.part`, 0o640);
+		await fs.rename(`${thumb}.part`, thumb);
+	} catch {
+		await fs.rm(`${thumb}.part`, { force: true });
+		await fs.rm(thumb, { force: true });
+		throw new MediaError('imageProcess');
+	}
+}
+
 async function sizeOf(file: string) {
 	return (await fs.stat(file)).size;
 }
@@ -126,6 +172,9 @@ export async function saveUpload(ownerId: string, originalName: string, data: Ui
 	const file = type.kind === 'audio' ? `${id}.mp3` : `${id}.${type.ext}`;
 	const out = path.join(mediaDir, file);
 	const tmp = path.join(mediaDir, `${id}.upload`);
+	// Plik wynikowy powstaje pod nazwą tymczasową i jest publikowany atomowo (rename) – kopie zapasowe
+	// i rclone nigdy nie zobaczą niedokończonego pliku pod docelową nazwą.
+	const part = `${out}.part`;
 	let durationMs: number | null = null;
 	let ok = false;
 	try {
@@ -137,17 +186,20 @@ export async function saveUpload(ownerId: string, originalName: string, data: Ui
 				if (inDur > MAX_AUDIO_MS) throw new MediaError('audioLong');
 				try {
 					await run('ffmpeg', ['-nostdin', '-hide_banner', '-loglevel', 'error', '-y', '-i', tmp, '-t', String(MAX_AUDIO_MS / 1000),
-						'-vn', '-map_metadata', '-1', '-ac', '2', '-ar', '44100', '-b:a', '160k', '-fs', String(MAX_OUTPUT_BYTES), '-f', 'mp3', out], 120_000);
+						'-vn', '-map_metadata', '-1', '-ac', '2', '-ar', '44100', '-b:a', '160k', '-fs', String(MAX_OUTPUT_BYTES), '-f', 'mp3', part], 120_000);
 				} catch {
 					throw new MediaError('audioProcess');
 				}
-				return probeDuration(out);
+				return probeDuration(part);
 			});
 		} else {
-			await fs.writeFile(out, data, { mode: 0o640 });
+			await fs.writeFile(tmp, data, { mode: 0o640 });
+			await inQueue(() => processImage(tmp, part, thumbPath(out), type.ext));
 		}
-		const size = await sizeOf(out);
+		const size = await sizeOf(part);
 		if (size === 0 || size >= MAX_OUTPUT_BYTES) throw new MediaError('outputBad');
+		await fs.chmod(part, 0o640);
+		await fs.rename(part, out);
 		const row = db
 			.insert(schema.media)
 			.values({
@@ -165,12 +217,16 @@ export async function saveUpload(ownerId: string, originalName: string, data: Ui
 		return row;
 	} finally {
 		await fs.rm(tmp, { force: true });
-		if (!ok) await fs.rm(out, { force: true });
+		await fs.rm(part, { force: true });
+		if (!ok) {
+			await fs.rm(out, { force: true });
+			await fs.rm(thumbPath(out), { force: true });
+		}
 	}
 }
 
 /** Wycina fragment [startMs, endMs] z łagodnym wejściem/wyjściem. Zwraca id nowego media. */
-export async function cutClip(ownerId: string, sourceId: string, startMs: number, endMs: number) {
+export async function cutClip(ownerId: string, sourceId: string, startMs: number, endMs: number, opts: { normalize?: boolean } = {}) {
 	const src = db.select().from(schema.media).where(eq(schema.media.id, sourceId)).get();
 	if (!src || src.kind !== 'audio') return null;
 	const start = Math.max(0, startMs) / 1000;
@@ -180,14 +236,18 @@ export async function cutClip(ownerId: string, sourceId: string, startMs: number
 	const id = newId('med');
 	const file = `${id}.mp3`;
 	const out = path.join(mediaDir, file);
+	const part = `${out}.part`; // publikacja atomowa, jak w saveUpload
 	let ok = false;
 	try {
 		await inQueue(() =>
 			run('ffmpeg', ['-nostdin', '-hide_banner', '-loglevel', 'error', '-y', '-ss', String(start), '-t', String(dur), '-i', path.join(mediaDir, path.basename(src.file)),
-				'-af', `afade=t=in:st=0:d=${fade},afade=t=out:st=${(dur - fade).toFixed(3)}:d=${fade}`, '-b:a', '160k', '-fs', String(4 * 1024 * 1024), '-f', 'mp3', out], 60_000)
+				// normalize: wyrównanie głośności (np. wgrany mem nie jest dwa razy głośniejszy niż reszta gry)
+				'-af', `${opts.normalize ? 'loudnorm=I=-16:TP=-1.5:LRA=11,' : ''}afade=t=in:st=0:d=${fade},afade=t=out:st=${(dur - fade).toFixed(3)}:d=${fade}`, '-b:a', '160k', '-fs', String(4 * 1024 * 1024), '-f', 'mp3', part], 60_000)
 		);
-		const size = await sizeOf(out);
+		const size = await sizeOf(part);
 		if (size === 0) return null;
+		await fs.chmod(part, 0o640);
+		await fs.rename(part, out);
 		db.insert(schema.media)
 			.values({ id, ownerId, kind: 'audio', originalName: `${src.originalName} (fragment)`, file, durationMs: Math.round(dur * 1000), sizeBytes: size })
 			.run();
@@ -197,6 +257,7 @@ export async function cutClip(ownerId: string, sourceId: string, startMs: number
 		if (e instanceof MediaError) throw e;
 		return null;
 	} finally {
+		await fs.rm(part, { force: true });
 		if (!ok) await fs.rm(out, { force: true });
 	}
 }
@@ -206,6 +267,7 @@ export async function deleteMedia(id: string) {
 	if (!m) return;
 	db.delete(schema.media).where(eq(schema.media.id, id)).run();
 	await fs.rm(path.join(mediaDir, path.basename(m.file)), { force: true });
+	await fs.rm(thumbPath(m.file), { force: true });
 }
 
 export const mediaUrl = (id: string | null | undefined) => (id ? `/media/${id}` : null);

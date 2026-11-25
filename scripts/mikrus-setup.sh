@@ -7,12 +7,12 @@
 # Bezpieczeństwo wobec innych usług na serwerze (np. app.proem.pl):
 #  - quiz działa w osobnym projekcie Dockera, osobnej sieci, jako osobny użytkownik (uid 10471),
 #    z systemem plików tylko do odczytu, bez uprawnień i z limitami RAM/CPU/procesów;
-#  - widzi wyłącznie katalog ~/proem-quiz/data;
-#  - klucz SSH dla GitHuba może uruchomić TYLKO ~/proem-quiz/deploy.sh (nie daje powłoki);
+#  - widzi wyłącznie katalog /srv/proem-quiz/data;
+#  - klucz SSH dla GitHuba może uruchomić TYLKO /srv/proem-quiz/deploy.sh (nie daje powłoki);
 #  - docker-compose.yml zmienia się tylko przez ten skrypt, nie przy deployu.
 set -euo pipefail
 
-APP_DIR="${APP_DIR:-$HOME/proem-quiz}"
+APP_DIR="${APP_DIR:-/srv/proem-quiz}" # poza katalogiem domowym roota – dostęp do odczytu dla kopii zapasowych
 QUIZ_UID=10471
 KEY_TAG=github-actions-proem-quiz
 
@@ -53,6 +53,16 @@ fi
 
 [[ $EUID -eq 0 ]] || { echo "Uruchom jako root (na Mikrusie domyślnie jesteś rootem)."; exit 1; }
 
+# Starsza wersja skryptu instalowała quiz w ~/proem-quiz – nie zakładamy po cichu drugiej, pustej instalacji.
+OLD_DIR="$HOME/proem-quiz"
+if [[ "$APP_DIR" != "$OLD_DIR" && -f "$OLD_DIR/.env" ]]; then
+	warn "Znaleziono wcześniejszą instalację w $OLD_DIR (baza, pliki, .env). Przenieś ją najpierw:"
+	info "  cd $OLD_DIR && docker compose down"
+	info "  mv $OLD_DIR $APP_DIR"
+	info "  bash $0        # zaktualizuje pliki i wygeneruje nowy klucz GitHuba (podmień sekret MIKRUS_SSH_KEY)"
+	exit 1
+fi
+
 # --- 0. Co już działa na serwerze ---
 bold "0/5 Stan serwera (inne usługi zostają nietknięte)"
 if command -v docker >/dev/null; then
@@ -78,11 +88,14 @@ fi
 
 # --- 2. Katalog, .env, docker-compose.yml, deploy.sh ---
 bold "2/5 Katalog $APP_DIR"
+# Grupa o numerze użytkownika quizu – należy do niej tylko konto kopii zapasowych (odczyt danych).
+getent group "$QUIZ_UID" >/dev/null || groupadd -g "$QUIZ_UID" proem-quiz
 mkdir -p "$APP_DIR/data"
+chown "root:$QUIZ_UID" "$APP_DIR"
 chmod 750 "$APP_DIR"
 chown -R "$QUIZ_UID:$QUIZ_UID" "$APP_DIR/data"
-chmod 700 "$APP_DIR/data"
-info "Dane quizu: $APP_DIR/data (właściciel: uid $QUIZ_UID – tylko kontener quizu)"
+chmod 750 "$APP_DIR/data"
+info "Dane quizu: $APP_DIR/data (właściciel: uid $QUIZ_UID – kontener quizu; odczyt: konto kopii zapasowych)"
 
 ENV_FILE="$APP_DIR/.env"
 if [[ -f "$ENV_FILE" ]]; then
@@ -144,7 +157,7 @@ chmod 600 "$ENV_FILE"
 COMPOSE="$APP_DIR/docker-compose.yml"
 write_compose() {
 	cat >"$1" <<'COMPOSE_EOF'
-# Proem Quiz na Mikrusie – ~/proem-quiz/docker-compose.yml (zapisuje go scripts/mikrus-setup.sh).
+# Proem Quiz na Mikrusie – /srv/proem-quiz/docker-compose.yml (zapisuje go scripts/mikrus-setup.sh).
 # Plik zmienia się TYLKO ręcznie (ponowne uruchomienie skryptu), nie przy deployu z GitHuba:
 # nawet przejęte repozytorium nie może przez niego dostać się do reszty serwera (np. app.proem.pl).
 # Wartości z .env: PORT, QUIZ_UID, QUIZ_MEM, QUIZ_CPUS (domyślne poniżej).
@@ -192,6 +205,9 @@ services:
 networks:
   quiz:
     name: proem-quiz-net
+    driver_opts:
+      # Stała nazwa mostka – zapora (scripts/mikrus-firewall.sh) blokuje po niej ruch quizu.
+      com.docker.network.bridge.name: br-proem-quiz
 COMPOSE_EOF
 }
 
@@ -267,11 +283,11 @@ mkdir -p ~/.ssh && chmod 700 ~/.ssh
 touch ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys
 SKIP_KEY=""
 if grep -q "$KEY_TAG" ~/.ssh/authorized_keys; then
-	if grep "$KEY_TAG" ~/.ssh/authorized_keys | grep -q '^command='; then
+	if grep "$KEY_TAG" ~/.ssh/authorized_keys | grep -q "^command=\"$DEPLOY\","; then
 		info "Klucz dla GitHub Actions jest już dodany (ograniczony do deploy.sh)."
 		yes_no "Wygenerować NOWY klucz (trzeba będzie podmienić sekret MIKRUS_SSH_KEY)?" || SKIP_KEY=1
 	else
-		warn "Znaleziono klucz GitHub Actions BEZ ograniczeń (pełny dostęp root). Zostanie zastąpiony."
+		warn "Znaleziono klucz GitHub Actions bez ograniczenia do $DEPLOY (np. stary katalog albo pełny dostęp root). Zostanie zastąpiony."
 	fi
 	if [[ -z "$SKIP_KEY" ]]; then sed -i "/$KEY_TAG/d" ~/.ssh/authorized_keys; fi
 fi

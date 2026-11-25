@@ -4,6 +4,9 @@
 	const t = $derived(panelDict(data.lang));
 	const U = $derived(t.users);
 	let copied = $state(false);
+	// Telefon: formularz zaproszenia chowa się pod przyciskiem (otwarty od razu, gdy wrócił z błędem).
+	let inviteOpen = $state(false);
+	$effect(() => { if (form?.inviteError) inviteOpen = true; });
 
 	async function copy(text: string) {
 		await navigator.clipboard.writeText(text);
@@ -30,7 +33,8 @@
 {#if form?.message}<p class="success">{form.message}</p>{/if}
 {#if form?.actionError}<p class="error">{form.actionError}</p>{/if}
 
-<div class="card">
+<button type="button" class="invite-toggle" aria-expanded={inviteOpen} aria-controls="invite-box" onclick={() => (inviteOpen = !inviteOpen)}>+ {U.invite}</button>
+<div class="card invite-box" id="invite-box" class:open={inviteOpen}>
 	<h2>{U.invite}</h2>
 	{#if form?.inviteError}<p class="error">{form.inviteError}</p>{/if}
 	<form method="POST" action="?/invite" class="invite">
@@ -68,8 +72,8 @@
 		<tbody>
 			{#each data.users as u (u.id)}
 				<tr class:off={u.disabled}>
-					<td><strong>{u.name}</strong><br /><span class="muted">{u.email}</span></td>
-					<td>
+					<td class="person"><strong>{u.name}</strong><br /><span class="muted">{u.email}</span></td>
+					<td data-label={U.role}>
 						{#if u.id === data.user.id}
 							{u.role === 'admin' ? U.admin : U.author} <span class="muted">{U.you}</span>
 						{:else}
@@ -82,7 +86,7 @@
 							</form>
 						{/if}
 					</td>
-					<td>
+					<td data-label={t.common.language}>
 						<form method="POST" action="?/locale">
 							<input type="hidden" name="id" value={u.id} />
 							<select name="locale" onchange={(e) => e.currentTarget.form?.requestSubmit()} aria-label={U.language}>
@@ -91,12 +95,12 @@
 							</select>
 						</form>
 					</td>
-					<td>
+					<td data-label={U.status}>
 						{#if u.disabled}<span class="tag off">{U.blocked}</span>
 						{:else if !u.activated}<span class="tag warn">{U.pending}</span>
 						{:else}<span class="tag ok">{U.active}</span>{/if}
 					</td>
-					<td>
+					<td data-label="2FA">
 						{#if u.totpEnabled}<span class="tag ok">{t.common.yes}</span>
 						{:else if u.role === 'admin'}<span class="tag warn">{U.required}</span>
 						{:else}<span class="tag off">{t.common.no}</span>{/if}
@@ -126,13 +130,36 @@
 </div>
 
 <style>
-	h2 { font-size: 1.1rem; margin-top: 0; }
+	h2 { margin-top: 0; }
 	.card { margin-bottom: 1.5rem; }
 	.invite { display: grid; grid-template-columns: 1fr 1fr 1fr 0.6fr auto; gap: 0 1rem; align-items: end; }
-	@media (max-width: 720px) { .invite { grid-template-columns: 1fr; } .invite button { margin-top: 1rem; } }
-	.list { overflow-x: auto; }
+	.invite-toggle { display: none; }
+	.list { overflow-x: auto; padding: 0.5rem 1rem; }
 	tr.off td { opacity: 0.55; }
-	.actions { display: flex; gap: 0.4rem; justify-content: flex-end; flex-wrap: wrap; }
-	.actions button { padding: 0.4rem 0.7rem; font-size: 0.85rem; }
-	td select { width: auto; padding: 0.35rem; }
+	td.actions { text-align: right; white-space: nowrap; }
+	td.actions :global(form) { display: inline-block; margin-left: 0.4rem; }
+	.actions button { min-height: 2.5rem; padding: 0.3rem 0.8rem; font-size: 0.9rem; }
+	td select { width: auto; min-height: 2.5rem; padding: 0.3rem 0.5rem; }
+	@media (max-width: 720px) {
+		.invite { grid-template-columns: 1fr; }
+		.invite button { margin-top: 1rem; }
+		.invite-toggle { display: flex; width: 100%; margin-bottom: 1rem; }
+		.invite-box { display: none; }
+		.invite-box.open { display: block; }
+		/* Tabela → karty: każda osoba to osobna karta z podpisanymi polami. */
+		.list { padding: 0; background: none; border: 0; box-shadow: none; overflow: visible; }
+		.list table, .list tbody { display: block; overflow: visible; }
+		.list thead { display: none; }
+		.list tr { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; padding: 1rem; margin-bottom: 0.75rem; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+		.list td { display: block; padding: 0; border: 0; min-width: 0; }
+		.list td[data-label]::before { content: attr(data-label); display: block; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 0.25rem; }
+		.list td.person, .list td.actions { grid-column: 1 / -1; }
+		.list td.person strong { font-size: 1.05rem; }
+		.list td.actions { display: flex; gap: 0.5rem; white-space: normal; }
+		.list td.actions :global(form) { margin: 0; }
+		.list td.actions:empty { display: none; }
+		.list td.actions :global(form) { flex: 1; }
+		.list td.actions button { width: 100%; min-height: 2.75rem; }
+		td select { width: 100%; min-height: 2.75rem; }
+	}
 </style>
