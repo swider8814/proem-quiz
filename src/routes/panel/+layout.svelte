@@ -5,6 +5,7 @@
 	import LangSwitch from '#lib/i18n/LangSwitch.svelte';
 	import { afterNavigate } from '$app/navigation';
 	import Icon from '#lib/Icon.svelte';
+	import { slideIn } from '#lib/motion.js';
 	let { data, children } = $props();
 	const t = $derived(panelDict(data.lang));
 
@@ -27,7 +28,12 @@
 
 	// Telefon: menu chowane pod przyciskiem (hamburger), zamyka się po przejściu na inną stronę.
 	let open = $state(false);
+	let menuEl: HTMLElement | undefined = $state();
 	afterNavigate(() => (open = false));
+	// Wysunięcie menu przy otwarciu (Web Animations – działa też w Safari na iOS); chowa się od razu.
+	$effect(() => {
+		if (open && menuEl) slideIn(menuEl);
+	});
 </script>
 
 <svelte:window onkeydown={(e) => e.key === 'Escape' && (open = false)} />
@@ -47,7 +53,7 @@
 			<button class="burger" type="button" aria-expanded={open} aria-controls="panel-menu" aria-label={t.nav.menu} onclick={() => (open = !open)}>
 				<span></span><span></span><span></span>
 			</button>
-			<div class="menu" id="panel-menu" class:open>
+			<div class="menu" id="panel-menu" class:open bind:this={menuEl}>
 				{#if !setupOnly}
 					<nav>
 						{#each links as l}
@@ -139,10 +145,6 @@
 			gap: 1rem; padding: 1rem; overflow-y: auto; background: var(--surface);
 		}
 		.menu.open { display: flex; }
-		/* Menu wysuwa się spod paska (stan startowy + przejście). Chowa się od razu: po wyborze strony
-		   ma zniknąć natychmiast, a przy obracaniu tabletu nie mignąć. Starsze przeglądarki pokazują je bez animacji. */
-		.menu.open { transition: opacity var(--dur) var(--ease-out), transform var(--dur) var(--ease-out); }
-		@starting-style { .menu.open { opacity: 0; transform: translateY(-8px); } }
 		.burger span { transition: transform var(--dur) var(--ease-out), opacity var(--dur-fast); }
 		nav a { min-height: 3.25rem; font-size: 1.1rem; }
 		/* Profil, język i wylogowanie w jednej linii: [D] Imię Nazwisko · EN · Wyloguj */

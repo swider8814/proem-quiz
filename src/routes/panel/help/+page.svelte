@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { smoothDetails } from '#lib/motion.js';
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { panelDict } from '#lib/i18n/panel.js';
@@ -43,7 +44,7 @@
 
 <div class="sections">
 	{#each shown as s, i (s.id)}
-		<details class="card sec" id={s.id} bind:open={() => open[s.id] || !!query.trim(), (v) => (open[s.id] = v)}>
+		<details class="card sec" id={s.id} use:smoothDetails bind:open={() => open[s.id] || !!query.trim(), (v) => (open[s.id] = v)}>
 			<summary>
 				<span class="num">{i + 1}</span>
 				<span class="head"><strong>{s.b.title}</strong><span class="muted">{s.b.summary}</span></span>
@@ -72,9 +73,6 @@
 	/* „+” obraca się w „×” zamiast podmieniać znak. */
 	summary::after { transition: transform var(--dur) var(--ease-out); }
 	details[open] summary::after { transform: rotate(45deg); }
-	/* Rozwijanie sekcji: wysokość do „auto” (Chrome, Safari 18.4+); w innych od razu, bez skoku układu. */
-	details::details-content { block-size: 0; overflow: hidden; transition: block-size var(--dur) var(--ease-out), content-visibility var(--dur) allow-discrete; }
-	details[open]::details-content { block-size: auto; }
 	.num { flex: none; display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: 50%; background: var(--bg); border: 1px solid var(--line-strong); font-weight: 700; }
 	.head { display: grid; gap: 0.15rem; }
 	.head .muted { font-size: 0.9rem; }
