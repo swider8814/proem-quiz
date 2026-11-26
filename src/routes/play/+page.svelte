@@ -169,7 +169,9 @@
 		const strip = el.parentElement;
 		if (!strip || strip.scrollWidth <= strip.clientWidth) return;
 		const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-		strip.scrollTo({ left: el.offsetLeft - (strip.clientWidth - el.offsetWidth) / 2, behavior: reduce ? 'auto' : 'smooth' });
+		// Pozycja względem samego rzędu (getBoundingClientRect) – niezależnie od tego, który przodek jest offsetParent.
+		const delta = el.getBoundingClientRect().left - strip.getBoundingClientRect().left;
+		strip.scrollTo({ left: strip.scrollLeft + delta - (strip.clientWidth - el.offsetWidth) / 2, behavior: reduce ? 'auto' : 'smooth' });
 	}
 
 	/** Telefon: postacie w jednym rzędzie przewijanym w bok – wylosowana na starcie ma być widoczna. */
