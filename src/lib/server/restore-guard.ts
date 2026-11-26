@@ -14,9 +14,13 @@ import { eq, isNull } from 'drizzle-orm';
 import { dataDir, db, schema } from './db/index.js';
 
 const KEY = 'db_generation';
+/** Znacznik zakładany przy ręcznym odtwarzaniu (README) – pewne wykrycie także na nowym serwerze, bez pliku licznika. */
+export const RESTORE_MARKER = 'odtworzono-z-kopii';
 
 export function guardRestoredDb(): { restored: boolean; sessions: number; links: number } {
 	const file = path.join(dataDir, 'db-generation');
+	const marker = path.join(dataDir, RESTORE_MARKER);
+	const marked = fs.existsSync(marker);
 	let onDisk: number | null = null;
 	let raw: string | null = null;
 	try {
@@ -36,7 +40,7 @@ export function guardRestoredDb(): { restored: boolean; sessions: number; links:
 		const row = tx.select().from(schema.appSettings).where(eq(schema.appSettings.key, KEY)).get();
 		const inDb = row ? Number(/^\d{1,16}$/.test(row.value) ? row.value : NaN) : 0;
 		if (!Number.isSafeInteger(inDb)) throw new Error('Nieprawidłowy licznik db_generation w bazie – nie da się sprawdzić, czy baza nie jest odtworzoną kopią');
-		const restored = onDisk !== null && inDb < onDisk;
+		const restored = marked || (onDisk !== null && inDb < onDisk);
 		const nextN = Math.max(inDb, onDisk ?? 0) + 1;
 		// Zapisujemy tylko to, co kolejny start też przyjmie (bezpieczna liczba, do 16 cyfr) – sprawdzane
 		// przed jakąkolwiek zmianą w bazie (wyjątek wycofuje transakcję).
@@ -57,5 +61,6 @@ export function guardRestoredDb(): { restored: boolean; sessions: number; links:
 	const tmp = `${file}.tmp`;
 	fs.writeFileSync(tmp, result.next, { mode: 0o640 });
 	fs.renameSync(tmp, file);
+	if (marked) fs.rmSync(marker, { force: true }); // dopiero po zatwierdzeniu unieważnienia
 	return { restored: result.restored, sessions: result.sessions, links: result.links };
 }

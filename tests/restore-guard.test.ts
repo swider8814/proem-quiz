@@ -85,5 +85,15 @@ ok(unreadable, 'nieczytelny licznik (błąd inny niż brak pliku): start przerwa
 fs.rmSync(counter, { recursive: true });
 fs.writeFileSync(counter, saved);
 
+// Nowy serwer: brak pliku licznika, stara kopia bez licznika – znacznik z README wymusza unieważnienie.
+fs.rmSync(counter, { force: true });
+db.delete(schema.appSettings).where(eq(schema.appSettings.key, 'db_generation')).run();
+addLinks();
+fs.writeFileSync(path.join(dir, 'odtworzono-z-kopii'), '');
+g = guardRestoredDb();
+ok(g.restored && pending() === 0 && sessions() === 0 && !fs.existsSync(path.join(dir, 'odtworzono-z-kopii')), 'nowy serwer + znacznik odtworzenia: unieważnione, znacznik usunięty');
+addLinks();
+ok(!guardRestoredDb().restored && pending() === 1, 'kolejny start po odtworzeniu: bez unieważniania');
+
 fs.rmSync(dir, { recursive: true, force: true });
 process.exit(finish() ? 1 : 0);

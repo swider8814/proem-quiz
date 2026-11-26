@@ -189,6 +189,7 @@ cd /srv/proem-quiz && docker compose stop app
 cp data/quiz.db data/quiz.db.przed-odtworzeniem
 cp <kopia>/backup/quiz-RRRR-MM-DD_GGMM.db data/quiz.db   # plik z NAS-a (np. scp z komputera)
 rm -f data/quiz.db-wal data/quiz.db-shm
+touch data/odtworzono-z-kopii   # przy starcie: unieważnienie sesji i nieużytych linków z kopii (też na nowym serwerze)
 rsync -a <kopia>/backup/media-RRRR-MM-DD_GGMM/ data/media/  # pliki audio/obrazy z tej samej chwili
 chown -R 10471:10471 data && docker compose up -d
 ```
