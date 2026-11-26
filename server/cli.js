@@ -297,6 +297,10 @@ switch (cmd) {
 		let missing = 0;
 		try {
 			copy.exec('DELETE FROM sessions;');
+			// Jednorazowe linki (aktywacja konta, reset hasła), które nie zostały jeszcze użyte: po odtworzeniu
+			// kopii link zużyty już PO jej wykonaniu znów byłby ważny (do pierwotnego terminu). W kopii ich nie ma –
+			// po odtworzeniu admin wysyła nowe zaproszenie, a reset hasła zamawia się ponownie.
+			copy.exec('DELETE FROM invites WHERE used_at IS NULL;');
 			const check = copy.pragma('integrity_check', { simple: true });
 			if (check !== 'ok') throw new Error(`Kopia uszkodzona: ${check}`);
 			for (const r of copy.prepare('SELECT file FROM media').all()) {

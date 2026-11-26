@@ -72,6 +72,17 @@ try {
 		fs.rmSync(target, { recursive: true, force: true });
 	}
 
+	// Jednorazowe linki w bazie: oczekujące (aktywacja, reset) i już użyty – review Codexa.
+	{
+		const live = new Database(path.join(data, 'quiz.db'));
+		const uid = live.prepare('SELECT id FROM users LIMIT 1').get().id;
+		const ins = live.prepare('INSERT INTO invites (id, purpose, user_id, expires_at, used_at) VALUES (?, ?, ?, ?, ?)');
+		ins.run('test-pending-invite', 'invite', uid, Date.now() + 864e5, null);
+		ins.run('test-pending-reset', 'reset', uid, Date.now() + 36e5, null);
+		ins.run('test-used-reset', 'reset', uid, Date.now() + 36e5, Date.now());
+		live.close();
+	}
+
 	// ── backup.sh bez Dysku Google ──
 	const r1 = runBackup({ RCLONE: path.join(bin, 'rclone') });
 	ok(r1.status === 0, `backup.sh kończy się sukcesem (${r1.stderr.trim() || r1.stdout.trim().split('\n').pop()})`);
@@ -87,6 +98,8 @@ try {
 	const snap = new Database(path.join(data, 'backup', snapshots()[0]), { readonly: true });
 	ok(snap.pragma('integrity_check', { simple: true }) === 'ok', 'kopia bazy jest spójna');
 	ok(snap.prepare('SELECT count(*) n FROM sessions').get().n === 0, 'kopia bez sesji logowania');
+	ok(snap.prepare('SELECT count(*) n FROM invites WHERE used_at IS NULL').get().n === 0 && snap.prepare("SELECT count(*) n FROM invites WHERE id = 'test-used-reset'").get().n === 1,
+		'kopia bez nieużytych jednorazowych linków – po odtworzeniu link zużyty później nie ożyje');
 	ok(snap.prepare("SELECT count(*) n FROM quizzes WHERE title = 'Quiz do kopii'").get().n === 1, 'kopia zawiera quiz');
 	snap.close();
 	ok((fs.statSync(path.join(data, 'backup', snapshots()[0])).mode & 0o777) === 0o640, 'kopia bazy ma uprawnienia 640');
