@@ -152,7 +152,6 @@
 		.who { flex-wrap: nowrap; border: 0; border-top: 1px solid var(--line); border-radius: 0; padding: 1rem 0 0; }
 		.acts { flex: none; flex-basis: auto; justify-content: flex-end; gap: 0.25rem; }
 		.acts button { min-height: 2.75rem; }
-		.acts :global(.lang button) { min-width: 2.75rem; padding: 0 0.5rem; }
 		main { padding: 1rem 1rem 2rem; }
 		/* Na telefonie jedna kolumna – stopka z wersją na środku; na komputerze w linii z treścią (do lewej). */
 		.ver { text-align: center; }

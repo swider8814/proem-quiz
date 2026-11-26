@@ -5,7 +5,7 @@
 //   MAIL_FROM=quiz@proem.pl          (adres zweryfikowany w SendGrid: Sender Identity / domena)
 //   MAIL_FROM_NAME=Proem Quiz
 
-import { panelDict } from '#lib/i18n/panel.js';
+import { isPanelLang, panelDict, type PanelLang } from '#lib/i18n/panel.js';
 
 export type Mail = { to: string; subject: string; text: string; html: string };
 type Sender = (mail: Mail) => Promise<void>;
@@ -58,12 +58,13 @@ export async function sendMail(mail: Mail): Promise<boolean> {
 	}
 }
 
-type Lang = string | null | undefined; // język konta odbiorcy (pl / en / uk → en)
-const dictFor = (lang: Lang) => panelDict(lang === 'pl' || lang == null ? 'pl' : 'en');
+type Lang = string | null | undefined; // język konta odbiorcy (pl / en / uk; brak → pl)
+const langOf = (lang: Lang): PanelLang => (isPanelLang(lang) ? lang : 'pl');
+const dictFor = (lang: Lang) => panelDict(langOf(lang));
 
 function layout(lang: Lang, title: string, bodyHtml: string) {
 	const t = dictFor(lang);
-	return `<!doctype html><html lang="${lang === 'pl' || lang == null ? 'pl' : 'en'}"><body style="margin:0;background:#f6f6f8;font-family:Arial,sans-serif;color:#1d1d27">
+	return `<!doctype html><html lang="${langOf(lang)}"><body style="margin:0;background:#f6f6f8;font-family:Arial,sans-serif;color:#1d1d27">
 <div style="max-width:520px;margin:24px auto;background:#fff;border:1px solid #e3e4ea;border-radius:12px;padding:28px">
 <h1 style="font-size:20px;margin:0 0 16px">${esc(title)}</h1>${bodyHtml}
 <p style="font-size:12px;color:#666a7a;margin-top:28px">${esc(t.mail.footer)}</p>

@@ -35,7 +35,7 @@ export function renameUser(userId: string, name: string) {
 	db.update(schema.users).set({ name }).where(eq(schema.users.id, userId)).run();
 }
 
-export function inviteUser(input: { email: string; name: string; role: 'admin' | 'author'; locale?: 'pl' | 'en' }) {
+export function inviteUser(input: { email: string; name: string; role: 'admin' | 'author'; locale?: 'pl' | 'en' | 'uk' }) {
 	const email = input.email.toLowerCase().trim();
 	const existing = db.select().from(schema.users).where(eq(schema.users.email, email)).get();
 	if (existing) return { error: 'accountExists' as const };

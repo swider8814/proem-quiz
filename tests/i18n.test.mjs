@@ -149,6 +149,43 @@ try {
 		ok(/Create quiz/.test((await newAdmin.req('/panel')).text), 'język wybrany podczas konfiguracji 2FA zapisany w koncie');
 	}
 
+	// ── Ukraiński: przeglądarka, konto, e-mail, panel ──
+	{
+		const anonUk = await B().req('/login', { headers: { 'accept-language': 'uk-UA,uk;q=0.9,en;q=0.8' } });
+		ok(/<html lang="uk">/.test(anonUk.text) && /Забули пароль\?/.test(anonUk.text), 'logowanie po ukraińsku dla przeglądarki UK');
+		const anonRu = await B().req('/login', { headers: { 'accept-language': 'ru-RU,ru;q=0.9' } });
+		ok(/<html lang="en">/.test(anonRu.text), 'inna przeglądarka (RU) → angielski');
+		const invUk = await admin.req('/panel/users?/invite', { method: 'POST', form: { name: 'Олена Коваль', email: 'olena@proem.pl', role: 'author', locale: 'uk' } });
+		ok(invUk.status === 200, 'zaproszenie konta z językiem UK');
+		const mailUk = outbox().find((m) => m.to === 'olena@proem.pl');
+		ok(mailUk && /Запрошення до Proem Quiz/.test(mailUk.subject) && /<html lang="uk">/.test(mailUk.html) && !POLISH.test(mailUk.text), 'e-mail z zaproszeniem po ukraińsku');
+		const linkUk = invUk.text.match(/\/invite\/[A-Za-z0-9_-]+/)[0];
+		const olena = B();
+		const invUkPage = await olena.req(linkUk);
+		ok(/<html lang="uk">/.test(invUkPage.text) && /Вітаємо, Олена Коваль!/.test(invUkPage.text), 'strona aktywacji po ukraińsku');
+		await olena.req(linkUk, { method: 'POST', form: { password: 'UkrainianPass123!', repeat: 'UkrainianPass123!' } });
+		const listUk = await olena.req('/panel');
+		ok(/<html lang="uk">/.test(listUk.text) && /Створити вікторину/.test(listUk.text), 'lista quizów po ukraińsku');
+		ok(polishLeft(listUk.text).length === 0, `lista UK bez polskich tekstów: ${polishLeft(listUk.text).join(' ')}`);
+		const cUk = await olena.req('/panel?/create', { method: 'POST', form: { title: 'Різдвяна вікторина' } });
+		const ukQuiz = cUk.loc.split('/').pop();
+		for (const page of [`/panel/quizzes/${ukQuiz}`, `/panel/quizzes/${ukQuiz}/host`, `/panel/quizzes/${ukQuiz}/share`, '/panel/security']) {
+			const r = await olena.req(page);
+			ok(r.status === 200 && /<html lang="uk">/.test(r.text) && polishLeft(r.text).length === 0, `UK ${page} bez polskich tekstów: ${polishLeft(r.text).join(' ')}`);
+		}
+		const anonUkCookie = B();
+		await anonUkCookie.req('/lang', { method: 'POST', form: { lang: 'uk', next: '/login' } });
+		const badUk = await anonUkCookie.req('/login', { method: 'POST', form: { email: 'olena@proem.pl', password: 'zle-haslo-123' } });
+		ok(/Неправильна адреса ел\. пошти або пароль/.test(badUk.text), 'błąd logowania po ukraińsku');
+		await admin.req('/lang', { method: 'POST', form: { lang: 'uk', next: '/panel' } });
+		for (const page of ['/panel', '/panel/users', '/panel/themes', '/panel/settings']) {
+			const r = await admin.req(page);
+			const left = polishLeft(r.text, allowed);
+			ok(r.status === 200 && left.length === 0, `admin UK ${page} bez polskich tekstów: ${left.join(' ')}`);
+		}
+		ok(/Користувачі/.test((await admin.req('/panel/users')).text), 'panel administratora po ukraińsku');
+	}
+
 	ok(srv.alive(), 'serwer działa do końca testu');
 } catch (e) {
 	ok(false, `wyjątek: ${e.stack}`);

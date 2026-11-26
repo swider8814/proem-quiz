@@ -19,7 +19,8 @@
 	import { tick } from 'svelte';
 	import Icon from '#lib/Icon.svelte';
 
-	let { label, children }: { label: string; children: Snippet } = $props();
+	/** trigger – własna zawartość przycisku (np. menu języka: ikona + „PL”); domyślnie ikona ⋯. */
+	let { label, children, trigger }: { label: string; children: Snippet; trigger?: Snippet } = $props();
 	const id = $props.id();
 	let open = $state(false);
 	let btn: HTMLButtonElement | undefined = $state();
@@ -104,6 +105,7 @@
 <button
 	type="button"
 	class="trigger secondary"
+	class:custom={!!trigger}
 	class:on={open}
 	bind:this={btn}
 	aria-label={label}
@@ -113,7 +115,7 @@
 	aria-controls={id}
 	onclick={() => (open ? close() : show())}
 >
-	<Icon name="more" weight={2.5} />
+	{#if trigger}{@render trigger()}{:else}<Icon name="more" weight={2.5} />{/if}
 </button>
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 <div class="pop" class:up {id} use:portal bind:this={pop} hidden={!open} style:top="{top}px" style:left="{left}px" style:max-height={maxH === null ? null : `${maxH}px`} onclick={onPopClick} onfocusout={onFocusOut} onsubmit={() => close()}>
@@ -122,6 +124,7 @@
 
 <style>
 	.trigger { width: 2.5rem; min-height: 2.5rem; padding: 0; flex: none; font-size: 1.15rem; }
+	.trigger.custom { width: auto; gap: 0.3rem; padding: 0 0.6rem; font-size: 0.87rem; }
 	/* Także przy :hover – iOS zostawia hover po dotknięciu, a jasne tło ukrywało białe kropki. */
 	.trigger.on, .trigger.on:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); color: #fff; }
 	.pop { position: fixed; z-index: 60; min-width: 13rem; max-width: calc(100vw - 1rem); box-sizing: border-box; display: flex; flex-direction: column; padding: 0.35rem; background: #fff; border: 1px solid var(--line-strong); border-radius: 0.75rem; box-shadow: 0 12px 32px rgba(27, 31, 59, 0.18); overflow-y: auto; overscroll-behavior: contain; text-align: left; white-space: normal; transform-origin: top right; animation: pop-in var(--dur-fast) var(--ease-out); }
@@ -138,6 +141,7 @@
 	.pop :global(select) { margin-top: 0.3rem; }
 	@media (max-width: 720px) {
 		.trigger { width: 44px; min-height: 44px; }
+		.trigger.custom { width: auto; }
 		.pop :global(a), .pop :global(button) { min-height: 44px; }
 	}
 </style>
