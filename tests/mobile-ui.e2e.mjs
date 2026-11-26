@@ -53,8 +53,12 @@ try {
 	ok(lay.row <= 4, `lista, telefon: „Quizy”, lupa i plus w jednym rzędzie (${lay.row})`);
 	ok(!(await p.isVisible('input[name="title"]')) && !(await p.isVisible('input[name="q"]')), 'lista, telefon: pole nowego quizu i wyszukiwarka schowane pod ikonami');
 	ok(lay.chipsRows === 1 && lay.foldersScroll && lay.overflow <= 1, `lista, telefon: filtry w jednym rzędzie przewijanym w bok, strona bez poziomego przewijania ${JSON.stringify(lay)}`);
-	await p.click('.head-tools button[aria-controls="list-search"]');
-	ok(await p.evaluate(() => document.activeElement?.getAttribute('name') === 'q'), 'lista, telefon: lupa rozwija wyszukiwarkę z kursorem');
+	// iOS otwiera klawiaturę tylko przy focus() w samej obsłudze dotknięcia – sprawdzamy synchronicznie po click().
+	const syncFocus = await p.evaluate(() => {
+		document.querySelector('.head-tools button[aria-controls="list-search"]').click();
+		return document.activeElement?.getAttribute('name');
+	});
+	ok(syncFocus === 'q', `lista, telefon: lupa rozwija wyszukiwarkę i kursor trafia do pola od razu, w obsłudze dotknięcia (${syncFocus})`);
 	await p.fill('input[name="q"]', 'Telefon');
 	await Promise.all([p.waitForURL(/q=Telefon/), p.press('input[name="q"]', 'Enter')]);
 	ok(await p.isVisible('input[name="q"]'), 'lista, telefon: przy aktywnym wyszukiwaniu pole zostaje widoczne');

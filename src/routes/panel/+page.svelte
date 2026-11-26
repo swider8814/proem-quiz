@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { tick } from 'svelte';
+	import { flushSync } from 'svelte';
 	import { send } from '#lib/forms.js';
 	import Icon from '#lib/Icon.svelte';
 	import RowMenu from '#lib/RowMenu.svelte';
@@ -33,11 +33,14 @@
 	const empty = $derived(data.total === 0 && data.folders.length === 0);
 	let newTitle: HTMLInputElement | undefined = $state();
 	let searchInput: HTMLInputElement | undefined = $state();
-	/** Rozwija pole (telefon) i od razu stawia w nim kursor, żeby można było pisać. */
-	async function reveal(which: 'create' | 'search') {
-		if (which === 'create') createOpen = !createOpen;
-		else searchOpen = !searchOpen;
-		await tick();
+	/** Rozwija pole (telefon) i od razu stawia w nim kursor, żeby można było pisać.
+	 * Synchronicznie (flushSync, bez await): iOS Safari otwiera klawiaturę tylko wtedy, gdy focus()
+	 * pada jeszcze w obsłudze dotknięcia. */
+	function reveal(which: 'create' | 'search') {
+		flushSync(() => {
+			if (which === 'create') createOpen = !createOpen;
+			else searchOpen = !searchOpen;
+		});
 		if (which === 'create' && createOpen) newTitle?.focus();
 		if (which === 'search' && searchOpen) searchInput?.focus();
 	}
