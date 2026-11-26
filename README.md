@@ -37,7 +37,7 @@ Po zmianie `src/lib/server/db/schema.ts`: `npm run db:generate`, a nowy plik w `
 
 ```
 server/index.js        serwer produkcyjny: migracje → SvelteKit + Socket.IO
-server/realtime.js     komunikacja na żywo (na razie /diag do testu połączenia)
+server/realtime.js     komunikacja na żywo (Socket.IO: gra, /diag do testu połączenia)
 src/lib/server/db/     schemat bazy i połączenie
 src/routes/test-ws/    strona testu WebSocketów
 drizzle/               migracje SQL (uruchamiane automatycznie)
@@ -47,10 +47,15 @@ docker-compose.yml     uruchomienie na Mikrusie
 
 ## Jak działa wdrożenie
 
-Każdy push na `main`:
-1. GitHub Actions sprawdza kod i buduje obraz Dockera,
-2. wysyła go do GitHub Container Registry (`ghcr.io/swider8814/proem-quiz`),
-3. łączy się z Mikrusem po SSH, pobiera nowy obraz i restartuje kontener.
+Każdy push na `main` (np. scalenie PR-a):
+1. GitHub Actions sprawdza kod (typy, testy, testy w przeglądarce) i buduje obraz Dockera,
+2. wysyła go do GitHub Container Registry (`ghcr.io/swider8814/proem-quiz`).
+
+**Na serwer nic nie trafia automatycznie.** Wdrożenie uruchamia się ręcznie: GitHub → Actions →
+„Build i deploy” → **Run workflow** (gałąź `main`). Dopiero wtedy Actions łączy się z Mikrusem po SSH,
+pobiera obraz z `main` i restartuje kontener (przy błędzie wraca do poprzedniej wersji).
+Dzięki temu zmiany trafiają do uczestników w całych, sprawdzonych paczkach – przed wydarzeniem upewnij się,
+że ostatni deploy obejmuje wszystko, czego potrzebujesz.
 
 Na Mikrusie nic się nie buduje – serwer tylko pobiera gotowy obraz. Dane (baza + pliki audio)
 leżą w `/srv/proem-quiz/data` i przetrwają każdą aktualizację.

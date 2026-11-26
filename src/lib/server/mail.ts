@@ -35,9 +35,8 @@ async function sendgrid(mail: Mail) {
 	if (!res.ok) throw new Error(`SendGrid ${res.status}`);
 }
 
-// Dla testów: podmiana nadawcy (np. zapis do tablicy zamiast wysyłki).
-let sender: Sender = sendgrid;
-export const _setSender = (s: Sender | null) => (sender = s ?? sendgrid);
+// Testy nie podmieniają nadawcy – używają skrzynki w pliku (MAIL_TEST_OUTBOX=1, patrz sendMail).
+const sender: Sender = sendgrid;
 export const _testMode = () => process.env.MAIL_TEST_OUTBOX === '1';
 
 /** Zwraca true, jeśli mail został wysłany. Błędy wysyłki są logowane, ale nie przerywają akcji. */
