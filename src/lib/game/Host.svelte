@@ -770,7 +770,7 @@
 
 <style>
 	:global(body) { margin: 0; }
-	.host { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; display: flex; flex-direction: column; padding: 2vh 3vw; gap: 2vh; font-size: clamp(14px, 1.4vw, 28px); }
+	.host { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; display: flex; flex-direction: column; padding: max(2vh, env(safe-area-inset-top)) max(3vw, env(safe-area-inset-right)) max(2vh, env(safe-area-inset-bottom)) max(3vw, env(safe-area-inset-left)); gap: 2vh; font-size: clamp(14px, 1.4vw, 28px); }
 	/* Treść zawsze mieści się w oknie – przyciski prowadzącego nie wyjeżdżają poza ekran. */
 	.main { flex: 1; min-height: 0; display: flex; gap: 2vw; }
 	.view { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 2vh; }
@@ -922,7 +922,7 @@
 	/* Telefon / wąskie okno: wszystko w jednej kolumnie, strona się przewija, przyciski zawijają się
 	   zamiast wyjeżdżać poza ekran. Ekran dla widzów (projektor) jest szeroki – tego nie dotyczy. */
 	@media (max-width: 760px) {
-		.host { height: auto; min-height: 100dvh; overflow: visible; padding: 3vw; gap: 3vw; font-size: 15px; }
+		.host { height: auto; min-height: 100dvh; overflow: visible; padding: max(3vw, env(safe-area-inset-top)) max(3vw, env(safe-area-inset-right)) max(3vw, env(safe-area-inset-bottom)) max(3vw, env(safe-area-inset-left)); gap: 3vw; font-size: 15px; }
 		.main { flex-direction: column; gap: 3vw; }
 		.side { width: auto; max-height: 40vh; }
 		.lobby { flex-direction: column; gap: 3vw; }
