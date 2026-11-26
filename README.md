@@ -200,6 +200,7 @@ Zestaw do odtworzenia trzymaj w menedżerze haseł: plik `sa.json`, ID dysku, ob
 Na Dysku każda kopia ma spis swoich plików; plik audio/obraz znika z Dysku dopiero wtedy,
 gdy nie potrzebuje go już żadna zachowana (90 dni) kopia bazy.
 Kopie nie zawierają sesji logowania – po odtworzeniu wszyscy logują się ponownie (hasło + 2FA, ten sam `TOTP_ENCRYPTION_KEY`).
+Nie zawierają też nieużytych linków aktywacji i resetu hasła – po odtworzeniu osobom, które nie zdążyły aktywować konta, trzeba wysłać nowe zaproszenie.
 
 ## Przydatne komendy na serwerze
 
