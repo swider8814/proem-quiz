@@ -28,7 +28,12 @@ ok(r.res === 'ok' && !r.forgotten && r.calls === 3, 'timeout i limit przy zmiani
 ok(r.waits.length === 2 && r.waits[1] > r.waits[0], `rosnące przerwy między próbami (${r.waits.join(', ')} ms)`);
 
 r = await run([{ error: 'timeout' }]);
-ok(r.res === 'failed' && !r.forgotten && r.calls === 4, 'brak sieci przez wszystkie próby → token NIE jest kasowany');
+ok(r.res === 'failed' && !r.forgotten && r.calls === 8, 'brak sieci przez wszystkie próby → token NIE jest kasowany');
+
+// Limit serwera trwa do 60 s – próby muszą sięgać poza to okno (review Codexa).
+r = await run([{ error: 'rate-limited' }]);
+const total = r.waits.reduce((a, b) => a + b, 0);
+ok(total > 60_000 && Math.max(...r.waits) <= 20_000, `ponawianie po wyczerpanym limicie trwa ${total / 1000} s (> 60 s), przerwy ≤ 20 s`);
 
 r = await run([{ error: 'timeout' }, { error: 'no-session' }]);
 ok(r.res === 'gone' && r.forgotten, 'timeout, potem no-session → token skasowany');

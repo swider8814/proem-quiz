@@ -28,11 +28,13 @@ export function ask<T = Record<string, unknown>>(socket: Socket, event: string, 
  * Token kasujemy TYLKO, gdy serwer jednoznacznie odpowie, że sesji już nie ma (`no-session`).
  * Przy przejściowych problemach – brak odpowiedzi (`timeout`), chwilowy limit (`rate-limited`) –
  * token zostaje, a próba jest ponawiana z rosnącą przerwą. Bez tego gracz tracił dostęp do wyniku.
+ * Domyślne próby trwają łącznie ~80 s, czyli dłużej niż okno limitów serwera (60 s, `LIMITS` w
+ * server/realtime.js) – po wyczerpanym limicie ostatnie próby trafiają już w nowe okno.
  */
 export async function resumePlayer(
 	rejoin: () => Promise<{ ok?: boolean; error?: string }>,
 	forget: () => void,
-	{ attempts = 4, delayMs = 1500, sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms)) } = {}
+	{ attempts = 8, delayMs = 1500, maxDelayMs = 20_000, sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms)) } = {}
 ): Promise<'ok' | 'gone' | 'failed'> {
 	for (let i = 0; i < attempts; i++) {
 		const r = await rejoin();
@@ -42,7 +44,7 @@ export async function resumePlayer(
 			return 'gone';
 		}
 		if (r.error === 'already-joined') return 'failed'; // to połączenie gra już kimś innym – nie ponawiamy
-		if (i < attempts - 1) await sleep(delayMs * 2 ** i);
+		if (i < attempts - 1) await sleep(Math.min(delayMs * 2 ** i, maxDelayMs));
 	}
 	return 'failed';
 }
