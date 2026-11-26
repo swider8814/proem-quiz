@@ -232,6 +232,21 @@ function playerConnection(socket, games) {
 	const overIpBudget = () => limited(`ipev:${ip}`, LIMITS.perIpEvents.max, LIMITS.perIpEvents.windowMs);
 	const pinBlocked = () => exhausted(`pinfail:${ip}`, LIMITS.pinFail.max);
 	const pinMiss = () => limited(`pinfail:${ip}`, LIMITS.pinFail.max, LIMITS.pinFail.windowMs);
+	/**
+	 * Wspólne wyszukanie gry po PIN-ie dla zdarzeń, które ujawniają, czy gra istnieje (check, suggest, join):
+	 * ten sam budżet nietrafionych PIN-ów z IP i ta sama odpowiedź po jego wyczerpaniu – żadne zdarzenie
+	 * nie może posłużyć do dalszego zgadywania PIN-ów, gdy pozostałe są już zablokowane.
+	 */
+	const findGame = (arg, { allowEnded }) => {
+		if (overIpBudget() || pinBlocked()) return { error: 'rate-limited' };
+		const pin = isObj(arg) ? pinOf(arg.pin) : null;
+		const game = pin ? games.get(pin) : null;
+		if (!game || (!allowEnded && game.state === 'ended')) {
+			pinMiss();
+			return { error: 'no-game' };
+		}
+		return { game };
+	};
 
 	/** Przypięcie gniazda do gracza. Gniazdo może reprezentować tylko JEDNEGO gracza. */
 	function bind(game, player) {
@@ -254,13 +269,9 @@ function playerConnection(socket, games) {
 	const currentGame = () => (socket.data.pin ? games.get(socket.data.pin) : null);
 
 	on(socket, 'check', (arg, ack) => {
-		if (overIpBudget() || pinBlocked()) return reply(ack, { error: 'rate-limited' });
-		const pin = isObj(arg) ? pinOf(arg.pin) : null;
-		const game = pin ? games.get(pin) : null;
-		if (!game || game.state === 'ended') {
-			pinMiss();
-			return reply(ack, { error: 'no-game' });
-		}
+		const found = findGame(arg, { allowEnded: false });
+		if (!found.game) return reply(ack, found);
+		const game = found.game;
 		reply(ack, {
 			ok: true,
 			title: game.quiz.title,
@@ -274,23 +285,17 @@ function playerConnection(socket, games) {
 	});
 
 	on(socket, 'suggest', (arg, ack) => {
-		if (overIpBudget()) return reply(ack, { error: 'rate-limited' });
-		const pin = isObj(arg) ? pinOf(arg.pin) : null;
-		const game = pin ? games.get(pin) : null;
-		if (!game) return reply(ack, { error: 'no-game' });
-		reply(ack, { nick: randomNick(game.quiz.locale, game.takenNicks()) });
+		const found = findGame(arg, { allowEnded: false });
+		if (!found.game) return reply(ack, found);
+		reply(ack, { nick: randomNick(found.game.quiz.locale, found.game.takenNicks()) });
 	});
 
 	on(socket, 'join', (arg, ack) => {
 		if (!isObj(arg)) return reply(ack, { error: 'invalid' });
 		if (boundTo()) return reply(ack, { error: 'already-joined' });
-		if (overIpBudget() || pinBlocked()) return reply(ack, { error: 'rate-limited' });
-		const pin = pinOf(arg.pin);
-		const game = pin ? games.get(pin) : null;
-		if (!game) {
-			pinMiss();
-			return reply(ack, { error: 'no-game' });
-		}
+		const found = findGame(arg, { allowEnded: true }); // zakończona gra: addPlayer odpowie „game-ended”
+		if (!found.game) return reply(ack, found);
+		const game = found.game;
 		const nick = arg.nick === undefined ? '' : str(arg.nick, 100);
 		if (nick === null) return reply(ack, { error: 'invalid' });
 		// Członkowie drużyny: tylko tablica krótkich napisów (resztę odrzucamy po cichu).
