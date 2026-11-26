@@ -1,4 +1,8 @@
-# Proem Quiz
+<p align="center">
+  <img src="static/icons/icon-512.png" width="128" height="128" alt="Logo Proem Quiz – żółty dymek ze znakiem zapytania na granatowym tle" />
+</p>
+
+<h1 align="center">Proem Quiz</h1>
 
 Aplikacja do quizów na żywo w stylu Kahoot, z pytaniami audio („jaka to piosenka?”).
 Specyfikacja: dokument „Proem Quiz – specyfikacja” w Claude.
@@ -17,9 +21,16 @@ Specyfikacja: dokument „Proem Quiz – specyfikacja” w Claude.
   z czasem na naradę, losowa kolejność pytań/odpowiedzi.
 - **Telefony:** powrót do gry po rozłączeniu (ten sam nick i punkty, także przez ponowne
   zeskanowanie QR), „wstecz” nie wyrzuca z gry, kod QR między pytaniami.
+- **Języki gry:** polski, angielski i ukraiński (napisy na ekranie i telefonach; pytania pisze autor).
+  Gracz może zmienić język napisów na swoim telefonie – chyba że autor wyłączy to w ustawieniach quizu
+  (np. na lekcji języka). Losowe nicki są w języku quizu, a własne nicki pisane cyrylicą widać łacinką
+  (Олена → Olena), żeby prowadzący mógł je przeczytać – poza quizami po ukraińsku.
 - **Po grze:** raport (wyniki, najtrudniejsze pytania) z eksportem CSV dla Excela; usuwany po 90 dniach.
 - **Lista quizów:** prywatne foldery każdego autora (także na udostępnione quizy), wyszukiwanie bez polskich znaków, stronicowanie po 20.
-- **Panel:** po polsku i angielsku, 2FA, udostępnianie quizów, motywy.
+- **Panel:** po polsku, angielsku i ukraińsku (menu języka; język konta, e-maile i Pomoc), 2FA,
+  udostępnianie quizów, motywy.
+- **iPhone / iPad:** można dodać do ekranu głównego – działa na całym ekranie, z odstępem od
+  zaokrąglonych rogów i paska „home”.
 
 ## Praca lokalnie
 
@@ -39,6 +50,10 @@ Po zmianie `src/lib/server/db/schema.ts`: `npm run db:generate`, a nowy plik w `
 server/index.js        serwer produkcyjny: migracje → SvelteKit + Socket.IO
 server/realtime.js     komunikacja na żywo (Socket.IO: gra, /diag do testu połączenia)
 src/lib/server/db/     schemat bazy i połączenie
+src/lib/i18n/panel.ts  teksty panelu (PL / EN / UK – te same klucze, pilnuje TypeScript)
+src/lib/game/i18n.ts   teksty ekranów gry (PL / EN / UK)
+src/lib/help/content.ts treść zakładki Pomoc (PL / EN / UK)
+server/game/translit.js cyrylica → łacina dla nicków (kopia dla przeglądarki: src/lib/game/translit.js)
 src/routes/test-ws/    strona testu WebSocketów
 drizzle/               migracje SQL (uruchamiane automatycznie)
 Dockerfile             obraz aplikacji
