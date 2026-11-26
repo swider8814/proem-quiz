@@ -67,7 +67,14 @@ export async function checkCredentials(email: string, password: string): Promise
 		await verifyPassword(await dummyHash, password);
 		return null;
 	}
-	return (await verifyPassword(user.passwordHash, password)) ? user : null;
+	if (!(await verifyPassword(user.passwordHash, password))) return null;
+	// Weryfikacja hasła jest asynchroniczna – w tym czasie mógł się skończyć reset hasła, włączenie 2FA,
+	// zmiana roli albo blokada konta. Sesję wystawiamy na podstawie ŚWIEŻEGO stanu, a jeśli zmienił się
+	// hash hasła lub konto zablokowano – odrzucamy logowanie. Wywołujący tworzy sesję synchronicznie
+	// (bez `await` po tej funkcji), więc stan nie zmieni się już do zapisu sesji.
+	const fresh = getUser(user.id);
+	if (!fresh || fresh.disabled || fresh.passwordHash !== user.passwordHash) return null;
+	return fresh;
 }
 
 export const getUser = (id: string) => db.select().from(schema.users).where(eq(schema.users.id, id)).get() ?? null;
