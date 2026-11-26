@@ -1,7 +1,7 @@
 // Test silnika gry: prawdziwy serwer Socket.IO + klienci.  Uruchom: node tests/engine.test.mjs
 import http from 'node:http';
 import { io as connect } from 'socket.io-client';
-import { attachRealtime } from '../server/realtime.js';
+import { attachRealtime, _resetLimits } from '../server/realtime.js';
 import { registry, shuffled } from '../server/game/engine.js';
 
 const server = http.createServer();
@@ -428,14 +428,36 @@ for (const cd of [0, 3]) {
 	ok(g.addPlayer({ random: true, deviceId: 'rot0' }).player !== undefined, 'gracz, który sam wyszedł, może dołączyć ponownie');
 }
 
-// PIN brute force
-const brute = mk();
-let limitedHit = false;
-for (let i = 0; i < 70; i++) {
-	const res = await Promise.race([emit(brute, 'check', { pin: String(100000 + i) }), sleep(300).then(() => ({ error: 'dropped' }))]);
-	if (res.error === 'rate-limited' || res.error === 'dropped') { limitedHit = true; break; }
+// PIN brute force: wspólny budżet nietrafień dla check, suggest i join (review Codexa).
+// Wymagamy jawnej odpowiedzi „rate-limited” – sam brak odpowiedzi nie jest dowodem działania limitu.
+{
+	const live = registry().create({ ...quiz, quizId: 'brute' }, 'user1').pin;
+	const guess = async (ev, n) => {
+		for (let i = 0; i < n; i++) {
+			await sleep(80); // poniżej ogranicznika 15 zdarzeń/s na gniazdo (floodGuard) – inaczej zdarzenia byłyby gubione
+			const res = await emit(brute, ev, { pin: String(100000 + i) });
+			if (res.error === 'rate-limited') return i;
+			if (res.error !== 'no-game') return `nieoczekiwane: ${JSON.stringify(res)}`;
+		}
+		return null;
+	};
+	const brute = mk();
+	_resetLimits();
+	const viaCheck = await guess('check', 70);
+	ok(typeof viaCheck === 'number' && viaCheck >= 55, `zgadywanie PIN-ów przez check blokowane (po ${viaCheck} próbach)`);
+	for (const ev of ['check', 'suggest', 'join']) {
+		await sleep(80);
+		const res = await emit(brute, ev, { pin: live, random: true });
+		ok(res.error === 'rate-limited', `po wyczerpaniu budżetu ${ev} z prawdziwym PIN-em też „rate-limited” (${JSON.stringify(res)})`);
+	}
+	_resetLimits();
+	const viaSuggest = await guess('suggest', 70);
+	ok(typeof viaSuggest === 'number' && viaSuggest >= 55, `nietrafione PIN-y w suggest liczą się do tego samego budżetu (po ${viaSuggest})`);
+	await sleep(80);
+	ok((await emit(brute, 'check', { pin: live })).error === 'rate-limited', 'po zgadywaniu przez suggest check też zablokowany');
+	_resetLimits();
+	brute.close();
 }
-ok(limitedHit, 'zgadywanie PIN-ów blokowane');
 
 process.stderr.write(fails ? `\n${fails} BŁĘDÓW\n` : '\nWszystko OK\n');
 process.exit(fails ? 1 : 0);
