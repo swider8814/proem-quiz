@@ -29,6 +29,8 @@ export const load: PageServerLoad = ({ params, locals }) => {
 				.from(schema.media).where(inArray(schema.media.id, [...mediaIds])).all()
 		: [];
 	return {
+		/** Wersja, od której zaczyna się edycja – zapis z inną wersją na serwerze to konflikt (409). */
+		version: loaded.quiz.updatedAt.getTime(),
 		canEdit: canEdit(access),
 		canShare: canManageShares(locals.user!, access),
 		quiz: {

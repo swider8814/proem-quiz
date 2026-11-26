@@ -1,7 +1,7 @@
 // Test silnika gry: prawdziwy serwer Socket.IO + klienci.  Uruchom: node tests/engine.test.mjs
 import http from 'node:http';
 import { io as connect } from 'socket.io-client';
-import { attachRealtime } from '../server/realtime.js';
+import { attachRealtime, _resetLimits } from '../server/realtime.js';
 import { registry, shuffled } from '../server/game/engine.js';
 
 const server = http.createServer();
@@ -428,14 +428,60 @@ for (const cd of [0, 3]) {
 	ok(g.addPlayer({ random: true, deviceId: 'rot0' }).player !== undefined, 'gracz, który sam wyszedł, może dołączyć ponownie');
 }
 
-// PIN brute force
-const brute = mk();
-let limitedHit = false;
-for (let i = 0; i < 70; i++) {
-	const res = await Promise.race([emit(brute, 'check', { pin: String(100000 + i) }), sleep(300).then(() => ({ error: 'dropped' }))]);
-	if (res.error === 'rate-limited' || res.error === 'dropped') { limitedHit = true; break; }
+// Rozesłanie stanu do 300 telefonów: ranking liczony raz, a nie osobno dla każdego gracza (review Codexa).
+{
+	const g = registry().get(registry().create({ ...quiz, quizId: 'rank' }, 'user1').pin);
+	const players = [];
+	for (let i = 0; i < 300; i++) players.push(g.addPlayer({ random: true, deviceId: `rk${i}` }).player);
+	players.forEach((p, i) => { p.score = (i * 37) % 1000; p.socketId = `fake${i}`; });
+	const sent = [];
+	g.io = { to: () => ({ emit() {} }), sockets: { get: (id) => ({ emit: (_ev, v) => sent.push([id, v]) }) }, in: () => ({ disconnectSockets() {} }) };
+	g.state = 'leaderboard';
+	g.index = 0;
+	let calls = 0;
+	const orig = g.ranking.bind(g);
+	g.ranking = () => { calls++; return orig(); };
+	g.broadcastAll();
+	ok(sent.length === 300 && calls <= 3, `rozesłanie do 300 telefonów: ${calls} sortowań rankingu (wcześniej ~300)`);
+	const best = players.reduce((a, b) => (b.score > a.score ? b : a));
+	const v = sent.find(([id]) => id === best.socketId)[1];
+	ok(v.rank === 1 && v.players === 300 && v.behindBy === 0, 'miejsce i dystans liczone poprawnie z jednego rankingu');
+	const second = sent.map(([, x]) => x).find((x) => x.rank === 2);
+	ok(second && second.behindBy === best.score - second.me.score, 'drugi gracz: poprawna strata do pierwszego');
+	g.state = 'ended';
+	g.io = { to: () => ({ emit() {} }), sockets: { get: () => undefined }, in: () => ({ disconnectSockets() {} }) };
 }
-ok(limitedHit, 'zgadywanie PIN-ów blokowane');
+
+// PIN brute force: wspólny budżet nietrafień dla check, suggest i join (review Codexa).
+// Wymagamy jawnej odpowiedzi „rate-limited” – sam brak odpowiedzi nie jest dowodem działania limitu.
+{
+	const live = registry().create({ ...quiz, quizId: 'brute' }, 'user1').pin;
+	const guess = async (ev, n) => {
+		for (let i = 0; i < n; i++) {
+			await sleep(80); // poniżej ogranicznika 15 zdarzeń/s na gniazdo (floodGuard) – inaczej zdarzenia byłyby gubione
+			const res = await emit(brute, ev, { pin: String(100000 + i) });
+			if (res.error === 'rate-limited') return i;
+			if (res.error !== 'no-game') return `nieoczekiwane: ${JSON.stringify(res)}`;
+		}
+		return null;
+	};
+	const brute = mk();
+	_resetLimits();
+	const viaCheck = await guess('check', 70);
+	ok(typeof viaCheck === 'number' && viaCheck >= 55, `zgadywanie PIN-ów przez check blokowane (po ${viaCheck} próbach)`);
+	for (const ev of ['check', 'suggest', 'join']) {
+		await sleep(80);
+		const res = await emit(brute, ev, { pin: live, random: true });
+		ok(res.error === 'rate-limited', `po wyczerpaniu budżetu ${ev} z prawdziwym PIN-em też „rate-limited” (${JSON.stringify(res)})`);
+	}
+	_resetLimits();
+	const viaSuggest = await guess('suggest', 70);
+	ok(typeof viaSuggest === 'number' && viaSuggest >= 55, `nietrafione PIN-y w suggest liczą się do tego samego budżetu (po ${viaSuggest})`);
+	await sleep(80);
+	ok((await emit(brute, 'check', { pin: live })).error === 'rate-limited', 'po zgadywaniu przez suggest check też zablokowany');
+	_resetLimits();
+	brute.close();
+}
 
 process.stderr.write(fails ? `\n${fails} BŁĘDÓW\n` : '\nWszystko OK\n');
 process.exit(fails ? 1 : 0);

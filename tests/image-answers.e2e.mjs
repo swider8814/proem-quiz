@@ -71,7 +71,14 @@ try {
 		await p.goto(`${srv.base}/play?pin=${pin}`);
 		await p.waitForSelector('.avatars .av');
 		await p.click('.avatars .av >> nth=7');
-		await sleep(400);
+		// Kliknięta postać jest wyśrodkowywana płynnym przewinięciem – czekamy na jego koniec zamiast stałej pauzy
+		// (stałe 400 ms bywało za krótkie na obciążonym CI).
+		await p.waitForFunction(() => {
+			const s = document.querySelector('.avatars');
+			const prev = Number(s.dataset.lastLeft ?? -1);
+			s.dataset.lastLeft = String(s.scrollLeft);
+			return prev === s.scrollLeft;
+		}, null, { polling: 150, timeout: 5000 }).catch(() => {});
 		const lay = await p.evaluate(() => {
 			const card = document.querySelector('form.card').getBoundingClientRect();
 			const strip = document.querySelector('.avatars');
@@ -83,12 +90,13 @@ try {
 				inside: sr.left >= card.left - 1 && sr.right <= card.right + 1,
 				scrolls: strip.scrollWidth > strip.clientWidth,
 				selVisible: sel.left >= sr.left - 1 && sel.right <= sr.right + 1,
+				selCentered: Math.abs((sel.left + sel.right) / 2 - (sr.left + sr.right) / 2) < sel.width,
 				below: avs.every((r) => r.bottom <= label.top + 1),
 				pageFits: document.documentElement.scrollWidth <= window.innerWidth + 1,
 				w: Math.round(avs[0].width)
 			};
 		});
-		ok(lay.inside && lay.scrolls && lay.selVisible && lay.below && lay.pageFits && lay.w >= 40, `${dev}: rząd postaci w karcie, przewijany w bok, nie zasłania napisu (${JSON.stringify(lay)})`);
+		ok(lay.inside && lay.scrolls && lay.selVisible && lay.selCentered && lay.below && lay.pageFits && lay.w >= 40, `${dev}: rząd postaci w karcie, przewijany w bok, nie zasłania napisu (${JSON.stringify(lay)})`);
 		// Wybrana postać wyraźnie oznaczona także w motywie kolorowym (przezroczysta linia motywu)
 		const sel = await p.evaluate(() => {
 			const s = document.querySelector('.av.sel');

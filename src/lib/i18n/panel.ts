@@ -172,6 +172,7 @@ const pl = {
 		readOnly: 'Masz dostęp tylko do prowadzenia tego quizu – edycja jest wyłączona.',
 		leaveConfirm: 'Masz niezapisane zmiany. Wyjść bez zapisywania?',
 		saveFailed: 'Nie udało się zapisać.',
+		saveConflictAsk: 'Ktoś inny zapisał ten quiz, gdy go edytowałeś. Zapisać Twoją wersję i zastąpić jego zmiany?\n\nAnuluj – nic nie zapisujemy; możesz skopiować swoje zmiany i odświeżyć stronę.',
 		settingsLegend: 'Ustawienia quizu',
 		set: {
 			look: 'Wygląd i język',
@@ -573,6 +574,7 @@ const pl = {
 		adminsOnly: 'Tylko dla administratorów',
 		quizNotFound: 'Nie znaleziono quizu.',
 		noEditRights: 'Brak uprawnień do edycji.',
+		quizConflict: 'Ktoś inny zapisał ten quiz, gdy go edytowałeś.',
 		onlyOwnQuizzes: 'Możesz usuwać tylko własne quizy.',
 		giveTitle: 'Podaj tytuł quizu.',
 		noQuestions: 'Quiz nie ma pytań.',
@@ -799,6 +801,7 @@ const en: PanelDict = {
 		readOnly: 'You can only host this quiz – editing is disabled.',
 		leaveConfirm: 'You have unsaved changes. Leave without saving?',
 		saveFailed: 'Could not save.',
+		saveConflictAsk: 'Someone else saved this quiz while you were editing it. Save your version and replace their changes?\n\nCancel – nothing is saved; you can copy your changes and reload the page.',
 		settingsLegend: 'Quiz settings',
 		set: {
 			look: 'Look and language',
@@ -1199,6 +1202,7 @@ const en: PanelDict = {
 		adminsOnly: 'Administrators only',
 		quizNotFound: 'Quiz not found.',
 		noEditRights: 'You don’t have permission to edit.',
+		quizConflict: 'Someone else saved this quiz while you were editing it.',
 		onlyOwnQuizzes: 'You can only delete your own quizzes.',
 		giveTitle: 'Enter a quiz title.',
 		noQuestions: 'The quiz has no questions.',

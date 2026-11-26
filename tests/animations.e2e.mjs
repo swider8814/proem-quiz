@@ -14,25 +14,42 @@ try {
 		const p = waitForHydration(await ctx.newPage());
 		await p.goto(`${srv.base}/panel/help`);
 		const tag = reduced ? 'ogranicz ruch' : 'animacje';
-		// Menu: tuż po kliknięciu jeszcze w ruchu (albo od razu na miejscu przy ograniczonym ruchu).
-		// Klik i pomiar po 60 ms w samej stronie – bez opóźnień przesyłu między testem a przeglądarką.
-		const mid = await p.evaluate(() => new Promise((r) => { document.querySelector('button.burger').click(); setTimeout(() => r(+getComputedStyle(document.querySelector('.menu')).opacity), 60); }));
-		await p.waitForTimeout(400);
-		const end = await p.evaluate(() => +getComputedStyle(document.querySelector('.menu')).opacity);
-		ok(end === 1 && (reduced ? mid === 1 : mid > 0 && mid < 1), `${tag}: menu (w trakcie ${mid.toFixed(2)}, na końcu ${end})`);
+		// Pomiar w samej stronie, w KAŻDEJ klatce przez ~450 ms po kliknięciu (requestAnimationFrame).
+		// Pojedynczy pomiar po 60 ms był niestabilny na obciążonym CI (animacja mogła ledwo ruszyć).
+		// Wynik: [stan przed kliknięciem, ...stany w kolejnych klatkach].
+		const track = (what, index) =>
+			p.evaluate(([what, index]) => new Promise((res) => {
+				const read = () => {
+					if (what === 'menu') { const m = document.querySelector('.menu'); return m ? +getComputedStyle(m).opacity : 0; }
+					const d = document.querySelectorAll('details.sec')[index];
+					return { h: d.getBoundingClientRect().height, open: d.open };
+				};
+				const out = [read()];
+				(what === 'menu' ? document.querySelector('button.burger') : document.querySelectorAll('details.sec')[index].querySelector('summary')).click();
+				const t0 = performance.now();
+				const step = () => { out.push(read()); if (performance.now() - t0 < 450) requestAnimationFrame(step); else res(out); };
+				requestAnimationFrame(step);
+			}), [what, index]);
+		const between = (vals, a, b, eps) => vals.some((v) => v > Math.min(a, b) + eps && v < Math.max(a, b) - eps);
+		const settled = (vals, end) => vals.slice(1).every((v) => Math.abs(v - end) < 1);
+
+		// Menu: przy animacji przechodzi przez stany pośrednie, przy ograniczonym ruchu od razu jest na miejscu.
+		const ms = await track('menu');
+		const mEnd = ms.at(-1);
+		ok(mEnd === 1 && (reduced ? settled(ms, 1) : between(ms.slice(1), 0, 1, 0.02)), `${tag}: menu (${ms.length - 1} klatek, ${ms.slice(1, 4).map((v) => v.toFixed(2)).join(' → ')} … ${mEnd})`);
 		await p.click('button.burger');
 		await p.waitForTimeout(400);
 		ok(!(await p.isVisible('.menu')), `${tag}: menu chowa się po drugim kliknięciu`);
-		// Pomoc: wysokość treści rośnie płynnie od 0.
-				const h1 = await p.evaluate(() => new Promise((r) => { const d = document.querySelectorAll('details.sec')[1]; d.querySelector('summary').click(); setTimeout(() => r(d.getBoundingClientRect().height), 60); }));
-		await p.waitForTimeout(400);
-		const h2 = await p.evaluate(() => document.querySelectorAll('details.sec')[1].getBoundingClientRect().height);
-		ok(h2 > 150 && (reduced ? h1 === h2 : h1 > 90 && h1 < h2), `${tag}: sekcja Pomocy (${Math.round(h1)} → ${Math.round(h2)} px)`);
+		// Pomoc: wysokość treści rośnie płynnie.
+		const ex = (await track('sec', 1)).map((x) => x.h);
+		const h0 = ex[0];
+		const h2 = ex.at(-1);
+		ok(h2 > 150 && (reduced ? settled(ex, h2) : between(ex.slice(1), h0, h2, 10)), `${tag}: sekcja Pomocy (${Math.round(h0)} → ${Math.round(h2)} px, ${reduced ? 'od razu' : 'płynnie'})`);
 		// Zwijanie: też płynne, na końcu sekcja zamknięta.
-		const c1 = await p.evaluate(() => new Promise((r) => { const d = document.querySelectorAll('details.sec')[1]; d.querySelector('summary').click(); setTimeout(() => r({ h: d.getBoundingClientRect().height, open: d.open }), 60); }));
-		await p.waitForTimeout(400);
-		const c2 = await p.evaluate(() => { const d = document.querySelectorAll('details.sec')[1]; return { h: d.getBoundingClientRect().height, open: d.open }; });
-		ok(!c2.open && c2.h < 150 && (reduced ? !c1.open : c1.h > c2.h && c1.h < h2), `${tag}: zwijanie sekcji (${Math.round(c1.h)} → ${Math.round(c2.h)} px)`);
+		const col = await track('sec', 1);
+		const c2 = col.at(-1);
+		const ch = col.map((x) => x.h);
+		ok(!c2.open && c2.h < 150 && (reduced ? settled(ch, c2.h) : between(ch.slice(1), h2, c2.h, 10)), `${tag}: zwijanie sekcji (${Math.round(h2)} → ${Math.round(c2.h)} px)`);
 		// Szybkie potrójne dotknięcie (otwórz → zwiń → otwórz w < 220 ms): na końcu sekcja otwarta.
 		const tri = await p.evaluate(() => new Promise((r) => {
 			const d = document.querySelectorAll('details.sec')[2];

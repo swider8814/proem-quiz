@@ -219,6 +219,8 @@ const customAudio = z
 	.default(null);
 
 export const quizSaveSchema = z.object({
+	/** Wersja (updatedAt w ms), od której zaczęła się edycja – brak = zapis wymuszony („zastąp zmiany”). */
+	expectedVersion: z.number().int().nonnegative().optional(),
 	title: str(120).min(1, 'giveTitleShort'),
 	description: str(500).nullable().optional(),
 	themeId: z.string().max(40).nullable(),
@@ -258,7 +260,7 @@ export const PODIUM_MAX_MS = 20_000;
 export type QuizSave = z.infer<typeof quizSaveSchema>;
 
 /** Zapis całego quizu. Wycina fragmenty audio, gdy zmienił się zakres. */
-export async function saveQuiz(user: User, quizId: string, input: QuizSave): Promise<{ error: ErrKey; detail?: string } | { ok: true; questionIds: string[] }> {
+export async function saveQuiz(user: User, quizId: string, input: QuizSave): Promise<{ error: ErrKey; detail?: string } | { ok: true; questionIds: string[]; version: number }> {
 	if (input.themeId && !db.select().from(schema.themes).where(eq(schema.themes.id, input.themeId)).get()) {
 		return { error: 'themeNotFound' as ErrKey };
 	}
@@ -335,15 +337,28 @@ export async function saveQuiz(user: User, quizId: string, input: QuizSave): Pro
 			data
 		});
 	}
-	db.transaction((tx) => {
+	// Zatwierdzenie: wycinanie fragmentów audio wyżej trwa – w tym czasie ktoś mógł zapisać ten quiz, odebrać
+	// uprawnienia albo sprzątanie mogło usunąć plik. Wszystko sprawdzamy ponownie w tej samej transakcji, co zapis.
+	const needed = new Set(ids);
+	for (const r of rows) if (r.data?.type === 'audio' && r.data.clipMediaId) needed.add(r.data.clipMediaId);
+	for (const a of [settings.podiumAudio, settings.musicAudio]) if (a?.clipMediaId) needed.add(a.clipMediaId);
+	return db.transaction((tx) => {
+		const cur = tx.select({ updatedAt: schema.quizzes.updatedAt }).from(schema.quizzes).where(eq(schema.quizzes.id, quizId)).get();
+		if (!cur) return { error: 'quizNotFound' as ErrKey };
+		if (!canEdit(quizAccess(user, quizId))) return { error: 'noEditRights' as ErrKey };
+		if (input.expectedVersion !== undefined && cur.updatedAt.getTime() !== input.expectedVersion) return { error: 'quizConflict' as ErrKey };
+		const present = needed.size ? tx.select({ id: schema.media.id }).from(schema.media).where(inArray(schema.media.id, [...needed])).all().length : 0;
+		if (present !== needed.size) return { error: 'mediaAccess' as ErrKey };
+		// Wersja zawsze rośnie (dwa zapisy w tej samej milisekundzie też dają różne wersje).
+		const updatedAt = new Date(Math.max(Date.now(), cur.updatedAt.getTime() + 1));
 		tx.update(schema.quizzes)
-			.set({ title: input.title, description: input.description ?? null, themeId: input.themeId, locale: input.locale, settings, updatedAt: new Date() })
+			.set({ title: input.title, description: input.description ?? null, themeId: input.themeId, locale: input.locale, settings, updatedAt })
 			.where(eq(schema.quizzes.id, quizId))
 			.run();
 		tx.delete(schema.questions).where(eq(schema.questions.quizId, quizId)).run();
 		for (const r of rows) tx.insert(schema.questions).values(r).run();
+		return { ok: true as const, questionIds: rows.map((r) => r.id), version: updatedAt.getTime() };
 	});
-	return { ok: true, questionIds: rows.map((r) => r.id) };
 }
 
 export function loadQuiz(quizId: string) {
