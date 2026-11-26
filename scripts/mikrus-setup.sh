@@ -265,10 +265,18 @@ if [[ -n "$OLD" ]]; then docker image tag "$OLD" proem-quiz:previous; fi
 # Kopia bazy PRZED aktualizacją: nowa wersja może zmigrować bazę, a poprzednia nie musi umieć z nią
 # pracować – wtedy samo przywrócenie obrazu nie wystarczy. Kopia jest sprawdzana (integrity_check) przez CLI;
 # bez udanej kopii nie aktualizujemy. Retencja 365 dni – nie skraca rotacji kopii nocnych.
+# Gdy jest poprzednia wersja, kopia jest OBOWIĄZKOWA – także gdy kontener akurat nie działa (zatrzymany,
+# restartuje się): wtedy CLI uruchamiamy w jednorazowym kontenerze z poprzednim obrazem (bez zależności).
+# Bez bazy (pierwsza instalacja) kopii nie ma czego robić.
 BACKUP=""
-if [[ -n "$OLD" ]] && [[ "$(docker inspect -f '{{.State.Running}}' proem-quiz 2>/dev/null || echo false)" == true ]]; then
+if [[ -n "$OLD" ]] && [[ -f data/quiz.db ]]; then
 	BACKUP="quiz-$(date +%Y-%m-%d_%H%M).db"
-	if ! docker compose exec -T app node server/cli.js backup "$BACKUP" 365 >/dev/null; then
+	if [[ "$(docker inspect -f '{{.State.Running}}' proem-quiz 2>/dev/null || echo false)" == true ]]; then
+		backup_cmd=(docker compose exec -T app node server/cli.js backup "$BACKUP" 365)
+	else
+		backup_cmd=(env QUIZ_IMAGE=proem-quiz:previous docker compose run --rm --no-deps -T app node server/cli.js backup "$BACKUP" 365)
+	fi
+	if ! "${backup_cmd[@]}" >/dev/null; then
 		echo "BŁĄD: nie udało się zrobić kopii bazy przed aktualizacją – przerywam, nic nie zmieniono." >&2
 		exit 1
 	fi

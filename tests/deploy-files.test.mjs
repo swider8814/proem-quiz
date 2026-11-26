@@ -34,6 +34,9 @@ ok(/prune -f --filter "label=org\.opencontainers\.image\.source=https:\/\/github
 	const d = deploy ?? '';
 	const iBackup = d.indexOf('server/cli.js backup');
 	ok(iBackup > 0 && iBackup < d.indexOf('docker compose pull') && /nic nie zmieniono[\s\S]*?exit 1/.test(d), 'deploy.sh: sprawdzona kopia bazy przed aktualizacją, bez kopii – przerwanie');
+	const guard = d.slice(d.indexOf('BACKUP=""'), d.indexOf('docker compose pull'));
+	ok(!/State\.Running[^\n]*\]\] *&& *\[\[|if \[\[ -n "\$OLD" \]\] && \[\[ "\$\(docker inspect/.test(guard) && /docker compose run --rm --no-deps -T app node server\/cli\.js backup/.test(guard),
+		'deploy.sh: zatrzymany kontener nie pomija kopii – CLI w jednorazowym kontenerze z poprzednim obrazem (review Codexa)');
 	const rollback = d.slice(d.indexOf('QUIZ_IMAGE=proem-quiz:previous docker compose up -d app'));
 	ok(/wait_healthy/.test(rollback.split('\n').slice(0, 4).join('\n')), 'deploy.sh: po przywróceniu poprzedniej wersji czeka na healthy');
 	ok(/BŁĄD KRYTYCZNY/.test(rollback) && /data\/backup\/\$BACKUP/.test(rollback), 'deploy.sh: gdy poprzednia wersja nie działa – instrukcja odtworzenia z kopii sprzed aktualizacji');
