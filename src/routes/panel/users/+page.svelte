@@ -62,7 +62,8 @@
 	$effect(() => { void filterQuery; const id = setTimeout(syncUrl, 0); return () => clearTimeout(id); });
 	function clearFilters() { q = ''; status = 'all'; role = 'all'; lang = 'all'; }
 
-	const fold = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ł/g, 'l').toLowerCase();
+	// Najpierw małe litery: NFD nie rozkłada „Ł”, więc zamiana na „l” musi objąć też wielkie „Ł”.
+	const fold = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ł/g, 'l');
 	type Row = (typeof data.users)[number];
 	const statusOf = (u: Row): Exclude<Status, 'all' | 'no2fa'> => (u.disabled ? 'blocked' : !u.activated ? 'pending' : 'active');
 	const is = (u: Row, s: Status) => s === 'all' || (s === 'no2fa' ? u.role === 'admin' && !u.totpEnabled && !u.disabled : statusOf(u) === s);

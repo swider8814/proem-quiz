@@ -20,7 +20,7 @@ try {
 	await new Browser(srv.base).req(j.text.match(/\/invite\/[A-Za-z0-9_-]+/)[0], { method: 'POST', form: { password: 'AutorHaslo123!', repeat: 'AutorHaslo123!' } });
 	await makeAuthor(srv, admin, 'blok@proem.pl');
 	// Czekają: Łukasz (autor EN), Ewa (admin PL – bez 2FA).
-	await invite('Łukasz Nowak', 'lukasz@proem.pl', 'author', 'en');
+	await invite('Łukasz Nowak', 'nowak@proem.pl', 'author', 'en'); // e-mail bez „lukasz” – szukanie musi trafić po imieniu z „Ł”
 	await invite('Ewa Czeka', 'ewa@proem.pl', 'admin', 'pl');
 
 	const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
@@ -38,7 +38,7 @@ try {
 
 	let list = await emails();
 	ok(list.length === 6, `wszystkie konta na liście (${list.length})`);
-	ok(list.slice(0, 2).join() === 'ewa@proem.pl,lukasz@proem.pl', `najpierw czekające na aktywację (${list.slice(0, 2)})`);
+	ok(list.slice(0, 2).join() === 'ewa@proem.pl,nowak@proem.pl', `najpierw czekające na aktywację (${list.slice(0, 2)})`);
 	ok(list.at(-1) === 'blok@proem.pl', 'zablokowane na końcu');
 	ok((await count('Wszystkie')) === 6 && (await count('Aktywne')) === 3 && (await count('Czekają')) === 2 && (await count('Zablokowane')) === 1, 'liczniki statusów');
 	ok((await count('bez 2FA')) === 1, 'przycisk „Administratorzy bez 2FA” z licznikiem');
@@ -50,7 +50,7 @@ try {
 	// Status
 	await chip('Czekają').click();
 	await waitRows(2);
-	ok((await emails()).join() === 'ewa@proem.pl,lukasz@proem.pl', 'status: tylko czekające');
+	ok((await emails()).join() === 'ewa@proem.pl,nowak@proem.pl', 'status: tylko czekające');
 	ok((await chip('Czekają').getAttribute('aria-pressed')) === 'true', 'status: przycisk oznaczony (aria-pressed)');
 	await p.waitForFunction(() => location.search.includes('status=pending'));
 	ok(true, 'status w adresie (?status=pending)');
@@ -73,7 +73,7 @@ try {
 	await waitRows(6);
 	await p.fill('.frow .q', 'lukasz');
 	await waitRows(1);
-	ok((await emails()).join() === 'lukasz@proem.pl', 'szukanie „lukasz” znajduje „Łukasz”');
+	ok((await emails()).join() === 'nowak@proem.pl', 'szukanie „lukasz” znajduje „Łukasz” po imieniu (wielkie „Ł”)');
 	await p.fill('.frow .q', 'PROEM.PL');
 	await waitRows(6);
 	ok(true, 'szukanie po e-mailu bez rozróżniania wielkości liter');
@@ -82,7 +82,7 @@ try {
 	// Język
 	await p.selectOption('.frow select[aria-label="Język konta"]', 'en');
 	await waitRows(2);
-	ok((await emails()).sort().join() === 'john@proem.pl,lukasz@proem.pl', 'język EN: John i Łukasz');
+	ok((await emails()).sort().join() === 'john@proem.pl,nowak@proem.pl', 'język EN: John i Łukasz');
 
 	// Pusty wynik
 	await p.fill('.frow .q', 'zzz-nikt');
