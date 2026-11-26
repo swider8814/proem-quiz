@@ -204,6 +204,17 @@ try {
 	ok(gap <= 12 && Math.abs(pb.x + pb.width - (tb.x + tb.width)) <= 12, `menu przy przycisku ⋯ mimo transform karty (odstęp ${Math.round(gap)} px)`);
 	await p.keyboard.press('Escape');
 	ok(!(await p.isVisible('.pop:not([hidden])')), 'Escape zamyka menu „Więcej”');
+	// Niski ekran (telefon w poziomie, duże powiększenie): menu mieści się w oknie i przewija w środku.
+	const vp = p.viewportSize();
+	await p.setViewportSize({ width: vp.width, height: 300 });
+	await p.locator('.list li >> nth=0 >> button.trigger').scrollIntoViewIfNeeded();
+	await p.click('.list li >> nth=0 >> button.trigger');
+	await p.waitForTimeout(250);
+	const low = await p.locator('.pop:not([hidden])').evaluate((el) => { const b = el.getBoundingClientRect(); return { t: b.top, b: b.bottom, vh: innerHeight, scroll: el.scrollHeight > el.clientHeight, oy: getComputedStyle(el).overflowY }; });
+	ok(low.t >= 0 && low.b <= low.vh, `niski ekran: menu w całości w oknie (${Math.round(low.t)}–${Math.round(low.b)} z ${low.vh})`);
+	ok(!low.scroll || low.oy === 'auto', 'niski ekran: za wysokie menu przewija się w środku');
+	await p.keyboard.press('Escape');
+	await p.setViewportSize(vp);
 	ok(await p.evaluate(() => document.activeElement?.classList.contains('trigger')), 'po Escape fokus wraca na przycisk ⋯');
 	await p.click('.list li >> nth=0 >> button.trigger');
 	await p.selectOption('.pop:not([hidden]) select[name=folder]', fid);

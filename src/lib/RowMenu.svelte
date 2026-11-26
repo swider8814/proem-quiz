@@ -28,15 +28,24 @@
 	let left = $state(0);
 	let up = $state(false);
 
+	let maxH: number | null = $state(null);
+
+	/** Pod przyciskiem, jeśli się zmieści; inaczej nad nim; gdy nie mieści się nigdzie (telefon
+	 * w poziomie, duże powiększenie) – po stronie z większym miejscem, z przewijaniem w środku. */
 	function place() {
 		if (!btn || !pop) return;
 		const r = btn.getBoundingClientRect();
 		const w = pop.offsetWidth;
-		const h = pop.offsetHeight;
+		const h = pop.scrollHeight;
 		const gap = 6;
 		const margin = 8;
-		up = r.bottom + gap + h > innerHeight - margin && r.top - gap - h >= margin;
-		top = up ? r.top - gap - h : r.bottom + gap;
+		const below = innerHeight - margin - (r.bottom + gap);
+		const above = r.top - gap - margin;
+		if (h <= below) [up, top, maxH] = [false, r.bottom + gap, null];
+		else if (h <= above) [up, top, maxH] = [true, r.top - gap - h, null];
+		else if (Math.max(above, below) < 120) [up, top, maxH] = [false, margin, innerHeight - 2 * margin]; // przycisk przy krawędzi: menu może go przykryć
+		else if (above > below) [up, top, maxH] = [true, margin, above];
+		else [up, top, maxH] = [false, r.bottom + gap, below];
 		left = Math.max(margin, Math.min(r.right - w, innerWidth - w - margin));
 	}
 
@@ -104,14 +113,14 @@
 	<Icon name="more" weight={2.5} />
 </button>
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-<div class="pop" class:up {id} use:portal bind:this={pop} hidden={!open} style:top="{top}px" style:left="{left}px" onclick={onPopClick} onfocusout={onFocusOut} onsubmit={() => close()}>
+<div class="pop" class:up {id} use:portal bind:this={pop} hidden={!open} style:top="{top}px" style:left="{left}px" style:max-height={maxH === null ? null : `${maxH}px`} onclick={onPopClick} onfocusout={onFocusOut} onsubmit={() => close()}>
 	{@render children()}
 </div>
 
 <style>
 	.trigger { width: 2.5rem; min-height: 2.5rem; padding: 0; flex: none; font-size: 1.15rem; }
 	.trigger.on { background: var(--accent); border-color: var(--accent); color: #fff; }
-	.pop { position: fixed; z-index: 60; min-width: 13rem; max-width: calc(100vw - 1rem); box-sizing: border-box; display: flex; flex-direction: column; padding: 0.35rem; background: #fff; border: 1px solid var(--line-strong); border-radius: 0.75rem; box-shadow: 0 12px 32px rgba(27, 31, 59, 0.18); text-align: left; white-space: normal; transform-origin: top right; animation: pop-in var(--dur-fast) var(--ease-out); }
+	.pop { position: fixed; z-index: 60; min-width: 13rem; max-width: calc(100vw - 1rem); box-sizing: border-box; display: flex; flex-direction: column; padding: 0.35rem; background: #fff; border: 1px solid var(--line-strong); border-radius: 0.75rem; box-shadow: 0 12px 32px rgba(27, 31, 59, 0.18); overflow-y: auto; overscroll-behavior: contain; text-align: left; white-space: normal; transform-origin: top right; animation: pop-in var(--dur-fast) var(--ease-out); }
 	.pop[hidden] { display: none; }
 	.pop.up { transform-origin: bottom right; }
 	.pop :global(form) { display: block; margin: 0; }
