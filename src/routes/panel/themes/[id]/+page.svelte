@@ -1,4 +1,5 @@
 <script lang="ts">
+	import BackLink from '#lib/BackLink.svelte';
 	import '#lib/game/game.css';
 	import Shape from '#lib/game/Shape.svelte';
 	import { logoFor, shapeColor, themeVars } from '#lib/game/theme.js';
@@ -45,7 +46,7 @@
 
 <svelte:head><title>{t.name} · {T.title} · Proem Quiz</title></svelte:head>
 
-<p><a href="/panel/themes">{T.back}</a></p>
+<BackLink href="/panel/themes" label={T.back} />
 <h1>{t.name} {#if data.theme.isDefault}<span class="tag ok">{T.default}</span>{/if}</h1>
 {#if form?.error}<p class="error">{form.error}</p>{/if}
 {#if form?.saved}<p class="success">{D.common.saved}</p>{/if}

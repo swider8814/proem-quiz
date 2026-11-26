@@ -1,4 +1,5 @@
 <script lang="ts">
+	import BackLink from '#lib/BackLink.svelte';
 	import { panelDict } from '#lib/i18n/panel.js';
 	let { data } = $props();
 	const R = $derived(panelDict(data.lang).reports);
@@ -7,7 +8,7 @@
 
 <svelte:head><title>{R.title} – {data.quiz.title}</title></svelte:head>
 
-<p><a href="/panel/quizzes/{data.quiz.id}">{R.backToQuiz}</a></p>
+<BackLink href="/panel/quizzes/{data.quiz.id}" label={R.backToQuiz} />
 <h1>{R.heading(data.quiz.title)}</h1>
 <p class="muted">{R.retention}</p>
 
