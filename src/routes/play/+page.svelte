@@ -13,7 +13,7 @@
 	import { pushState } from '$app/navigation';
 	import { fly, scale } from 'svelte/transition';
 	import { backOut } from 'svelte/easing';
-	import { ask, deviceId, gameSocket, keepAwake, remaining, store } from '#lib/game/client.js';
+	import { ask, deviceId, gameSocket, keepAwake, remaining, resumePlayer, store } from '#lib/game/client.js';
 	import { errText, t } from '#lib/game/i18n.js';
 	import { logoFor, shapeColor, themeVars, type GameTheme } from '#lib/game/theme.js';
 
@@ -177,9 +177,11 @@
 		const token = tryPin ? store.get(sessionKey(tryPin)) : null;
 		(async () => {
 			if (tryPin && token) {
-				const r = await ask(socket!, 'rejoin', { pin: tryPin, token });
-				if (r.ok) return;
-				store.del(sessionKey(tryPin));
+				const res = await resumePlayer(
+					() => ask(socket!, 'rejoin', { pin: tryPin, token }),
+					() => store.del(sessionKey(tryPin))
+				);
+				if (res === 'ok') return;
 			}
 			if (qsPin.length === 6) {
 				pin = qsPin;

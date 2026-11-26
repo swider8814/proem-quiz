@@ -23,6 +23,30 @@ export function ask<T = Record<string, unknown>>(socket: Socket, event: string, 
 	});
 }
 
+/**
+ * Powrót gracza do gry po odświeżeniu strony (zmiana Wi-Fi, powrót z blokady ekranu).
+ * Token kasujemy TYLKO, gdy serwer jednoznacznie odpowie, że sesji już nie ma (`no-session`).
+ * Przy przejściowych problemach – brak odpowiedzi (`timeout`), chwilowy limit (`rate-limited`) –
+ * token zostaje, a próba jest ponawiana z rosnącą przerwą. Bez tego gracz tracił dostęp do wyniku.
+ */
+export async function resumePlayer(
+	rejoin: () => Promise<{ ok?: boolean; error?: string }>,
+	forget: () => void,
+	{ attempts = 4, delayMs = 1500, sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms)) } = {}
+): Promise<'ok' | 'gone' | 'failed'> {
+	for (let i = 0; i < attempts; i++) {
+		const r = await rejoin();
+		if (r.ok) return 'ok';
+		if (r.error === 'no-session') {
+			forget();
+			return 'gone';
+		}
+		if (r.error === 'already-joined') return 'failed'; // to połączenie gra już kimś innym – nie ponawiamy
+		if (i < attempts - 1) await sleep(delayMs * 2 ** i);
+	}
+	return 'failed';
+}
+
 const store = {
 	get(k: string) {
 		try {
