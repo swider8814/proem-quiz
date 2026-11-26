@@ -27,23 +27,27 @@ export function guardRestoredDb(): { restored: boolean; sessions: number; links:
 		if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
 	}
 	if (raw !== null) {
-		const n = /^\d{1,15}$/.test(raw) ? Number(raw) : NaN;
+		const n = /^\d{1,16}$/.test(raw) ? Number(raw) : NaN;
 		if (!Number.isSafeInteger(n)) throw new Error(`Nieprawidłowa zawartość ${file} – nie da się sprawdzić, czy baza nie jest odtworzoną kopią`);
 		onDisk = n;
 	}
 	// Najpierw baza (unieważnienie + nowy licznik) w jednej transakcji – jej błąd przerywa start aplikacji.
 	const result = db.transaction((tx) => {
 		const row = tx.select().from(schema.appSettings).where(eq(schema.appSettings.key, KEY)).get();
-		const inDb = row ? Number(/^\d{1,15}$/.test(row.value) ? row.value : NaN) : 0;
+		const inDb = row ? Number(/^\d{1,16}$/.test(row.value) ? row.value : NaN) : 0;
 		if (!Number.isSafeInteger(inDb)) throw new Error('Nieprawidłowy licznik db_generation w bazie – nie da się sprawdzić, czy baza nie jest odtworzoną kopią');
 		const restored = onDisk !== null && inDb < onDisk;
+		const nextN = Math.max(inDb, onDisk ?? 0) + 1;
+		// Zapisujemy tylko to, co kolejny start też przyjmie (bezpieczna liczba, do 16 cyfr) – sprawdzane
+		// przed jakąkolwiek zmianą w bazie (wyjątek wycofuje transakcję).
+		if (!Number.isSafeInteger(nextN) || String(nextN).length > 16) throw new Error('Licznik db_generation poza zakresem');
+		const next = String(nextN);
 		let sessions = 0;
 		let links = 0;
 		if (restored) {
 			sessions = tx.delete(schema.sessions).run().changes;
 			links = tx.delete(schema.invites).where(isNull(schema.invites.usedAt)).run().changes;
 		}
-		const next = String(Math.max(inDb, onDisk ?? 0) + 1);
 		tx.insert(schema.appSettings).values({ key: KEY, value: next }).onConflictDoUpdate({ target: schema.appSettings.key, set: { value: next } }).run();
 		return { restored, sessions, links, next };
 	});
