@@ -1,6 +1,7 @@
 <script lang="ts">
-	import BackLink from '#lib/BackLink.svelte';
 	import { enhance } from '$app/forms';
+	import { send } from '#lib/forms.js';
+	import BackLink from '#lib/BackLink.svelte';
 	import { panelDict } from '#lib/i18n/panel.js';
 	import HelpTip from '#lib/help/HelpTip.svelte';
 	let { data, form } = $props();
@@ -24,7 +25,7 @@
 			{#each data.shares as s (s.userId)}
 				<li>
 					<div class="who"><strong>{s.name}</strong> <span class="muted">{s.email}</span></div>
-					<form method="POST" action="?/set" use:enhance class="row">
+					<form method="POST" action="?/set" use:enhance={send({ reset: true })} class="row">
 						<input type="hidden" name="userId" value={s.userId} />
 						<select name="permission" aria-label={S.permissionFor(s.name)} value={s.permission}
 							onchange={(e) => e.currentTarget.form?.requestSubmit()}>
@@ -44,7 +45,7 @@
 	{#if data.candidates.length === 0}
 		<p class="muted">{S.allHaveAccess}</p>
 	{:else}
-		<form method="POST" action="?/set" use:enhance class="row add">
+		<form method="POST" action="?/set" use:enhance={send({ reset: true })} class="row add">
 			<label>{S.person}
 				<select name="userId" required>
 					{#each data.candidates as u (u.id)}<option value={u.id}>{u.name} ({u.email})</option>{/each}

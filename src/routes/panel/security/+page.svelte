@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
+	import { send } from '#lib/forms.js';
 	import { page } from '$app/state';
 	import { panelDict } from '#lib/i18n/panel.js';
 	let { data, form } = $props();
@@ -17,7 +19,7 @@
 	<h2>{t.security.profile}</h2>
 	{#if form?.nameSaved}<p class="success">{t.security.nameSaved}</p>{/if}
 	{#if form?.nameError}<p class="error">{form.nameError}</p>{/if}
-	<form method="POST" action="?/name" class="name-form">
+	<form method="POST" action="?/name" class="name-form" use:enhance={send()}>
 		<label for="my-name">{t.users.name}</label>
 		<div class="row">
 			<input id="my-name" name="name" type="text" required minlength="2" maxlength="80" autocomplete="name" value={data.user.name} />

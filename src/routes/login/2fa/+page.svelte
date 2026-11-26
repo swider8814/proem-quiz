@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
+	import { send } from '#lib/forms.js';
 	import '#lib/styles/panel.css';
 	import { page } from '$app/state';
 	import { panelDict } from '#lib/i18n/panel.js';
@@ -16,7 +18,7 @@
 	<div class="card">
 		<h1>{recovery ? t.auth.recoveryHeading : t.auth.appHeading}</h1>
 		{#if form?.error}<p class="error" role="alert">{form.error}</p>{/if}
-		<form method="POST">
+		<form method="POST" use:enhance={send()}>
 			<input type="hidden" name="mode" value={recovery ? 'recovery' : 'totp'} />
 			{#if recovery}
 				<label for="code">{t.auth.recoveryLabel}</label>

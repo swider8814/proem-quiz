@@ -1,7 +1,8 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
+	import { send } from '#lib/forms.js';
 	import { page } from '$app/state';
 	import { replaceState } from '$app/navigation';
-	import { enhance } from '$app/forms';
 	import Icon from '#lib/Icon.svelte';
 	import { panelDict } from '#lib/i18n/panel.js';
 	let { data, form } = $props();
@@ -113,7 +114,7 @@
 <div class="card invite-box" id="invite-box" class:open={inviteOpen}>
 	<h2>{U.invite}</h2>
 	{#if form?.inviteError}<p class="error">{form.inviteError}</p>{/if}
-	<form method="POST" action={act('invite')} class="invite">
+	<form method="POST" action={act('invite')} class="invite" use:enhance={send()}>
 		<div class="f-name">
 			<label for="name">{U.name}</label>
 			<input id="name" name="name" type="text" required bind:value={inviteName} />
@@ -187,7 +188,7 @@
 				<tr class:off={u.disabled}>
 					<td class="person">
 						{#if renaming === u.id}
-							<form method="POST" action="?/rename" class="rename" use:enhance={() => async ({ update, result }) => { await update(); if (result.type === 'success') renaming = null; }}>
+							<form method="POST" action="?/rename" class="rename" use:enhance={send({ after: (r) => { if (r.type === 'success') renaming = null; } })}>
 								<input type="hidden" name="id" value={u.id} />
 								<input name="name" type="text" value={u.name} aria-label={U.name} required minlength="2" maxlength="80" autocomplete="off" autofocus />
 								<button>{t.common.save}</button>
@@ -203,7 +204,7 @@
 						{#if u.id === data.user.id}
 							{u.role === 'admin' ? U.admin : U.author} <span class="muted">{U.you}</span>
 						{:else}
-							<form method="POST" action={act('role')}>
+							<form method="POST" action={act('role')} use:enhance={send()}>
 								<input type="hidden" name="id" value={u.id} />
 								<select name="role" onchange={(e) => e.currentTarget.form?.requestSubmit()} aria-label={U.role}>
 									<option value="author" selected={u.role === 'author'}>{U.author}</option>
@@ -213,7 +214,7 @@
 						{/if}
 					</td>
 					<td data-label={t.common.language}>
-						<form method="POST" action={act('locale')}>
+						<form method="POST" action={act('locale')} use:enhance={send()}>
 							<input type="hidden" name="id" value={u.id} />
 							<select name="locale" onchange={(e) => e.currentTarget.form?.requestSubmit()} aria-label={U.language}>
 								<option value="pl" selected={u.locale === 'pl'}>PL</option>
@@ -234,24 +235,24 @@
 					<td class="actions">
 						{#if u.id !== data.user.id}
 							{#if !u.activated}
-								<form method="POST" action={act('reinvite')}>
+								<form method="POST" action={act('reinvite')} use:enhance={send()}>
 									<input type="hidden" name="id" value={u.id} /><button class="secondary">{U.newLink}</button>
 								</form>
 							{/if}
 							{#if u.totpEnabled}
-								<form method="POST" action={act('reset2fa')} onsubmit={(e) => { if (!confirm(U.reset2faConfirm(u.name))) e.preventDefault(); }}>
+								<form method="POST" action={act('reset2fa')} use:enhance={send({ confirm: () => U.reset2faConfirm(u.name) })}>
 									<input type="hidden" name="id" value={u.id} /><button class="secondary">{U.reset2fa}</button>
 								</form>
 							{/if}
 							{#if u.activated || u.disabled}
-								<form method="POST" action={act('toggle')}>
+								<form method="POST" action={act('toggle')} use:enhance={send()}>
 									<input type="hidden" name="id" value={u.id} />
 									<button class={u.disabled ? 'secondary' : 'danger'}>{u.disabled ? U.unblock : U.block}</button>
 								</form>
 							{/if}
 							{#if !u.activated}
 								<!-- Nieaktywowane konto nie ma quizów ani plików – można je usunąć (zamiast blokować). -->
-								<form method="POST" action={act('delete')} onsubmit={(e) => { if (!confirm(U.deleteConfirm(u.name, u.email))) e.preventDefault(); }}>
+								<form method="POST" action={act('delete')} use:enhance={send({ confirm: () => U.deleteConfirm(u.name, u.email) })}>
 									<input type="hidden" name="id" value={u.id} /><button class="danger">{U.delete}</button>
 								</form>
 							{/if}

@@ -1,8 +1,9 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
+	import { send } from '#lib/forms.js';
 	import BackLink from '#lib/BackLink.svelte';
 	import { onMount } from 'svelte';
 	import HelpTip from '#lib/help/HelpTip.svelte';
-	import { replaceState } from '$app/navigation';
 	import Host from '#lib/game/Host.svelte';
 	import { panelDict } from '#lib/i18n/panel.js';
 
@@ -22,8 +23,6 @@
 			} catch {
 				/* tryb prywatny */
 			}
-			// Adres bez "?/start" – odświeżenie strony nie uruchomi drugiej gry.
-			setTimeout(() => replaceState(`/panel/quizzes/${data.quiz.id}/host`, {}), 0);
 		}
 	});
 
@@ -61,7 +60,7 @@
 			<p class="muted">{H.questions(data.quiz.questionCount)}</p>
 			<p class="muted tipline">{H.screenTip}<HelpTip id="screen" /></p>
 			{#if form?.error}<p class="error">{form.error}</p>{/if}
-			<form method="POST" action="?/start">
+			<form method="POST" action="?/start" use:enhance={send()}>
 				<button disabled={data.quiz.questionCount === 0}>{H.start}</button>
 			</form>
 			<p class="muted small">{H.keys}</p>
