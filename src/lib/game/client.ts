@@ -60,6 +60,33 @@ export function deviceId(): string {
 }
 
 /** Ekran nie gaśnie w trakcie gry (tam, gdzie przeglądarka pozwala). */
+/*
+ * Pełny ekran: standardowe API + starsze Safari na iPadzie (webkit*). iPhone nie pozwala na pełny
+ * ekran strony – wtedy canFullscreen() zwraca false i przycisk się chowa (na iPadzie i tak najlepiej
+ * działa „Do ekranu początkowego”, patrz static/manifest.webmanifest).
+ */
+type FsDoc = Document & { webkitFullscreenEnabled?: boolean; webkitFullscreenElement?: Element | null; webkitExitFullscreen?: () => void };
+type FsEl = HTMLElement & { webkitRequestFullscreen?: () => void };
+
+export function canFullscreen(): boolean {
+	const d = document as FsDoc;
+	return !!(d.fullscreenEnabled || d.webkitFullscreenEnabled);
+}
+
+export function toggleFullscreen(): void {
+	const d = document as FsDoc;
+	const el = document.documentElement as FsEl;
+	try {
+		if (d.fullscreenElement || d.webkitFullscreenElement) {
+			if (d.exitFullscreen) d.exitFullscreen().catch(() => {});
+			else d.webkitExitFullscreen?.();
+		} else if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
+		else el.webkitRequestFullscreen?.();
+	} catch {
+		/* przeglądarka odmówiła – zostajemy w oknie */
+	}
+}
+
 export function keepAwake() {
 	let lock: WakeLockSentinel | null = null;
 	const request = async () => {
