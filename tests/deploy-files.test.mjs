@@ -29,6 +29,15 @@ ok(!!deploy, 'skrypt zawiera deploy.sh');
 ok(deploy?.includes('DOCKER_CONFIG='), 'deploy.sh używa osobnych danych logowania Dockera');
 ok(!/docker (system|container|volume|network) prune|docker rm |docker stop /.test(deploy ?? ''), 'deploy.sh nie zatrzymuje ani nie usuwa cudzych kontenerów');
 ok(/prune -f --filter "label=org\.opencontainers\.image\.source=https:\/\/github\.com\/swider8814\/proem-quiz"/.test(deploy ?? ''), 'deploy.sh usuwa tylko obrazy quizu');
+// Review Codexa: kopia bazy przed aktualizacją i sprawdzenie, czy przywrócona wersja faktycznie działa.
+{
+	const d = deploy ?? '';
+	const iBackup = d.indexOf('server/cli.js backup');
+	ok(iBackup > 0 && iBackup < d.indexOf('docker compose pull') && /nic nie zmieniono[\s\S]*?exit 1/.test(d), 'deploy.sh: sprawdzona kopia bazy przed aktualizacją, bez kopii – przerwanie');
+	const rollback = d.slice(d.indexOf('QUIZ_IMAGE=proem-quiz:previous docker compose up -d app'));
+	ok(/wait_healthy/.test(rollback.split('\n').slice(0, 4).join('\n')), 'deploy.sh: po przywróceniu poprzedniej wersji czeka na healthy');
+	ok(/BŁĄD KRYTYCZNY/.test(rollback) && /data\/backup\/\$BACKUP/.test(rollback), 'deploy.sh: gdy poprzednia wersja nie działa – instrukcja odtworzenia z kopii sprzed aktualizacji');
+}
 ok(/command="%s",restrict/.test(setup), 'klucz GitHuba ograniczony do deploy.sh (restrict)');
 ok(/OLD_DIR="\$HOME\/proem-quiz"/.test(setup) && /exit 1/.test(setup.split('OLD_DIR=')[1] ?? ''), 'stara instalacja w ~/proem-quiz wykrywana – bez drugiej, pustej instalacji (review Codexa #5)');
 ok(/\^command=\\"\$DEPLOY\\",/.test(setup), 'klucz GitHuba wskazujący inny deploy.sh jest wymieniany');

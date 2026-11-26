@@ -249,30 +249,58 @@ check_others() {
 	fi
 }
 
+# Czekanie na zdrowy kontener (healthcheck z obrazu sprawdza też odczyt bazy). 0 = zdrowy.
+wait_healthy() {
+	for _ in $(seq 1 30); do
+		[[ "$(docker inspect -f '{{.State.Health.Status}}' proem-quiz 2>/dev/null || echo none)" == healthy ]] && return 0
+		sleep 3
+	done
+	return 1
+}
+
 # Poprzednia wersja na wypadek nieudanej aktualizacji.
 OLD="$(docker compose images -q app 2>/dev/null | head -1 || true)"
 if [[ -n "$OLD" ]]; then docker image tag "$OLD" proem-quiz:previous; fi
 
+# Kopia bazy PRZED aktualizacją: nowa wersja może zmigrować bazę, a poprzednia nie musi umieć z nią
+# pracować – wtedy samo przywrócenie obrazu nie wystarczy. Kopia jest sprawdzana (integrity_check) przez CLI;
+# bez udanej kopii nie aktualizujemy. Retencja 365 dni – nie skraca rotacji kopii nocnych.
+BACKUP=""
+if [[ -n "$OLD" ]] && [[ "$(docker inspect -f '{{.State.Running}}' proem-quiz 2>/dev/null || echo false)" == true ]]; then
+	BACKUP="quiz-$(date +%Y-%m-%d_%H%M).db"
+	if ! docker compose exec -T app node server/cli.js backup "$BACKUP" 365 >/dev/null; then
+		echo "BŁĄD: nie udało się zrobić kopii bazy przed aktualizacją – przerywam, nic nie zmieniono." >&2
+		exit 1
+	fi
+	echo "Kopia przed aktualizacją: data/backup/$BACKUP"
+fi
+
 docker compose pull -q app
 docker compose up -d app
 
-# Czekamy na zdrowy kontener (healthcheck z obrazu).
-for _ in $(seq 1 30); do
-	st="$(docker inspect -f '{{.State.Health.Status}}' proem-quiz 2>/dev/null || echo none)"
-	if [[ "$st" == healthy ]]; then
-		echo "OK: nowa wersja działa."
-		check_others
-		docker image prune -f --filter "label=org.opencontainers.image.source=https://github.com/swider8814/proem-quiz" >/dev/null || true
-		exit 0
-	fi
-	sleep 3
-done
+if wait_healthy; then
+	echo "OK: nowa wersja działa."
+	check_others
+	docker image prune -f --filter "label=org.opencontainers.image.source=https://github.com/swider8814/proem-quiz" >/dev/null || true
+	exit 0
+fi
 
 echo "BŁĄD: nowa wersja nie wstała – przywracam poprzednią." >&2
 docker compose logs --tail 50 app >&2 || true
 if [[ -n "$OLD" ]]; then
 	QUIZ_IMAGE=proem-quiz:previous docker compose up -d app
-	echo "Przywrócono poprzednią wersję (do następnego udanego deployu)." >&2
+	# Przywrócenie liczy się dopiero, gdy poprzednia wersja faktycznie działa (np. po migracji bazy może nie).
+	if wait_healthy; then
+		echo "Przywrócono poprzednią wersję – działa (do następnego udanego deployu)." >&2
+	else
+		echo "BŁĄD KRYTYCZNY: poprzednia wersja też nie działa – prawdopodobnie baza została już zmigrowana." >&2
+		if [[ -n "$BACKUP" ]]; then
+			echo "Odtwórz bazę z kopii sprzed aktualizacji (README → Odtwarzanie), na serwerze:" >&2
+			echo "  cd $PWD && docker compose stop app && cp data/quiz.db data/quiz.db.po-nieudanej-aktualizacji" >&2
+			echo "  cp data/backup/$BACKUP data/quiz.db && rm -f data/quiz.db-wal data/quiz.db-shm && QUIZ_IMAGE=proem-quiz:previous docker compose up -d app" >&2
+		fi
+		docker compose logs --tail 30 app >&2 || true
+	fi
 fi
 check_others
 exit 1
