@@ -95,7 +95,7 @@
 	.shell { display: flex; align-items: flex-start; min-height: 100vh; }
 	.sidebar {
 		flex: none; width: 15rem; box-sizing: border-box; position: sticky; top: 0; height: 100vh; overflow-y: auto;
-		display: flex; flex-direction: column; gap: 1.5rem; padding: 1.5rem 1rem;
+		display: flex; flex-direction: column; gap: 1.5rem; padding: 1.5rem 1rem max(1.5rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
 		background: var(--surface); border-right: 1px solid var(--line);
 	}
 	.brand { display: flex; align-items: center; gap: 0.6rem; padding: 0 0.5rem; color: var(--text); text-decoration: none; font-family: var(--display); font-size: 1.15rem; min-width: 0; }
@@ -122,13 +122,13 @@
 	.role { color: var(--muted); font-size: 0.85rem; }
 	.acts { flex-basis: 100%; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
 	.acts button { min-height: 2.25rem; padding: 0.3rem 0.8rem; font-size: 0.87rem; }
-	main { flex: 1; min-width: 0; box-sizing: border-box; padding: 2rem clamp(1rem, 4vw, 3rem) 3rem; }
+	main { flex: 1; min-width: 0; box-sizing: border-box; padding: 2rem max(clamp(1rem, 4vw, 3rem), env(safe-area-inset-right)) max(3rem, calc(env(safe-area-inset-bottom) + 1.5rem)) clamp(1rem, 4vw, 3rem); }
 	.inner { max-width: 65rem; margin: 0 auto; }
 	.bare main { padding: 0; }
 	.bare .inner { max-width: none; }
 	@media (max-width: 860px) {
 		.shell { display: block; }
-		.sidebar { position: sticky; top: 0; z-index: 40; width: auto; height: auto; overflow: visible; flex-direction: row; align-items: center; gap: 0.75rem; padding: 0.6rem 1rem; border-right: 0; border-bottom: 1px solid var(--line); }
+		.sidebar { position: sticky; top: 0; z-index: 40; width: auto; height: auto; overflow: visible; flex-direction: row; align-items: center; gap: 0.75rem; padding: 0.6rem max(1rem, env(safe-area-inset-right)) 0.6rem max(1rem, env(safe-area-inset-left)); border-right: 0; border-bottom: 1px solid var(--line); }
 		.brand { flex: 1; padding: 0; }
 		.brand.has-logo { flex: none; padding: 0.4rem 0.6rem; }
 		.burger {
@@ -143,7 +143,8 @@
 		/* Menu na cały ekran pod paskiem: nawigacja u góry, profil, język i wylogowanie na dole. */
 		.menu {
 			display: none; position: fixed; inset: 4rem 0 0 0; z-index: 40; box-sizing: border-box;
-			gap: 1rem; padding: 1rem; overflow-y: auto; background: var(--surface);
+			/* Dół i boki z odstępem od zaokrąglonych rogów i paska „home” (iPhone, aplikacja na ekranie głównym). */
+			gap: 1rem; padding: 1rem max(1rem, env(safe-area-inset-right)) max(1rem, calc(env(safe-area-inset-bottom) + 0.5rem)) max(1rem, env(safe-area-inset-left)); overflow-y: auto; background: var(--surface);
 		}
 		.menu.open { display: flex; }
 		.burger span { transition: transform var(--dur) var(--ease-out), opacity var(--dur-fast); }
@@ -152,7 +153,7 @@
 		.who { flex-wrap: nowrap; border: 0; border-top: 1px solid var(--line); border-radius: 0; padding: 1rem 0 0; }
 		.acts { flex: none; flex-basis: auto; justify-content: flex-end; gap: 0.25rem; }
 		.acts button { min-height: 2.75rem; }
-		main { padding: 1rem 1rem 2rem; }
+		main { padding: 1rem max(1rem, env(safe-area-inset-right)) max(2rem, calc(env(safe-area-inset-bottom) + 1rem)) max(1rem, env(safe-area-inset-left)); }
 		/* Na telefonie jedna kolumna – stopka z wersją na środku; na komputerze w linii z treścią (do lewej). */
 		.ver { text-align: center; }
 	}
