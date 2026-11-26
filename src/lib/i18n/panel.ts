@@ -28,7 +28,7 @@ const pl = {
 		no: 'Nie',
 		language: 'Język',
 		copy: 'Kopiuj link',
-		copied: 'Skopiowano ✓'
+		copied: 'Skopiowano'
 	},
 	auth: {
 		loginTitle: 'Logowanie',
@@ -62,7 +62,7 @@ const pl = {
 		activationTitle: 'Aktywacja konta',
 		welcome: (name: string) => `Witaj, ${name}!`,
 		setPasswordFor: 'Ustaw hasło do konta',
-		adminNotice: 'Masz rolę administratora. Po ustawieniu hasła poprosimy Cię o skonfigurowanie aplikacji z kodami (np. Google Authenticator) – przygotuj telefon.',
+		adminNotice: 'Masz rolę administratora. Po ustawieniu hasła skonfigurujesz aplikację z kodami (np. Google Authenticator) – przygotuj telefon.',
 		activate: 'Aktywuj konto'
 	},
 	nav: {
@@ -79,13 +79,13 @@ const pl = {
 	},
 	twofa: {
 		title: 'Weryfikacja dwuetapowa',
-		done: 'Gotowe – weryfikacja dwuetapowa włączona ✅',
+		done: 'Gotowe – weryfikacja dwuetapowa włączona.',
 		saveCodes: 'Zapisz te kody zapasowe w bezpiecznym miejscu (np. menedżer haseł). Każdy działa raz i pozwala zalogować się, gdy nie masz telefonu.',
 		noSecondLook: 'Nie zobaczysz ich ponownie.',
 		download: 'Pobierz jako plik .txt',
 		fileHeader: (email: string) => `Proem Quiz – kody zapasowe (${email})\nKażdy kod działa tylko raz.`,
 		fileName: 'proem-quiz-kody-zapasowe.txt',
-		savedCheck: 'Zapisałem kody w bezpiecznym miejscu',
+		savedCheck: 'Kody są zapisane w bezpiecznym miejscu',
 		toPanel: 'Przejdź do panelu',
 		required: 'Konta administratorów muszą mieć włączoną weryfikację dwuetapową. Skonfiguruj ją, żeby przejść dalej.',
 		step1: 'Zainstaluj na telefonie aplikację z kodami, np. Google Authenticator, Microsoft Authenticator, Aegis lub 2FAS.',
@@ -103,7 +103,7 @@ const pl = {
 		profile: 'Twoje dane',
 		nameSaved: 'Imię i nazwisko zapisane.',
 		nameNote: 'Widać je przy Twoich quizach i na liście użytkowników.',
-		recoveryUsed: (n: number) => `Zalogowano kodem zapasowym. Zostało ${n}. Jeśli zgubiłeś telefon, skonfiguruj weryfikację na nowym urządzeniu poniżej.`,
+		recoveryUsed: (n: number) => `Zalogowano kodem zapasowym. Zostało ${n}. Jeśli nie masz już telefonu, skonfiguruj weryfikację na nowym urządzeniu poniżej.`,
 		totp: 'Weryfikacja dwuetapowa (TOTP)',
 		on: 'Włączona',
 		off: 'Wyłączona',
@@ -147,7 +147,7 @@ const pl = {
 		deleteFolder: 'Usuń folder',
 		confirmDeleteFolder: (n: string) => `Usunąć folder „${n}”? Quizy z folderu NIE zostaną usunięte – trafią do „Bez folderu”.`,
 		folderName: 'Podaj nazwę folderu (do 60 znaków).',
-		folderLimit: 'Osiągnięto limit 100 folderów.',
+		folderLimit: 'Możesz mieć najwyżej 100 folderów.',
 		folderMissing: 'Nie znaleziono folderu.',
 		folderRenamed: 'Nazwa folderu zmieniona.',
 		moveTo: 'Folder',
@@ -176,7 +176,7 @@ const pl = {
 		readOnly: 'Masz dostęp tylko do prowadzenia tego quizu – edycja jest wyłączona.',
 		leaveConfirm: 'Masz niezapisane zmiany. Wyjść bez zapisywania?',
 		saveFailed: 'Nie udało się zapisać.',
-		saveConflictAsk: 'Ktoś inny zapisał ten quiz, gdy go edytowałeś. Zapisać Twoją wersję i zastąpić jego zmiany?\n\nAnuluj – nic nie zapisujemy; możesz skopiować swoje zmiany i odświeżyć stronę.',
+		saveConflictAsk: 'Ktoś inny zapisał ten quiz w trakcie Twojej edycji. Zapisać Twoją wersję i zastąpić jego zmiany?\n\nAnuluj – nic nie zapisujemy; możesz skopiować swoje zmiany i odświeżyć stronę.',
 		settingsLegend: 'Ustawienia quizu',
 		set: {
 			look: 'Wygląd i język',
@@ -184,7 +184,7 @@ const pl = {
 			players: 'Gracze i telefony',
 			sound: 'Dźwięk',
 			themeHint: 'Kolory, czcionka i logo – na ekranie i na telefonach.',
-			langHint: 'Język napisów w grze (przyciski, komunikaty). Treść pytań wpisujesz sam.',
+			langHint: 'Język napisów w grze (przyciski, komunikaty). Treść pytań wpisujesz samodzielnie.',
 			timeHint: 'Tyle sekund dostaje każde nowe pytanie. W pytaniu można to zmienić osobno.',
 			countdownHint: 'Przed każdym pytaniem ekran odlicza, a telefony czekają – wszyscy zdążą przeczytać pytanie.',
 			shuffleQ: 'Losowa kolejność pytań',
@@ -286,7 +286,7 @@ const pl = {
 		imageAlt: 'Obrazek do pytania',
 		removeImage: 'Usuń obrazek',
 		addAnswerImage: 'obrazek zamiast tekstu',
-		answerAltPh: 'Opis obrazka (dla niewidomych)',
+		answerAltPh: 'Opis obrazka (dla osób niewidomych)',
 		imageAltFor: (l: string) => `Opis obrazka odpowiedzi ${l}`,
 		imageAltMissing: 'Bez podpisu i opisu czytnik ekranu przeczyta tylko literę.',
 		answerImage: (l: string) => `Obrazek odpowiedzi ${l}`,
@@ -346,7 +346,7 @@ const pl = {
 	},
 	host: {
 		title: 'Prowadzenie',
-		questions: (n: number) => `${n} ${plPlural(n, 'pytanie', 'pytania', 'pytań')}. Podłącz komputer do rzutnika i nagłośnienia, a potem uruchom grę.`,
+		questions: (n: number) => `${n} ${plPlural(n, 'pytanie', 'pytania', 'pytań')}. Podłącz komputer lub tablet do projektora (albo telewizora) i głośników, a potem uruchom grę.`,
 		start: 'Uruchom grę',
 		keys: 'Sterowanie: spacja / strzałka w prawo – dalej · F – pełny ekran · R – odtwórz fragment ponownie.',
 		backToEdit: 'Wróć do edycji',
@@ -369,7 +369,7 @@ const pl = {
 		musicOff: 'Wycisz muzykę',
 		musicOn: 'Włącz muzykę',
 		hidePlayers: 'Ukryj graczy',
-		kickConfirm: (nick: string) => `Wyrzucić gracza „${nick}” z gry? Nie będzie mógł dołączyć ponownie z tego urządzenia.`,
+		kickConfirm: (nick: string) => `Wyrzucić gracza „${nick}” z gry? Z tego urządzenia nie dołączy już ponownie.`,
 		endConfirm: 'Zakończyć grę teraz i pokazać podium?'
 	},
 	reports: {
@@ -590,7 +590,7 @@ const pl = {
 		adminsOnly: 'Tylko dla administratorów',
 		quizNotFound: 'Nie znaleziono quizu.',
 		noEditRights: 'Brak uprawnień do edycji.',
-		quizConflict: 'Ktoś inny zapisał ten quiz, gdy go edytowałeś.',
+		quizConflict: 'Ktoś inny zapisał ten quiz w trakcie Twojej edycji.',
 		onlyOwnQuizzes: 'Możesz usuwać tylko własne quizy.',
 		giveTitle: 'Podaj tytuł quizu.',
 		noQuestions: 'Quiz nie ma pytań.',
@@ -675,7 +675,7 @@ const en: PanelDict = {
 		no: 'No',
 		language: 'Language',
 		copy: 'Copy link',
-		copied: 'Copied ✓'
+		copied: 'Copied'
 	},
 	auth: {
 		loginTitle: 'Sign in',
@@ -726,7 +726,7 @@ const en: PanelDict = {
 	},
 	twofa: {
 		title: 'Two-step verification',
-		done: 'Done – two-step verification is on ✅',
+		done: 'Done – two-step verification is on.',
 		saveCodes: 'Keep these recovery codes somewhere safe (e.g. a password manager). Each one works once and lets you sign in when you don’t have your phone.',
 		noSecondLook: 'You won’t see them again.',
 		download: 'Download as .txt file',
@@ -993,7 +993,7 @@ const en: PanelDict = {
 	},
 	host: {
 		title: 'Hosting',
-		questions: (n: number) => `${n} ${n === 1 ? 'question' : 'questions'}. Connect the computer to the projector and speakers, then start the game.`,
+		questions: (n: number) => `${n} ${n === 1 ? 'question' : 'questions'}. Connect the computer or tablet to the projector (or TV) and speakers, then start the game.`,
 		start: 'Start game',
 		keys: 'Controls: space / right arrow – next · F – full screen · R – replay clip.',
 		backToEdit: 'Back to editing',

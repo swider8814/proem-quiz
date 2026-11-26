@@ -40,10 +40,10 @@ export const HELP: HelpSection[] = [
 			title: 'Tworzenie quizu',
 			summary: 'Nowy quiz, pytania, obrazki i fragmenty piosenek.',
 			steps: [
-				'Na liście **Quizy** wpisz tytuł i kliknij **Utwórz quiz**.',
-				'Wybierz typ pytania i kliknij **+ Dodaj pytanie**. Na telefonie użyj **+** obok „Pytanie 1 z 1” albo przycisku na dole edytora.',
-				'Wpisz treść, odpowiedzi i zaznacz **poprawna**. Zmiany zapisuj przyciskiem **Zapisz** (albo Ctrl+S).',
-				'Obrazek do pytania: **Dodaj obrazek**. Zdjęcie z telefonu zostanie samo zmniejszone. Zamiast tekstu odpowiedzi możesz dać obrazek: **+ obrazek zamiast tekstu**.',
+				'Na liście **Quizy** wpisz tytuł i kliknij **Utwórz quiz**. Na telefonie najpierw dotknij **+** obok nagłówka „Quizy”.',
+				'Wybierz typ pytania i kliknij **Dodaj pytanie**. Na telefonie użyj **+** obok „Pytanie 1 z 1” albo przycisku na dole edytora.',
+				'Wpisz treść, odpowiedzi i zaznacz **poprawna**. Zmiany zapisuj przyciskiem **Zapisz** (albo Ctrl+S). Gdy wszystko jest zapisane, przycisk pokazuje **Zapisano**.',
+				'Obrazek do pytania: **Dodaj obrazek**. Zdjęcie z telefonu zostanie samo zmniejszone. Zamiast tekstu odpowiedzi możesz dać obrazek: **obrazek zamiast tekstu**.',
 				'Pytanie audio („jaka to piosenka?”): wgraj plik MP3, przeciągnij niebieskie pole na fali, żeby wybrać fragment, i sprawdź go przyciskiem **Odsłuchaj fragment**.',
 				'Kolejność pytań zmienisz strzałkami albo przeciągając je na liście. **Duplikuj** kopiuje pytanie.'
 			],
@@ -57,10 +57,10 @@ export const HELP: HelpSection[] = [
 			title: 'Creating a quiz',
 			summary: 'New quiz, questions, images and song clips.',
 			steps: [
-				'On the **Quizzes** list type a title and click **Create quiz**.',
-				'Choose a question type and click **+ Add question**. On a phone use **+** next to “Question 1 of 1” or the button at the bottom of the editor.',
-				'Type the question and answers and tick **correct**. Save with **Save** (or Ctrl+S).',
-				'Picture for the question: **Add image**. Photos from a phone are resized automatically. An answer can be a picture instead of text: **+ image instead of text**.',
+				'On the **Quizzes** list type a title and click **Create quiz**. On a phone, first tap **+** next to the “Quizzes” heading.',
+				'Choose a question type and click **Add question**. On a phone use **+** next to “Question 1 of 1” or the button at the bottom of the editor.',
+				'Type the question and answers and tick **correct**. Save with **Save** (or Ctrl+S). When everything is saved, the button shows **Saved**.',
+				'Picture for the question: **Add image**. Photos from a phone are resized automatically. An answer can be a picture instead of text: **image instead of text**.',
 				'Audio question (“name that song”): upload an MP3, drag the blue area on the waveform to pick the clip and check it with **Play clip**.',
 				'Reorder questions with the arrows or by dragging them in the list. **Duplicate** copies a question.'
 			],
@@ -104,9 +104,9 @@ export const HELP: HelpSection[] = [
 			title: 'Prowadzenie gry',
 			summary: 'Uruchomienie, PIN, ekran dla widzów i sterowanie.',
 			steps: [
-				'Podłącz laptop do projektora i głośników. Otwórz quiz i kliknij **Uruchom grę**.',
+				'Podłącz komputer (albo tablet) do projektora lub telewizora i do głośników. Otwórz quiz i kliknij **Uruchom grę**.',
 				'Na ekranie pojawi się **PIN** i kod QR. Gracze wchodzą na **quiz.proem.pl** na telefonie i wpisują PIN (albo skanują kod).',
-				'**Otwórz ekran dla widzów** – otwiera osobne okno. Przeciągnij je na projektor i naciśnij **F** (pełny ekran). Na laptopie zostaje widok prowadzącego.',
+				'**Otwórz ekran dla widzów** – otwiera osobne okno. Przeciągnij je na projektor i naciśnij **F** (pełny ekran). Na Twoim ekranie zostaje widok prowadzącego.',
 				'Kliknij **Test dźwięku**, zanim wejdą gracze. Jeśli przeglądarka zablokuje dźwięk, kliknij dowolny przycisk na stronie.',
 				'Przy graczu w poczekalni: strzałka w kółku nadaje nowy losowy nick, **×** usuwa gracza (nie wróci z tego telefonu).',
 				'Gdy wszyscy są, kliknij **Start**. Dalej: **spacja** lub strzałka w prawo przechodzi do kolejnego kroku, **R** odtwarza fragment piosenki ponownie.',
@@ -118,9 +118,9 @@ export const HELP: HelpSection[] = [
 			title: 'Running a game',
 			summary: 'Starting, PIN, audience screen and controls.',
 			steps: [
-				'Connect the laptop to the projector and speakers. Open the quiz and click **Start game**.',
+				'Connect the computer (or tablet) to the projector or TV and to the speakers. Open the quiz and click **Start game**.',
 				'The screen shows a **PIN** and a QR code. Players go to **quiz.proem.pl** on their phones and enter the PIN (or scan the code).',
-				'**Open audience screen** – opens a separate window. Drag it to the projector and press **F** (full screen). The host view stays on the laptop.',
+				'**Open audience screen** – opens a separate window. Drag it to the projector and press **F** (full screen). The host view stays on your screen.',
 				'Click **Sound test** before players join. If the browser blocks sound, click any button on the page.',
 				'Next to a player in the lobby: the circular arrow gives a new random nickname, **×** removes the player (they cannot rejoin from that phone).',
 				'When everyone is in, click **Start**. Then **space** or the right arrow moves to the next step, **R** replays the song clip.',
@@ -136,10 +136,10 @@ export const HELP: HelpSection[] = [
 			summary: 'Co sprawdzić dzień wcześniej i na miejscu.',
 			steps: [
 				'Przejdź cały quiz sam: **Uruchom grę** i dołącz z własnego telefonu.',
-				'Sprawdź laptop z projektorem (okno dla widzów na pełnym ekranie) i głośniki (**Test dźwięku**).',
+				'Sprawdź, czy obraz trafia na projektor (okno dla widzów na pełnym ekranie) i czy działają głośniki (**Test dźwięku**).',
 				'Upewnij się, że na sali jest Wi-Fi albo dobry zasięg – gracze grają na swoich telefonach.',
 				'Zrób próbną grę na 2–3 telefonach (najlepiej iPhone i Android).',
-				'Laptop podłącz do zasilania i wyłącz usypianie ekranu.'
+				'Podłącz komputer lub tablet do zasilania i wyłącz usypianie ekranu.'
 			]
 		},
 		en: {
@@ -147,10 +147,10 @@ export const HELP: HelpSection[] = [
 			summary: 'What to check the day before and on site.',
 			steps: [
 				'Play the whole quiz yourself: **Start game** and join from your own phone.',
-				'Check the laptop with the projector (audience window in full screen) and the speakers (**Sound test**).',
+				'Check that the picture reaches the projector (audience window in full screen) and that the speakers work (**Sound test**).',
 				'Make sure there is Wi-Fi or good mobile signal in the room – players use their own phones.',
 				'Run a trial game on 2–3 phones (ideally an iPhone and an Android).',
-				'Plug the laptop in and turn off screen sleep.'
+				'Plug the computer or tablet in and turn off screen sleep.'
 			]
 		}
 	},
@@ -162,7 +162,7 @@ export const HELP: HelpSection[] = [
 			steps: [
 				'**Gracz nie może dołączyć** – sprawdź PIN i czy wpisuje adres **quiz.proem.pl**. Jeśli gra już trwa, w ustawieniach musi być włączone **Dołączanie w trakcie gry**.',
 				'**Telefon się rozłączył** (blokada ekranu, Wi-Fi) – wystarczy wrócić do przeglądarki. Gra wznowi się sama z tymi samymi punktami.',
-				'**Nie słychać dźwięku** – kliknij dowolny przycisk na stronie prowadzącego (przeglądarka wymaga kliknięcia), sprawdź głośność laptopa i głośników, użyj **Test dźwięku**.',
+				'**Nie słychać dźwięku** – kliknij dowolny przycisk na stronie prowadzącego (przeglądarka wymaga kliknięcia), sprawdź głośność urządzenia i głośników, użyj **Test dźwięku**.',
 				'**Okno dla widzów się nie otwiera** – zezwól w przeglądarce na wyskakujące okna dla quiz.proem.pl.',
 				'**Plik jest za duży** – audio do 30 MB, obrazki do 20 MB. Długą piosenkę skróć albo zapisz w niższej jakości.',
 				'Nadal nie działa? Napisz do administratora i podaj wersję ze stopki panelu.'
@@ -174,7 +174,7 @@ export const HELP: HelpSection[] = [
 			steps: [
 				'**A player cannot join** – check the PIN and that they type **quiz.proem.pl**. If the game has already started, **Joining during the game** must be on in the settings.',
 				'**A phone disconnected** (screen lock, Wi-Fi) – just go back to the browser. The game resumes with the same points.',
-				'**No sound** – click any button on the host page (browsers require a click), check the laptop and speaker volume, use **Sound test**.',
+				'**No sound** – click any button on the host page (browsers require a click), check the device and speaker volume, use **Sound test**.',
 				'**The audience window does not open** – allow pop-ups for quiz.proem.pl in the browser.',
 				'**The file is too large** – audio up to 30 MB, images up to 20 MB. Shorten a long song or save it in lower quality.',
 				'Still not working? Contact the administrator and give the version from the panel footer.'
@@ -212,7 +212,7 @@ export const HELP: HelpSection[] = [
 			summary: 'Użytkownicy, motywy, logo i ustawienia.',
 			steps: [
 				'**Użytkownicy → Zaproś osobę**: podaj e-mail, imię, rolę (**Autor** albo **Administrator**) i język konta. Lektorom anglojęzycznym ustaw **English**.',
-				'Link z zaproszenia działa 7 dni – potem kliknij **Nowy link**. Konto, które nie zostało aktywowane (np. z literówką w e-mailu), możesz **usunąć**. Aktywne konta tylko się **blokuje** – ich quizy zostają.',
+				'Link z zaproszenia działa 7 dni – potem kliknij **Nowy link**. Konto, które nie zostało aktywowane (np. z literówką w e-mailu), możesz **usunąć**. Aktywne konto można tylko **zablokować** – jego quizy zostają.',
 				'**Motywy**: styl ekranów, kolory, czcionka i logo. Autor wybiera motyw w ustawieniach quizu.',
 				'**Ustawienia**: logo w panelu, stan kopii zapasowych i sekcja **O aplikacji** (wersja, miejsce na serwerze).',
 				'Nowa wersja aplikacji trafia na serwer dopiero po ręcznym wdrożeniu w GitHub Actions – numer wersji widać w stopce panelu.'
@@ -256,8 +256,8 @@ export const HELP_TIPS = {
 	},
 	screen: {
 		section: 'host',
-		pl: 'Otwiera osobne okno dla projektora. Przeciągnij je na drugi ekran i naciśnij F. Na laptopie zostaje widok prowadzącego z graczami i przyciskami.',
-		en: 'Opens a separate window for the projector. Drag it to the second screen and press F. The laptop keeps the host view with players and buttons.'
+		pl: 'Otwiera osobne okno dla projektora. Przeciągnij je na drugi ekran i naciśnij F. Na Twoim ekranie zostaje widok prowadzącego z graczami i przyciskami.',
+		en: 'Opens a separate window for the projector. Drag it to the second screen and press F. Your screen keeps the host view with players and buttons.'
 	},
 	share: {
 		section: 'reports',
