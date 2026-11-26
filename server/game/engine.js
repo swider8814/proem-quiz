@@ -190,10 +190,22 @@ export class Game {
 		return null;
 	}
 
+	/**
+	 * Definitywne wyjście (wyrzucenie albo „Opuść grę”): rekord i historia odpowiedzi są usuwane z pamięci.
+	 * Limit 300 dotyczy aktywnych graczy – bez tego wielokrotna wymiana składu zostawiała w `players`
+	 * coraz więcej rekordów, a każdy przegląd mapy obciążał proces obsługujący wszystkie gry.
+	 * Zwykła utrata sieci NIE usuwa gracza (wraca tokenem). Blokada urządzenia zostaje w `bannedDevices`.
+	 */
+	removePlayer(p) {
+		p.kicked = true; // dla referencji trzymanych jeszcze przez trwające handlery
+		p.connected = false;
+		p.socketId = null;
+		this.players.delete(p.id);
+	}
+
 	kick(playerId) {
 		const p = this.players.get(playerId);
 		if (!p || p.kicked) return false;
-		p.kicked = true;
 		if (p.deviceId) this.bannedDevices.add(p.deviceId);
 		if (p.socketId) {
 			const s = this.io.sockets.get(p.socketId);
@@ -201,6 +213,7 @@ export class Game {
 			s?.leave(this.playerRoom);
 			s?.disconnect(true);
 		}
+		this.removePlayer(p);
 		this.broadcastLobby();
 		// Wyrzucenie w trakcie pytania: jeśli pozostali już odpowiedzieli, nie czekamy do końca czasu.
 		if (this.state === 'question') {
