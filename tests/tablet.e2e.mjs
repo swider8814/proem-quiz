@@ -17,8 +17,13 @@ try {
 	}
 	const apple = await fetch(`${srv.base}/icons/apple-touch-icon.png`);
 	ok(apple.status === 200, 'apple-touch-icon dla iPada');
+	ok(man.icons.some((i) => i.purpose === 'maskable'), 'manifest ma ikonę maskable (Android)');
+	for (const f of ['/favicon.ico', '/icons/favicon.svg']) {
+		const r = await fetch(srv.base + f);
+		ok(r.status === 200, `favicon ${f}: ${r.status}`);
+	}
 	const html = await (await fetch(`${srv.base}/login`)).text();
-	ok(html.includes('rel="manifest"') && html.includes('rel="apple-touch-icon"') && html.includes('/icons/icon.svg'), 'strona linkuje manifest, ikonę iPada i favicon');
+	ok(html.includes('rel="manifest"') && html.includes('rel="apple-touch-icon"') && html.includes('/icons/favicon.svg') && html.includes('/favicon.ico'), 'strona linkuje manifest, ikonę iPada i favicon');
 
 	const { browser: admin } = await makeAdmin(srv, 'tablet@proem.pl');
 	const c = await admin.req('/panel?/create', { method: 'POST', form: { title: 'Tablet' } });
