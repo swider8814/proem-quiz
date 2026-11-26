@@ -100,6 +100,18 @@ try {
 	ok(tbody.includes('blok@proem.pl') && !tbody.includes('zofia@proem.pl'), 'serwer renderuje od razu przefiltrowaną listę');
 	await p.goto(`${srv.base}/panel/users?status=blocked&role=author`);
 	ok((await emails()).join() === 'blok@proem.pl', 'link z filtrami: tylko zablokowany autor');
+	// „Usuń” przy nieaktywowanym koncie: potwierdzenie, filtry zostają.
+	await p.goto(`${srv.base}/panel/users?status=pending`);
+	p.once('dialog', (dlg) => dlg.dismiss());
+	await p.locator('tr', { hasText: 'nowak@proem.pl' }).locator('button:has-text("Usuń")').click();
+	await p.waitForTimeout(300);
+	ok((await emails()).includes('nowak@proem.pl'), 'usuń: anulowanie potwierdzenia nic nie zmienia');
+	let msg = '';
+	p.once('dialog', (dlg) => { msg = dlg.message(); dlg.accept(); });
+	await Promise.all([p.waitForSelector('p.success'), p.locator('tr', { hasText: 'nowak@proem.pl' }).locator('button:has-text("Usuń")').click()]);
+	ok(/Łukasz Nowak \(nowak@proem\.pl\)/.test(msg), 'usuń: potwierdzenie z imieniem i e-mailem');
+	ok(/konto usunięte/.test(await p.textContent('p.success')) && (await emails()).join() === 'ewa@proem.pl', 'usuń: konto znika, filtr „czekające” zostaje');
+	await snap(p, 'usun-desktop');
 	await ctx.close();
 
 	// Telefon

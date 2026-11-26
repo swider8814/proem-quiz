@@ -1,5 +1,5 @@
 import { error, fail } from '@sveltejs/kit';
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq, isNull } from 'drizzle-orm';
 import type { Actions, PageServerLoad } from './$types';
 import { db, schema } from '#lib/server/db/index.js';
 import { deleteUserSessions, resetTotp } from '#lib/server/auth/index.js';
@@ -89,6 +89,31 @@ export const actions: Actions = {
 		db.update(schema.users).set({ disabled: !target.disabled }).where(eq(schema.users.id, target.id)).run();
 		if (!target.disabled) deleteUserSessions(target.id);
 		return { message: t.users.toggled(target.name, !target.disabled) };
+	},
+
+	// Usunięcie tylko konta, które nigdy nie zostało aktywowane (literówka w e-mailu, nieprzyjęte
+	// zaproszenie). Aktywne konta mają quizy i pliki – te się blokuje. Warunek „bez hasła” jest
+	// w samym DELETE, więc konto aktywowane w międzyczasie (wyścig z linkiem) nie zostanie usunięte.
+	delete: async ({ request, locals }) => {
+		const me = requireAdmin(locals);
+		const target = getTarget(String((await request.formData()).get('id')));
+		const t = panelDict(locals.lang);
+		if (!target) return fail(404, { actionError: t.err.accountNotFound });
+		if (target.id === me.id) return fail(400, { actionError: t.err.ownDelete });
+		if (target.passwordHash) return fail(400, { actionError: t.err.onlyPendingDelete });
+		let removed = 0;
+		try {
+			// Zaproszenia, sesje i udostępnienia znikają kaskadowo (ON DELETE CASCADE).
+			removed = db
+				.delete(schema.users)
+				.where(and(eq(schema.users.id, target.id), isNull(schema.users.passwordHash)))
+				.run().changes;
+		} catch {
+			// Klucz obcy bez kaskady (quiz, plik, słowo w filtrze) – nie usuwamy, tylko zgłaszamy.
+			return fail(409, { actionError: t.err.onlyPendingDelete });
+		}
+		if (!removed) return fail(409, { actionError: t.err.onlyPendingDelete });
+		return { message: t.users.deleted(target.name) };
 	},
 
 	reset2fa: async ({ request, locals }) => {
