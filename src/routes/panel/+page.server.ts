@@ -32,9 +32,10 @@ export const load: PageServerLoad = ({ locals, url }) => {
 	const fParam = url.searchParams.get('f') ?? 'all';
 	const folder = fParam === 'none' ? 'none' : ids.has(fParam) ? fParam : 'all';
 	const query = (url.searchParams.get('q') ?? '').slice(0, 100);
+	// Szukamy w tytule i w imieniu i nazwisku autora („Kostia” pokaże jego quizy).
 	const needle = fold(query);
 	const filtered = all.filter(
-		(q) => (folder === 'all' || (folder === 'none' ? q.folderId === null : q.folderId === folder)) && (!needle || fold(q.title).includes(needle))
+		(q) => (folder === 'all' || (folder === 'none' ? q.folderId === null : q.folderId === folder)) && (!needle || fold(q.title).includes(needle) || fold(q.ownerName ?? '').includes(needle))
 	);
 	const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
 	const page = Math.min(Math.max(1, Math.floor(Number(url.searchParams.get('p')) || 1)), pages);
