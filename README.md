@@ -189,6 +189,7 @@ cd /srv/proem-quiz && docker compose stop app
 cp data/quiz.db data/quiz.db.przed-odtworzeniem
 cp <kopia>/backup/quiz-RRRR-MM-DD_GGMM.db data/quiz.db   # plik z NAS-a (np. scp z komputera)
 rm -f data/quiz.db-wal data/quiz.db-shm
+touch data/odtworzono-z-kopii   # przy starcie: unieważnienie sesji i nieużytych linków z kopii (też na nowym serwerze)
 rsync -a <kopia>/backup/media-RRRR-MM-DD_GGMM/ data/media/  # pliki audio/obrazy z tej samej chwili
 chown -R 10471:10471 data && docker compose up -d
 ```
@@ -206,6 +207,8 @@ Na Dysku każda kopia ma spis swoich plików; plik audio/obraz znika z Dysku dop
 gdy nie potrzebuje go już żadna zachowana (90 dni) kopia bazy.
 Kopie nie zawierają sesji logowania – po odtworzeniu wszyscy logują się ponownie (hasło + 2FA, ten sam `TOTP_ENCRYPTION_KEY`).
 Nie zawierają też nieużytych linków aktywacji i resetu hasła – po odtworzeniu osobom, które nie zdążyły aktywować konta, trzeba wysłać nowe zaproszenie.
+Starsze kopie (sprzed tej zmiany) jeszcze je mają – dlatego aplikacja przy starcie sama wykrywa bazę podmienioną na starszą kopię
+(licznik startów w bazie i w pliku `data/db-generation`) i unieważnia wtedy sesje oraz nieużyte linki. Nie usuwaj pliku `data/db-generation`.
 
 ## Przydatne komendy na serwerze
 
