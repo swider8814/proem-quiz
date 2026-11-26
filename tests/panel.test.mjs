@@ -178,6 +178,12 @@ try {
 	const kasiaId = sharePage.text.match(/<option value="(usr_[A-Za-z0-9_-]+)">kasia/)?.[1];
 	ok(!!kasiaId, 'ID konta w formularzu udostępniania');
 
+	const chip = (html, label) => new RegExp(`class="chip[^"]*"[^>]*>${label} <span`).test(html);
+	const kasiaQuiz = (await kasia.req('/panel?/create', { method: 'POST', form: { title: 'Własny quiz Kasi' } })).loc.split('/').pop();
+	const before = (await kasia.req('/panel')).text;
+	ok(!chip(before, 'Moje'), 'bez udostępnionych quizów nie ma filtra „Moje”');
+	ok(!chip(before, 'Bez folderu'), 'bez folderów nie ma filtra „Bez folderu”');
+	ok(chip((await adm2.req('/panel')).text, 'Moje'), 'admin zawsze ma filtr „Moje”');
 	const setShare = (b, form) => b.req(`/panel/quizzes/${sq}/share?/set`, { method: 'POST', form });
 	ok((await setShare(author, { userId: kasiaId, permission: 'host' })).status === 200, 'udostępnienie do prowadzenia');
 	const list = (await kasia.req('/panel')).text;
@@ -185,6 +191,11 @@ try {
 	// Wyszukiwanie po autorze (imię i nazwisko konta „autor”), bez względu na wielkość liter
 	const byAuthor = (await kasia.req('/panel?q=AUTOR')).text;
 	ok(byAuthor.includes('Quiz autora'), 'wyszukiwanie po autorze znajduje udostępniony quiz');
+	ok(chip(list, 'Moje'), 'po udostępnieniu pojawia się filtr „Moje”');
+	const mine = (await kasia.req('/panel?f=mine')).text;
+	ok(mine.includes('Własny quiz Kasi') && !mine.includes('Quiz autora'), 'filtr „Moje” pokazuje tylko własne quizy');
+	// Sprzątanie: dalsze testy zakładają, że Kasia nie ma własnych quizów.
+	ok((await kasia.req('/panel?/delete', { method: 'POST', form: { id: kasiaQuiz } })).status < 400, 'usunięcie własnego quizu Kasi');
 	ok(!(await kasia.req('/panel?q=nikt-taki')).text.includes('Quiz autora'), 'wyszukiwanie po nieznanym autorze nic nie zwraca');
 	ok((await kasia.req(`/panel/quizzes/${sq}`)).status === 200, 'osoba z dostępem „prowadzenie” otwiera quiz (podgląd)');
 	ok((await kasia.req(`/panel/quizzes/${sq}/host`)).status === 200, 'osoba z dostępem „prowadzenie” otwiera ekran gry');
@@ -347,6 +358,7 @@ try {
 		const f1 = await fo.req('/panel?/folderCreate', { method: 'POST', form: { name: '  Obóz <b>zimowy</b>  ' } });
 		ok(f1.status === 303 && /\/panel\?f=fld_/.test(f1.loc), 'nowy folder → przejście do folderu');
 		const fid = f1.loc.split('f=')[1];
+		ok(/class="chip[^"]*"[^>]*>Bez folderu <span/.test((await fo.req('/panel')).text), 'po utworzeniu folderu pojawia się filtr „Bez folderu”');
 		ok((await fo.req('/panel?/folderCreate', { method: 'POST', form: { name: '   ' } })).status === 400, 'folder bez nazwy odrzucony');
 		const inFolder = await mk('Quiz w folderze', { folder: fid });
 		const listF = await fo.req(`/panel?f=${fid}`);

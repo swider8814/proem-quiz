@@ -28,14 +28,16 @@ export const load: PageServerLoad = ({ locals, url }) => {
 		return { ...q, folderId: f && ids.has(f) ? f : null };
 	});
 
-	// Filtr: all | none | <id folderu użytkownika>; nieznany folder = wszystkie.
+	// „Moje” ma sens tylko, gdy na liście są też cudze quizy (udostępnione) albo dla admina.
+	const mineFilter = user.role === 'admin' || all.some((q) => !q.mine);
+	// Filtr: all | mine | none | <id folderu użytkownika>; nieznany folder = wszystkie.
 	const fParam = url.searchParams.get('f') ?? 'all';
-	const folder = fParam === 'none' ? 'none' : ids.has(fParam) ? fParam : 'all';
+	const folder = fParam === 'none' ? 'none' : fParam === 'mine' && mineFilter ? 'mine' : ids.has(fParam) ? fParam : 'all';
 	const query = (url.searchParams.get('q') ?? '').slice(0, 100);
 	// Szukamy w tytule i w imieniu i nazwisku autora („Kostia” pokaże jego quizy).
 	const needle = fold(query);
 	const filtered = all.filter(
-		(q) => (folder === 'all' || (folder === 'none' ? q.folderId === null : q.folderId === folder)) && (!needle || fold(q.title).includes(needle) || fold(q.ownerName ?? '').includes(needle))
+		(q) => (folder === 'all' || (folder === 'mine' ? q.mine : folder === 'none' ? q.folderId === null : q.folderId === folder)) && (!needle || fold(q.title).includes(needle) || fold(q.ownerName ?? '').includes(needle))
 	);
 	const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
 	const page = Math.min(Math.max(1, Math.floor(Number(url.searchParams.get('p')) || 1)), pages);
@@ -51,7 +53,8 @@ export const load: PageServerLoad = ({ locals, url }) => {
 		folder,
 		query,
 		folders: folders.map((f) => ({ ...f, count: counts.get(f.id) ?? 0 })),
-		noFolderCount: all.filter((q) => !q.folderId).length
+		noFolderCount: all.filter((q) => !q.folderId).length,
+		mineCount: mineFilter ? all.filter((q) => q.mine).length : null
 	};
 };
 

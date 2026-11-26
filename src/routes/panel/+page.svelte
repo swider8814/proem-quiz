@@ -57,7 +57,9 @@
 	<div class="filters">
 		<nav class="folders" aria-label={t.list.folders}>
 			<a class="chip" class:on={data.folder === 'all'} href={href({ f: 'all', p: 1 })}>{t.list.allQuizzes} <span>{data.total}</span></a>
-			<a class="chip" class:on={data.folder === 'none'} href={href({ f: 'none', p: 1 })}>{t.list.noFolder} <span>{data.noFolderCount}</span></a>
+			{#if data.mineCount !== null}<a class="chip" class:on={data.folder === 'mine'} href={href({ f: 'mine', p: 1 })}>{t.list.mineQuizzes} <span>{data.mineCount}</span></a>{/if}
+			<!-- „Bez folderu” ma sens dopiero, gdy są foldery i coś poza nimi (albo ten widok jest otwarty). -->
+			{#if (data.folders.length && data.noFolderCount) || data.folder === 'none'}<a class="chip" class:on={data.folder === 'none'} href={href({ f: 'none', p: 1 })}>{t.list.noFolder} <span>{data.noFolderCount}</span></a>{/if}
 			{#each data.folders as f (f.id)}
 				<a class="chip folder" class:on={data.folder === f.id} href={href({ f: f.id, p: 1 })}>{f.name} <span>{f.count}</span></a>
 			{/each}
