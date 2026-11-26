@@ -1,0 +1,39 @@
+// Delikatne animacje panelu: menu na telefonie się wysuwa, sekcje Pomocy rozwijają się płynnie,
+// a przy „ogranicz ruch” wszystko dzieje się od razu.
+//   node tests/animations.e2e.mjs   (wymaga npm run build)
+import { chromium, devices } from 'playwright-core';
+import { finish, makeAdmin, ok, startServer, waitForHydration } from './_helpers.mjs';
+
+const srv = await startServer();
+const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH ?? '/usr/bin/google-chrome', args: ['--no-sandbox'] });
+try {
+	const { browser: admin } = await makeAdmin(srv, 'ruch@proem.pl');
+	for (const reduced of [false, true]) {
+		const ctx = await browser.newContext({ ...devices['iPhone 14'], reducedMotion: reduced ? 'reduce' : 'no-preference' });
+		await ctx.addCookies([{ name: 'pq_session', value: admin.jar.pq_session, url: srv.base }]);
+		const p = waitForHydration(await ctx.newPage());
+		await p.goto(`${srv.base}/panel/help`);
+		const tag = reduced ? 'ogranicz ruch' : 'animacje';
+		// Menu: tuż po kliknięciu jeszcze w ruchu (albo od razu na miejscu przy ograniczonym ruchu).
+		// Klik i pomiar po 60 ms w samej stronie – bez opóźnień przesyłu między testem a przeglądarką.
+		const mid = await p.evaluate(() => new Promise((r) => { document.querySelector('button.burger').click(); setTimeout(() => r(+getComputedStyle(document.querySelector('.menu')).opacity), 60); }));
+		await p.waitForTimeout(400);
+		const end = await p.evaluate(() => +getComputedStyle(document.querySelector('.menu')).opacity);
+		ok(end === 1 && (reduced ? mid === 1 : mid > 0 && mid < 1), `${tag}: menu (w trakcie ${mid.toFixed(2)}, na końcu ${end})`);
+		await p.click('button.burger');
+		await p.waitForTimeout(400);
+		ok(!(await p.isVisible('.menu')), `${tag}: menu chowa się po drugim kliknięciu`);
+		// Pomoc: wysokość treści rośnie płynnie od 0.
+				const h1 = await p.evaluate(() => new Promise((r) => { const d = document.querySelectorAll('details.sec')[1]; d.querySelector('summary').click(); setTimeout(() => r(d.getBoundingClientRect().height), 60); }));
+		await p.waitForTimeout(400);
+		const h2 = await p.evaluate(() => document.querySelectorAll('details.sec')[1].getBoundingClientRect().height);
+		ok(h2 > 150 && (reduced ? h1 === h2 : h1 > 90 && h1 < h2), `${tag}: sekcja Pomocy (${Math.round(h1)} → ${Math.round(h2)} px)`);
+		await ctx.close();
+	}
+} catch (e) {
+	ok(false, `wyjątek: ${e.stack}`);
+} finally {
+	await browser.close();
+	srv.stop();
+}
+process.exit(finish() ? 1 : 0);

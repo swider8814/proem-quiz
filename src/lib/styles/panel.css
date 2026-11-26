@@ -18,6 +18,12 @@
 	--ok: #1f6b3a;
 	--radius: 1rem;
 	--radius-s: 0.625rem;
+	/* Ruch: krótko i miękko – animacje mają tłumaczyć, skąd coś się wzięło, a nie przyciągać uwagę. */
+	--ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+	--dur-fast: 140ms;
+	--dur: 220ms;
+	/* Pozwala animować wysokość do „auto” (rozwijanie w Pomocy). Przeglądarki bez obsługi po prostu nie animują. */
+	interpolate-size: allow-keywords;
 	--shadow: 0 1px 2px rgba(27, 31, 59, 0.04);
 	--focus: 0 0 0 3px rgba(27, 79, 184, 0.35);
 	--display: 'Space Grotesk Variable', 'Inter Variable', Inter, system-ui, sans-serif;
@@ -119,3 +125,15 @@ code.copy { display: block; padding: 0.7rem; background: var(--soft); border-rad
 /* Podpowiedź w polu znika po kliknięciu – nie wygląda wtedy jak wpisany już tekst. */
 input::placeholder, textarea::placeholder { transition: opacity 0.12s; }
 input:focus::placeholder, textarea:focus::placeholder { opacity: 0; }
+
+/* Wspólne wejście wyskakujących okienek (menu „⋯”, podpowiedzi „?”). */
+@keyframes pop-in {
+	from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+}
+
+/* Użytkownik prosi system o ograniczenie ruchu – wyłączamy animacje i przejścia w panelu. */
+@media (prefers-reduced-motion: reduce) {
+	*, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+	/* Osobna reguła: przeglądarka bez ::details-content odrzuciłaby całą listę selektorów powyżej. */
+	::details-content { transition: none !important; }
+}

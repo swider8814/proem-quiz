@@ -139,6 +139,11 @@
 			gap: 1rem; padding: 1rem; overflow-y: auto; background: var(--surface);
 		}
 		.menu.open { display: flex; }
+		/* Menu wysuwa się spod paska (stan startowy + przejście). Chowa się od razu: po wyborze strony
+		   ma zniknąć natychmiast, a przy obracaniu tabletu nie mignąć. Starsze przeglądarki pokazują je bez animacji. */
+		.menu.open { transition: opacity var(--dur) var(--ease-out), transform var(--dur) var(--ease-out); }
+		@starting-style { .menu.open { opacity: 0; transform: translateY(-8px); } }
+		.burger span { transition: transform var(--dur) var(--ease-out), opacity var(--dur-fast); }
 		nav a { min-height: 3.25rem; font-size: 1.1rem; }
 		/* Profil, język i wylogowanie w jednej linii: [D] Imię Nazwisko · EN · Wyloguj */
 		.who { flex-wrap: nowrap; border: 0; border-top: 1px solid var(--line); border-radius: 0; padding: 1rem 0 0; }
@@ -146,5 +151,7 @@
 		.acts button { min-height: 2.75rem; }
 		.acts :global(.lang button) { min-width: 2.75rem; padding: 0 0.5rem; }
 		main { padding: 1rem 1rem 2rem; }
+		/* Na telefonie jedna kolumna – stopka z wersją na środku; na komputerze w linii z treścią (do lewej). */
+		.ver { text-align: center; }
 	}
 </style>

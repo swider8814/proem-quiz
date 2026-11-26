@@ -69,7 +69,12 @@
 	summary { display: flex; gap: 0.9rem; align-items: center; padding: 1rem 1.25rem; cursor: pointer; list-style: none; }
 	summary::-webkit-details-marker { display: none; }
 	summary::after { content: '+'; margin-left: auto; font-size: 1.4rem; font-weight: 600; color: var(--muted); }
-	details[open] summary::after { content: '–'; }
+	/* „+” obraca się w „×” zamiast podmieniać znak. */
+	summary::after { transition: transform var(--dur) var(--ease-out); }
+	details[open] summary::after { transform: rotate(45deg); }
+	/* Rozwijanie sekcji: wysokość do „auto” (Chrome, Safari 18.4+); w innych od razu, bez skoku układu. */
+	details::details-content { block-size: 0; overflow: hidden; transition: block-size var(--dur) var(--ease-out), content-visibility var(--dur) allow-discrete; }
+	details[open]::details-content { block-size: auto; }
 	.num { flex: none; display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: 50%; background: var(--bg); border: 1px solid var(--line-strong); font-weight: 700; }
 	.head { display: grid; gap: 0.15rem; }
 	.head .muted { font-size: 0.9rem; }

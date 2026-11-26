@@ -203,7 +203,7 @@
 	.more summary { list-style: none; display: flex; align-items: center; justify-content: center; width: 2.75rem; height: 100%; min-height: 2.75rem; box-sizing: border-box; border: 1px solid var(--line-strong); border-radius: var(--radius-s); background: #fff; font-weight: 700; font-size: 1.2rem; cursor: pointer; }
 	.more summary::-webkit-details-marker { display: none; }
 	.more summary:hover, .more[open] summary { background: var(--soft); }
-	.pop { position: absolute; right: 0; bottom: calc(100% + 0.4rem); z-index: 20; width: 14rem; box-sizing: border-box; display: flex; flex-direction: column; gap: 0.4rem; padding: 0.6rem; background: #fff; border: 1px solid var(--line-strong); border-radius: 0.75rem; box-shadow: 0 12px 32px rgba(27, 31, 59, 0.18); }
+	.pop { position: absolute; right: 0; bottom: calc(100% + 0.4rem); z-index: 20; width: 14rem; box-sizing: border-box; display: flex; flex-direction: column; gap: 0.4rem; padding: 0.6rem; background: #fff; border: 1px solid var(--line-strong); border-radius: 0.75rem; box-shadow: 0 12px 32px rgba(27, 31, 59, 0.18); transform-origin: bottom right; animation: pop-in var(--dur-fast) var(--ease-out); }
 	.pop .btn, .pop button { width: 100%; }
 	.pop label { margin: 0.2rem 0 0; }
 	.pop select { margin-top: 0.3rem; }

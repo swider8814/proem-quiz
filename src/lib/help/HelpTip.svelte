@@ -72,6 +72,6 @@
 	.helptip { display: inline-flex; vertical-align: middle; position: relative; top: -0.12em; margin-left: 0.35rem; }
 	.q { flex: none; width: 1.35rem; height: 1.35rem; min-height: 0; min-width: 0; padding: 0; border-radius: 50%; border: 1px solid var(--line-strong); background: var(--surface); color: var(--muted); font-size: 0.8rem; font-weight: 700; line-height: 1; cursor: pointer; }
 	.q:hover, .q[aria-expanded='true'] { color: var(--text); border-color: var(--text); }
-	.pop { position: fixed; z-index: 50; width: min(18rem, calc(100vw - 16px)); box-sizing: border-box; padding: 0.7rem 0.85rem; border: 1px solid var(--line-strong); border-radius: var(--radius-s); background: var(--surface); box-shadow: 0 8px 24px rgba(27, 31, 59, 0.12); font-size: 0.85rem; font-weight: 400; line-height: 1.45; color: var(--text); text-transform: none; letter-spacing: normal; white-space: normal; text-align: left; }
+	.pop { position: fixed; z-index: 50; width: min(18rem, calc(100vw - 16px)); box-sizing: border-box; padding: 0.7rem 0.85rem; border: 1px solid var(--line-strong); border-radius: var(--radius-s); background: var(--surface); box-shadow: 0 8px 24px rgba(27, 31, 59, 0.12); font-size: 0.85rem; font-weight: 400; line-height: 1.45; color: var(--text); text-transform: none; letter-spacing: normal; white-space: normal; text-align: left; animation: pop-in var(--dur-fast) var(--ease-out); }
 	.pop a { display: block; margin-top: 0.4rem; color: var(--link); font-weight: 600; }
 </style>
