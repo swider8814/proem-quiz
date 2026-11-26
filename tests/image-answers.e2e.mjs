@@ -48,7 +48,7 @@ try {
 		questions
 	});
 	const json = { 'content-type': 'application/json', accept: 'application/json' };
-	const q1 = { ...base, imageMediaId: secret, type: 'choice', prompt: 'Który to osioł?', data: { type: 'choice', answers: ['', 'Owca', '', ''], correct: [0], images: imgs } };
+	const q1 = { ...base, imageMediaId: secret, type: 'choice', prompt: 'Który to osioł?', data: { type: 'choice', answers: ['', 'Owca', '', ''], correct: [0], images: imgs, alts: ['Szary osioł z długimi uszami', null, '', null] } };
 	const bad = await admin.req(`/panel/api/quizzes/${quizId}`, { method: 'PUT', headers: json, body: quiz([{ ...q1, data: { ...q1.data, images: [imgs[0], null, null, null], answers: ['', 'Owca', '', 'x'] } }]) });
 	ok(bad.status === 400, 'odpowiedź bez podpisu i bez obrazka odrzucona');
 	const save = await admin.req(`/panel/api/quizzes/${quizId}`, { method: 'PUT', headers: json, body: quiz([q1]) });
@@ -115,8 +115,12 @@ try {
 	await phone.waitForSelector('.tiles.pics img.pic', { timeout: 10000 });
 	await phone.waitForFunction(() => [...document.querySelectorAll('img.pic')].every((i) => i.complete && i.naturalWidth > 0));
 	ok((await phone.$$('img.pic')).length === 4, 'telefon pokazuje 4 obrazki odpowiedzi');
+	// Dostępność (review Codexa): nazwa przycisku = podpis, a bez podpisu – opis obrazka; dopiero bez obu – litera.
+	const names = await phone.$$eval('.tiles .g-tile', (b) => b.map((x) => x.getAttribute('aria-label')));
+	ok(names[0] === 'Szary osioł z długimi uszami' && names[1] === 'Owca' && names[2] === 'C', `telefon: nazwy odpowiedzi dla czytnika (${names.join(' | ')})`);
 	ok((await phone.textContent('.tiles')).includes('Owca'), 'podpis pod obrazkiem, gdy jest');
 	await host.waitForFunction(() => [...document.querySelectorAll('.answers img.ans-img')].filter((i) => i.naturalWidth > 0).length === 4);
+	ok((await host.getAttribute('.answers img.ans-img >> nth=0', 'alt')) === 'Szary osioł z długimi uszami', 'ekran prowadzącego: opis obrazka jako alt');
 	ok(true, 'ekran prowadzącego pokazuje obrazki odpowiedzi');
 	const gm = await anon(`/game-media/${pin}/${imgs[1]}`);
 	ok(gm.status === 200, 'w trakcie pytania obrazek odpowiedzi dostępny z PIN-em');

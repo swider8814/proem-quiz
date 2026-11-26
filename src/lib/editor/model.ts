@@ -1,12 +1,12 @@
 export type QType = 'choice' | 'truefalse' | 'audio' | 'text' | 'order' | 'poll' | 'slider' | 'slide';
 
 export type QData =
-	| { type: 'choice'; answers: string[]; correct: number[]; images?: (string | null)[] }
+	| { type: 'choice'; answers: string[]; correct: number[]; images?: (string | null)[]; alts?: (string | null)[] }
 	| { type: 'truefalse'; correct: boolean; thumbs?: boolean }
 	| { type: 'audio'; answers: string[]; correct: number[]; audioMediaId: string; startMs: number; endMs: number; loop: boolean; revealEndMs: number | null }
 	| { type: 'text'; accepted: string[]; typoTolerance: 0 | 1 | 2 }
 	| { type: 'order'; items: string[]; partialCredit: boolean }
-	| { type: 'poll'; answers: string[]; images?: (string | null)[] }
+	| { type: 'poll'; answers: string[]; images?: (string | null)[]; alts?: (string | null)[] }
 	| { type: 'slider'; min: number; max: number; step: number; correct: number; margin: 'none' | 'low' | 'medium' | 'high'; unit?: string }
 	| { type: 'slide'; text: string };
 
@@ -65,7 +65,10 @@ export function changeType(q: EditorQuestion, type: QType): EditorQuestion {
 	if ((src.type === 'choice' || src.type === 'audio' || src.type === 'poll') && (d.type === 'choice' || d.type === 'audio' || d.type === 'poll')) {
 		d.answers = [...src.answers];
 		if ('correct' in src && 'correct' in d) d.correct = [...src.correct];
-		if ((src.type === 'choice' || src.type === 'poll') && (d.type === 'choice' || d.type === 'poll') && src.images) d.images = [...src.images];
+		if ((src.type === 'choice' || src.type === 'poll') && (d.type === 'choice' || d.type === 'poll') && src.images) {
+			d.images = [...src.images];
+			if (src.alts) d.alts = [...src.alts];
+		}
 	}
 	return { ...q, type, data: d };
 }
@@ -94,7 +97,8 @@ export function toPayload(q: EditorQuestion) {
 	let data: QData = q.data;
 	if (data.type === 'choice' || data.type === 'audio' || data.type === 'poll') {
 		const imgs = data.type === 'choice' || data.type === 'poll' ? data.images : undefined;
-		const keep = data.answers.map((a, i) => ({ a: a.trim(), i, img: imgs?.[i] ?? null })).filter((x) => x.a || x.img);
+		const alts = data.type === 'choice' || data.type === 'poll' ? data.alts : undefined;
+		const keep = data.answers.map((a, i) => ({ a: a.trim(), i, img: imgs?.[i] ?? null, alt: (imgs?.[i] && alts?.[i]?.trim()) || null })).filter((x) => x.a || x.img);
 		if (data.type === 'poll') data = { ...data, answers: keep.map((x) => x.a) };
 		else {
 			const correct = keep.map((x, newIdx) => ((data as { correct: number[] }).correct.includes(x.i) ? newIdx : -1)).filter((i) => i >= 0);
@@ -104,6 +108,9 @@ export function toPayload(q: EditorQuestion) {
 			// Obrazki tylko gdy jakikolwiek jest (stare quizy bez pola „images” zostają bez zmian).
 			if (keep.some((x) => x.img)) data.images = keep.map((x) => x.img);
 			else delete data.images;
+			// Opisy obrazków (czytnik ekranu) – tylko przy obrazkach, wyrównane do zachowanych odpowiedzi.
+			if (keep.some((x) => x.alt)) data.alts = keep.map((x) => x.alt);
+			else delete data.alts;
 		}
 	}
 	if (data.type === 'text') data = { ...data, accepted: data.accepted.map((a) => a.trim()).filter(Boolean) };
