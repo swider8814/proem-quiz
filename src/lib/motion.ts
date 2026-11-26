@@ -31,13 +31,18 @@ export function smoothDetails(el: HTMLDetailsElement) {
 	const animate = (from: number, to: number, done: () => void) => {
 		anim?.cancel();
 		el.style.overflow = 'hidden';
-		anim = el.animate([{ height: `${from}px` }, { height: `${to}px` }], { duration: DUR, easing: EASE_OUT });
-		anim.onfinish = () => {
+		const a = el.animate([{ height: `${from}px` }, { height: `${to}px` }], { duration: DUR, easing: EASE_OUT });
+		anim = a;
+		// Zdarzenia finish/cancel przychodzą asynchronicznie – reagujemy tylko, gdy to wciąż bieżąca
+		// animacja. Inaczej spóźnione „cancel” poprzedniej wyzerowałoby nową (szybkie potrójne dotknięcie).
+		a.onfinish = () => {
+			if (anim !== a) return;
 			anim = null;
 			el.style.overflow = '';
 			done();
 		};
-		anim.oncancel = () => {
+		a.oncancel = () => {
+			if (anim !== a) return;
 			anim = null;
 			el.style.overflow = '';
 		};

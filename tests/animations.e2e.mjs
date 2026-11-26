@@ -33,6 +33,14 @@ try {
 		await p.waitForTimeout(400);
 		const c2 = await p.evaluate(() => { const d = document.querySelectorAll('details.sec')[1]; return { h: d.getBoundingClientRect().height, open: d.open }; });
 		ok(!c2.open && c2.h < 150 && (reduced ? !c1.open : c1.h > c2.h && c1.h < h2), `${tag}: zwijanie sekcji (${Math.round(c1.h)} → ${Math.round(c2.h)} px)`);
+		// Szybkie potrójne dotknięcie (otwórz → zwiń → otwórz w < 220 ms): na końcu sekcja otwarta.
+		const tri = await p.evaluate(() => new Promise((r) => {
+			const d = document.querySelectorAll('details.sec')[2];
+			const s = d.querySelector('summary');
+			s.click(); setTimeout(() => s.click(), 40); setTimeout(() => s.click(), 80);
+			setTimeout(() => r({ open: d.open, h: d.getBoundingClientRect().height }), 700);
+		}));
+		ok(tri.open && tri.h > 150, `${tag}: szybkie potrójne dotknięcie kończy się otwartą sekcją (${Math.round(tri.h)} px)`);
 		await ctx.close();
 	}
 } catch (e) {
