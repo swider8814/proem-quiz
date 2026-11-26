@@ -173,6 +173,8 @@ try {
 			const r = await olena.req(page);
 			ok(r.status === 200 && /<html lang="uk">/.test(r.text) && polishLeft(r.text).length === 0, `UK ${page} bez polskich tekstów: ${polishLeft(r.text).join(' ')}`);
 		}
+		const helpUk = await olena.req('/panel/help');
+		ok(/Перші кроки/.test(helpUk.text) && polishLeft(helpUk.text).length === 0, `Pomoc po ukraińsku: ${polishLeft(helpUk.text).join(' ')}`);
 		const anonUkCookie = B();
 		await anonUkCookie.req('/lang', { method: 'POST', form: { lang: 'uk', next: '/login' } });
 		const badUk = await anonUkCookie.req('/login', { method: 'POST', form: { email: 'olena@proem.pl', password: 'zle-haslo-123' } });
