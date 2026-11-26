@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { and, asc, count, desc, eq, inArray, or } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, or, sql } from 'drizzle-orm';
 import { db, schema } from './db/index.js';
 import { newId } from './auth/crypto.js';
 import { MediaError, cutClip, mediaUrl } from './media.js';
@@ -91,7 +91,9 @@ export function listQuizzes(user: User) {
 		.from(schema.quizzes)
 		.innerJoin(schema.users, eq(schema.quizzes.ownerId, schema.users.id))
 		.where(where)
-		.orderBy(desc(schema.quizzes.updatedAt))
+		// rowid rozstrzyga remis tego samego updatedAt (co do ms) – bez tego kolejność jest przypadkowa
+		// i stronicowanie mogło pokazać quiz na dwóch stronach albo na żadnej.
+		.orderBy(desc(schema.quizzes.updatedAt), desc(sql`${schema.quizzes}.rowid`))
 		.all();
 	return rows.map((r) => ({
 		...r,

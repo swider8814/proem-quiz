@@ -406,6 +406,10 @@ try {
 		ok(listF2.text.includes('Kolędy i pastorałki') && !listF2.text.includes('Quiz numer'), 'filtr folderu pokazuje tylko jego quizy');
 		const none = await fo.req('/panel?f=none');
 		ok(!none.text.includes('Kolędy i pastorałki') && none.text.includes('Quiz numer 05'), 'filtr „Bez folderu”');
+		// Kolejność stała także przy tym samym czasie zmiany (quizy tworzone w tej samej milisekundzie):
+		// najnowsze pierwsze, pierwsza strona to dokładnie quizy 23…04.
+		const order = [...none.text.matchAll(/Quiz numer (\d\d)/g)].map((m) => m[1]).filter((v, i, a) => a.indexOf(v) === i);
+		ok(order.join(',') === Array.from({ length: 20 }, (_, i) => String(23 - i).padStart(2, '0')).join(','), `lista: stała kolejność od najnowszego (${order.join(',')})`);
 		// Stronicowanie: 23 quizy bez folderu → 2 strony po 20
 		const p1 = await fo.req('/panel?f=none');
 		const p2 = await fo.req('/panel?f=none&p=2');
