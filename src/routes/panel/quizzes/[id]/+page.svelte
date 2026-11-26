@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Icon from '#lib/Icon.svelte';
+	import RowMenu from '#lib/RowMenu.svelte';
 	import HelpTip from '#lib/help/HelpTip.svelte';
 	import { beforeNavigate } from '$app/navigation';
 	import AudioClipEditor from '#lib/editor/AudioClipEditor.svelte';
@@ -262,14 +263,29 @@
 		<input class="title" bind:value={quiz.title} maxlength="120" aria-label={E.quizTitle} placeholder={E.quizTitle} disabled={ro} />
 		{#if !ro}<span class="pen" aria-hidden="true"><Icon name="edit" /></span>{/if}
 	</label>
-	<div class="bar-actions">
-		<span class="status" class:dirty class:clean={!dirty && !saving && !saveError} aria-live="polite">
+	<!-- Telefon: ustawienia, udostępnianie i raporty w menu ⋯ obok tytułu (na szerokim ekranie – przyciski niżej). -->
+	<div class="more-narrow">
+		<RowMenu label={E.moreActions}>
+			<button type="button" onclick={() => (showSettings = !showSettings)}><Icon name="settings" weight={2} />{E.settings}</button>
+			{#if data.canShare}<a href="/panel/quizzes/{data.quiz.id}/share"><Icon name="share" weight={2} />{E.share}</a>{/if}
+			<a href="/panel/quizzes/{data.quiz.id}/reports"><Icon name="chart" weight={2} />{E.reports}</a>
+		</RowMenu>
+	</div>
+	<div class="bar-actions" class:ro>
+		<!-- Stan zapisu pokazuje sam przycisk „Zapisz”; tu zostaje komunikat dla czytników ekranu i błąd zapisu. -->
+		<span class="status" class:sr={!saveError} aria-live="polite">
 			{#if saving}{E.saving}{:else if saveError}<span class="err">{saveError}</span>{:else if dirty}{E.unsaved}{:else}{E.saved}{/if}
 		</span>
-		<button class="secondary" type="button" onclick={() => (showSettings = !showSettings)} aria-expanded={showSettings} title={E.settings}><Icon name="settings" weight={2} /><span class="lbl">{E.settings}</span></button>
-		{#if data.canShare}<a class="btn secondary" href="/panel/quizzes/{data.quiz.id}/share" title={E.share}><Icon name="share" weight={2} /><span class="lbl">{E.share}</span></a>{/if}
-		<a class="btn secondary" href="/panel/quizzes/{data.quiz.id}/reports" title={E.reports}><Icon name="chart" weight={2} /><span class="lbl">{E.reports}</span></a>
-		{#if !ro}<button type="button" class="save" onclick={() => save()} disabled={saving || !dirty}><Icon name="save" weight={2} />{E.save}</button>{/if}
+		<button class="secondary wide" type="button" onclick={() => (showSettings = !showSettings)} aria-expanded={showSettings}><Icon name="settings" weight={2} />{E.settings}</button>
+		{#if data.canShare}<a class="btn secondary wide" href="/panel/quizzes/{data.quiz.id}/share"><Icon name="share" weight={2} />{E.share}</a>{/if}
+		<a class="btn secondary wide" href="/panel/quizzes/{data.quiz.id}/reports"><Icon name="chart" weight={2} />{E.reports}</a>
+		{#if !ro}
+			<button type="button" class="save" class:clean={!dirty && !saving && !saveError} onclick={() => save()} disabled={saving || !dirty}>
+				{#if saving}<Icon name="save" weight={2} />{E.saving}
+				{:else if dirty || saveError}<Icon name="save" weight={2} />{E.save}
+				{:else}<Icon name="check" weight={2.5} />{E.saved}{/if}
+			</button>
+		{/if}
 		<a class="btn start" href="/panel/quizzes/{data.quiz.id}/host" class:disabled={dirty || questions.length === 0} aria-disabled={dirty || questions.length === 0}>
 			<Icon name="play" weight={2} />{E.start}
 		</a>
@@ -710,10 +726,9 @@
 	.title-wrap:focus-within .pen { color: var(--link); }
 	.bar-actions { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-left: auto; }
 	.status { font-size: 0.87rem; font-weight: 600; color: var(--muted); display: inline-flex; align-items: center; gap: 0.4rem; }
-	.status.clean { color: var(--ok); }
-	.status.clean::before, .status.dirty::before { content: ''; width: 0.5rem; height: 0.5rem; border-radius: 50%; background: #2ec27e; }
-	.status.dirty { color: #6b4300; }
-	.status.dirty::before { background: var(--gold); }
+	/* „Zapisano” w przycisku: wyłączony, ale czytelny (zielony), a nie wyszarzony jak zwykły disabled. */
+	.save.clean:disabled { opacity: 1; background: #effaf3; border-color: #cfe9d9; color: #1f6b3a; }
+	.more-narrow { display: none; }
 	.err { color: var(--danger); }
 	.start.disabled { opacity: 0.4; pointer-events: none; }
 	.below { flex: 1; display: flex; flex-direction: column; }
@@ -827,13 +842,15 @@
 		.bar { position: static; padding: 0.6rem 1rem; }
 		.back span { display: none; }
 		.back { border: 1px solid var(--line-strong); width: 2.75rem; padding: 0; justify-content: center; }
-		.title-wrap { flex-basis: calc(100% - 3.5rem); }
-		.bar-actions { margin-left: 0; width: 100%; }
-		.bar-actions .start { margin-left: auto; }
-		/* Telefon: ustawienia, udostępnianie i raporty jako same ikony (nazwa w title/aria-label). */
-		.bar-actions .lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-		.bar-actions .secondary { width: 2.75rem; padding: 0; flex: none; }
-		.status { flex-basis: 100%; }
+		/* Telefon/tablet: rząd 1 – wróć, tytuł, ⋯; rząd 2 – Zapisz i Uruchom grę po połowie. */
+		.bar { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; }
+		.title-wrap { flex-basis: auto; }
+		.more-narrow { display: block; }
+		.bar-actions { grid-column: 1 / -1; margin-left: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+		.bar-actions.ro { grid-template-columns: minmax(0, 1fr); }
+		.bar-actions .wide { display: none; }
+		.bar-actions .status:not(.sr) { grid-column: 1 / -1; }
+		.bar-actions .save, .bar-actions .start { width: 100%; min-height: 2.75rem; justify-content: center; }
 		.settings, .below > .notice { margin-inline: 1rem; }
 		.qnav { display: flex; gap: 0.5rem; padding: 0.6rem 1rem; background: var(--surface); border-bottom: 1px solid var(--line); }
 		.qnav button:not(.grow) { width: 2.75rem; padding: 0; flex: none; }
