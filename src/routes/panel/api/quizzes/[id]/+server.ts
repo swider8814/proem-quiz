@@ -21,6 +21,9 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 		return json({ error: `${where}${text === issue.message ? t.err.invalid : text}` }, { status: 400 });
 	}
 	const res = await saveQuiz(locals.user!, params.id, parsed.data);
-	if ('error' in res) return json({ error: errText(locals.lang, res.error) + (res.detail ? ` (${res.detail})` : '') }, { status: 400 });
+	if ('error' in res) {
+		const status = res.error === 'quizConflict' ? 409 : res.error === 'noEditRights' ? 403 : res.error === 'quizNotFound' ? 404 : 400;
+		return json({ error: errText(locals.lang, res.error) + (res.detail ? ` (${res.detail})` : ''), conflict: res.error === 'quizConflict' }, { status });
+	}
 	return json(res);
 };
