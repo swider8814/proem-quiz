@@ -57,7 +57,27 @@ const meta = {};
 	ok(!user().totpEnabled && recoveryHashes().size === 0 && sessions().length === 0, 'po „stale” nic nie zapisano');
 }
 
-// ── 3. Zwykła konfiguracja nadal działa ──
+// ── 3. Podwójne wysłanie tego samego formularza (ten sam sekret i kod, ta sama sesja) ──
+{
+	auth.resetTotp('u1');
+	const u = user();
+	const s = auth.createSession(u, { mfaPassed: true });
+	const sec = auth.newTotpSecret(u).secret;
+	const code = await generate({ secret: sec });
+	const first = auth.enableTotp(u, s.session.id, sec, code, meta);
+	const second = auth.enableTotp(u, s.session.id, sec, code, meta);
+	const [r1, r2] = await Promise.all([first, second]);
+	ok(r1 !== null && r1 !== 'stale' && r2 !== null && r2 !== 'stale', 'podwójne wysłanie: oba żądania zwracają kody i sesję');
+	// Ważne mają być kody i sesja z JEDNEJ odpowiedzi – tej zapisanej jako ostatnia (tę pokaże przeglądarka).
+	type Done = Exclude<typeof r1, 'stale' | null>;
+	const left = sessions();
+	const last = [r1, r2].find((r) => (r as Done).session.id === left[0]?.id) as Done | undefined;
+	const hashes = recoveryHashes();
+	ok(left.length === 1 && !!last, 'po podwójnym wysłaniu została jedna sesja – z ostatniej odpowiedzi');
+	ok(!!last && hashes.size === 10 && last.codes.every((c) => hashes.has(sha256(norm(c)))), 'kody zapasowe pochodzą z tej samej (ostatniej) odpowiedzi');
+}
+
+// ── 4. Zwykła konfiguracja nadal działa ──
 {
 	const u = user();
 	const s = auth.createSession(u, { mfaPassed: true });

@@ -242,7 +242,12 @@ export async function enableTotp(
 			.from(schema.sessions)
 			.where(and(eq(schema.sessions.id, sessionId), eq(schema.sessions.userId, user.id)))
 			.get();
-		if (!live || fresh.totpSecret !== user.totpSecret || fresh.totpEnabled !== user.totpEnabled) return 'stale';
+		// Podwójne wysłanie TEGO SAMEGO formularza (ten sam sekret z ciasteczka konfiguracji): pierwsze żądanie
+		// już włączyło TOTP i usunęło sesję, ale przeglądarka pokaże odpowiedź drugiego. Drugie musi więc
+		// zwrócić pełny wynik (nowe kody, nowa sesja), inaczej kody zapasowe z pierwszego przepadłyby.
+		// Inny sekret (druga konfiguracja) albo reset 2FA (sekret = null) nadal kończą się 'stale'.
+		const sameSetup = fresh.totpEnabled && !!fresh.totpSecret && decrypt(fresh.totpSecret) === secret;
+		if (!sameSetup && (!live || fresh.totpSecret !== user.totpSecret || fresh.totpEnabled !== user.totpEnabled)) return 'stale';
 		db.update(schema.users)
 			.set({ totpSecret: encrypt(secret), totpEnabled: true, totpLastStep: step })
 			.where(eq(schema.users.id, user.id))
