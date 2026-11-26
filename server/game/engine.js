@@ -4,6 +4,7 @@ import { createHash, randomBytes, randomInt, timingSafeEqual } from 'node:crypto
 import { cleanNick, textMatches } from './text.js';
 import { isProfane } from './profanity.js';
 import { randomNick } from './nicks.js';
+import { translit } from './translit.js';
 
 /** Domyślne odliczanie przed pytaniem (gdy quiz nie ma ustawienia). */
 export const INTRO_MS = 5000;
@@ -84,7 +85,7 @@ export function shuffled(quiz) {
  * }} QuestionSnap
  * @typedef {{
  *   quizId: string, title: string, locale: 'pl'|'en'|'uk',
- *   settings: { countdown?: number, streakBonus: boolean, nicknameMode: 'random-or-custom'|'random-only'|'custom-only', teamMode: boolean, lateJoin: boolean, phoneAnswerText: boolean },
+ *   settings: { countdown?: number, playerLanguage?: boolean, streakBonus: boolean, nicknameMode: 'random-or-custom'|'random-only'|'custom-only', teamMode: boolean, lateJoin: boolean, phoneAnswerText: boolean },
  *   theme: any, blockedWords: string[], questions: QuestionSnap[]
  * }} QuizSnapshot
  */
@@ -154,16 +155,18 @@ export class Game {
 		if (mode === 'random-only' || (random && mode !== 'custom-only')) {
 			finalNick = randomNick(this.quiz.locale, this.takenNicks());
 		} else {
-			finalNick = cleanNick(nick);
+			const typed = cleanNick(nick);
+			finalNick = this.readableNick(typed);
 			if (finalNick.length < 2) return { error: 'nick-short' };
-			if (isProfane(finalNick, this.quiz.blockedWords)) return { error: 'nick-blocked' };
+			if (isProfane(typed, this.quiz.blockedWords) || isProfane(finalNick, this.quiz.blockedWords)) return { error: 'nick-blocked' };
 			if (this.takenNicks().has(finalNick.toLowerCase())) return { error: 'nick-taken' };
 		}
 		// Drużyna: opcjonalne imiona członków (tylko w trybie drużynowym), te same zasady co nicki.
 		let team = [];
 		if (this.quiz.settings.teamMode && Array.isArray(members)) {
-			team = members.slice(0, 20).map(cleanNick).filter((m) => m.length > 0).slice(0, MAX_MEMBERS);
-			if (team.some((m) => isProfane(m, this.quiz.blockedWords))) return { error: 'nick-blocked' };
+			const typedTeam = members.slice(0, 20).map(cleanNick).filter((m) => m.length > 0).slice(0, MAX_MEMBERS);
+			team = typedTeam.map((m) => this.readableNick(m));
+			if ([...typedTeam, ...team].some((m) => isProfane(m, this.quiz.blockedWords))) return { error: 'nick-blocked' };
 		}
 		const t = token();
 		const player = {
@@ -185,6 +188,15 @@ export class Game {
 		this.players.set(player.id, player);
 		this.touch();
 		return { player, token: t };
+	}
+
+	/**
+	 * Nick do pokazania na sali: w quizie po polsku / angielsku cyrylica → łacina (prowadzący musi go przeczytać),
+	 * w quizie po ukraińsku bez zmian. Ponowne cleanNick – transliteracja wydłuża tekst (Щ → Shch), limit 20 znaków.
+	 * @param {string} s nick po cleanNick
+	 */
+	readableNick(s) {
+		return this.quiz.locale === 'uk' ? s : cleanNick(translit(s));
 	}
 
 	findByToken(t) {
@@ -650,6 +662,7 @@ export class Game {
 			locale: this.quiz.locale,
 			theme: this.quiz.theme,
 			teamMode: this.quiz.settings.teamMode,
+			playerLanguage: this.quiz.settings.playerLanguage !== false,
 			me: { id: p.id, nick: p.nick, avatar: p.avatar, score: p.score, streak: p.streak, members: p.members ?? [] },
 			now: Date.now()
 		};

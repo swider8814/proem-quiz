@@ -266,7 +266,8 @@ export const quizSaveSchema = z.object({
 		shuffleAnswers: z.boolean().default(false),
 		avatars: z.boolean().default(true),
 		lateJoin: z.boolean(),
-		phoneAnswerText: z.boolean()
+		phoneAnswerText: z.boolean(),
+		playerLanguage: z.boolean().default(true)
 	}),
 	questions: z.array(questionSchema).max(100)
 }).superRefine((q, ctx) => {

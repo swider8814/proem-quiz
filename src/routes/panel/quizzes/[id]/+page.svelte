@@ -317,6 +317,10 @@
 					</select>
 				</div>
 			</div>
+			<label class="srow toggle">
+				<span class="stext"><span class="lbl">{S.playerLang}</span><span class="hint">{S.playerLangHint}</span></span>
+				<input class="switch" type="checkbox" bind:checked={quiz.settings.playerLanguage} />
+			</label>
 		</section>
 
 		<section class="sgroup">

@@ -107,9 +107,10 @@ export const HELP: HelpSection[] = [
 			summary: 'Czas, punkty, nicki, drużyny i muzyka.',
 			steps: [
 				'W edytorze kliknij **Ustawienia**. Tu wybierasz motyw (kolory i logo) oraz **Język gry** – napisy na ekranie i telefonach.',
+				'**Gracze mogą zmienić język napisów** – np. dziecko z Ukrainy ma przyciski na telefonie po ukraińsku, a pytania zostają w języku quizu. Na lekcji języka wyłącz, żeby cała gra była w jednym języku.',
 				'**Domyślny czas na odpowiedź** dostaje każde nowe pytanie. W samym pytaniu możesz go zmienić (przyciski 10/20/30/60 albo pole **inny**).',
 				'**Punkty** w pytaniu: **Zwykłe**, **Podwójne** (np. ostatnie pytanie) albo **Bez** (rozgrzewka).',
-				'**Nicki graczy**: **Losowe lub własne** (z filtrem słów), **Tylko losowe** (najbezpieczniej dla młodszych dzieci) albo **Tylko własne** (każdy wpisuje imię lub nick).',
+				'**Nicki graczy**: **Losowe lub własne** (z filtrem słów), **Tylko losowe** (najbezpieczniej dla młodszych dzieci) albo **Tylko własne** (każdy wpisuje imię lub nick). Własne nicki pisane cyrylicą widać alfabetem łacińskim (Олена → Olena), chyba że quiz jest po ukraińsku.',
 				'**Tryb drużynowy**: jeden telefon na drużynę. **Czas na naradę** pokazuje pytanie przed odpowiadaniem, żeby drużyna mogła się naradzić.',
 				'**Muzyka w tle** gra z komputera prowadzącego. Milknie przy pytaniach audio i na podium.'
 			]
@@ -119,9 +120,10 @@ export const HELP: HelpSection[] = [
 			summary: 'Time, points, nicknames, teams and music.',
 			steps: [
 				'In the editor click **Settings**. Here you choose the theme (colours and logo) and the **Game language** – texts on the screen and on phones.',
+				'**Players can change the language on their phones** – e.g. a child from Ukraine sees the buttons in Ukrainian while the questions stay in the quiz language. In a language lesson turn it off so the whole game is in one language.',
 				'Every new question gets the **Default answer time**. You can change it in the question itself (10/20/30/60 buttons or the **other** field).',
 				'**Points** per question: **Standard**, **Double** (e.g. the last question) or **None** (a warm-up).',
-				'**Player nicknames**: **Random or custom** (with a word filter), **Random only** (safest for younger children) or **Custom only** (everyone types a name or nickname).',
+				'**Player nicknames**: **Random or custom** (with a word filter), **Random only** (safest for younger children) or **Custom only** (everyone types a name or nickname). Custom nicknames typed in Cyrillic are shown in the Latin alphabet (Олена → Olena) unless the quiz is in Ukrainian.',
 				'**Team mode**: one phone per team. **Team discussion time** shows the question before answering so the team can discuss it.',
 				'**Background music** plays from the host computer. It stops during audio questions and on the podium.'
 			]
@@ -131,9 +133,10 @@ export const HELP: HelpSection[] = [
 			summary: 'Час, бали, нікнейми, команди й музика.',
 			steps: [
 				'У редакторі натисніть **Налаштування**. Тут ви вибираєте тему (кольори й логотип) і **Мову гри** – написи на екрані й телефонах.',
+				'**Гравці можуть змінити мову написів** – напр. дитина з України бачить кнопки українською, а питання залишаються мовою вікторини. На уроці мови вимкніть, щоб уся гра була однією мовою.',
 				'Кожне нове питання отримує **Час на відповідь за замовчуванням**. У самому питанні його можна змінити (кнопки 10/20/30/60 або поле **інший**).',
 				'**Бали** за питання: **Звичайні**, **Подвійні** (напр. останнє питання) або **Без балів** (розминка).',
-				'**Нікнейми гравців**: **Випадкові або власні** (з фільтром слів), **Лише випадкові** (найбезпечніше для молодших дітей) або **Лише власні** (кожен вводить ім’я чи нікнейм).',
+				'**Нікнейми гравців**: **Випадкові або власні** (з фільтром слів), **Лише випадкові** (найбезпечніше для молодших дітей) або **Лише власні** (кожен вводить ім’я чи нікнейм). Власні нікнейми, написані кирилицею, показуються латиницею (Олена → Olena), якщо вікторина не українською.',
 				'**Командний режим**: один телефон на команду. **Час на обговорення в команді** показує питання до відповідей, щоб команда могла порадитися.',
 				'**Фонова музика** грає з комп’ютера ведучого. Вона затихає на аудіопитаннях і на п’єдесталі.'
 			]
