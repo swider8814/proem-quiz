@@ -11,8 +11,4 @@
 	});
 </script>
 
-<svelte:head>
-	<link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
-</svelte:head>
-
 {@render children()}
