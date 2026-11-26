@@ -9,7 +9,7 @@
 	 * przy każdej gałęzi – nową ikonę bierz z tego samego zestawu, żeby styl był spójny.
 	 * weight – grubość kreski: gra ma grube, „plakatowe” przyciski (2.5), panel cieńsze (2).
 	 */
-	type Name = 'replay' | 'close' | 'check' | 'fullscreen' | 'next' | 'back' | 'up' | 'down' | 'screen' | 'sound' | 'dice' | 'thumbUp' | 'thumbDown' | 'music' | 'edit' | 'quizzes' | 'palette' | 'users' | 'settings' | 'shield' | 'help' | 'user' | 'more' | 'send' | 'lock' | 'unlock' | 'trash' | 'key' | 'copy' | 'chart' | 'folderInput' | 'play' | 'download' | 'plus' | 'save' | 'share';
+	type Name = 'replay' | 'close' | 'check' | 'fullscreen' | 'next' | 'back' | 'up' | 'down' | 'screen' | 'sound' | 'dice' | 'thumbUp' | 'thumbDown' | 'music' | 'edit' | 'quizzes' | 'palette' | 'users' | 'settings' | 'shield' | 'help' | 'user' | 'more' | 'send' | 'lock' | 'unlock' | 'trash' | 'key' | 'copy' | 'chart' | 'folderInput' | 'play' | 'download' | 'plus' | 'save' | 'share' | 'search' | 'folderPlus';
 	let { name, size = '1em', weight = 2.5 }: { name: Name; size?: string; weight?: number } = $props();
 </script>
 
@@ -86,6 +86,10 @@
 		<path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" /> <path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7" /> <path d="M7 3v4a1 1 0 0 0 1 1h7" />  <!-- save -->
 	{:else if name === 'share'}
 		<circle cx="18" cy="5" r="3" /> <circle cx="6" cy="12" r="3" /> <circle cx="18" cy="19" r="3" /> <line x1="8.59" x2="15.42" y1="13.51" y2="17.49" /> <line x1="15.41" x2="8.59" y1="6.51" y2="10.49" />  <!-- share-2 -->
+	{:else if name === 'search'}
+		<path d="m21 21-4.34-4.34" /> <circle cx="11" cy="11" r="8" />  <!-- search -->
+	{:else if name === 'folderPlus'}
+		<path d="M12 10v6" /> <path d="M9 13h6" /> <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />  <!-- folder-plus -->
 	{/if}
 </svg>
 

@@ -40,6 +40,42 @@ try {
 	const w = await p.evaluate(() => document.documentElement.scrollWidth - innerWidth);
 	ok(w <= 1, `edytor: bez poziomego przewijania (${w} px)`);
 
+	// ── Lista quizów na telefonie: „Quizy” + lupa + plus w jednym rzędzie, filtry w jednym rzędzie ──
+	for (const n of ['Wigilia', 'Kolędy', 'Obóz zimowy', 'Szkółka niedzielna']) await admin.req('/panel?/folderCreate', { method: 'POST', form: { name: n } });
+	await p.goto(`${srv.base}/panel`);
+	const lay = await p.evaluate(() => {
+		const r = (s) => document.querySelector(s).getBoundingClientRect();
+		const mid = (b) => b.top + b.height / 2;
+		const [h1, tools] = [r('.head h1'), r('.head-tools')];
+		const chips = [...document.querySelectorAll('.folders > *')].map((c) => { const b = c.getBoundingClientRect(); return Math.round(b.top + b.height / 2); });
+		return { row: Math.abs(mid(h1) - mid(tools)), chipsRows: new Set(chips).size, overflow: document.documentElement.scrollWidth - innerWidth, foldersScroll: document.querySelector('.folders').scrollWidth > document.querySelector('.folders').clientWidth };
+	});
+	ok(lay.row <= 4, `lista, telefon: „Quizy”, lupa i plus w jednym rzędzie (${lay.row})`);
+	ok(!(await p.isVisible('input[name="title"]')) && !(await p.isVisible('input[name="q"]')), 'lista, telefon: pole nowego quizu i wyszukiwarka schowane pod ikonami');
+	ok(lay.chipsRows === 1 && lay.foldersScroll && lay.overflow <= 1, `lista, telefon: filtry w jednym rzędzie przewijanym w bok, strona bez poziomego przewijania ${JSON.stringify(lay)}`);
+	// iOS otwiera klawiaturę tylko przy focus() w samej obsłudze dotknięcia – sprawdzamy synchronicznie po click().
+	const syncFocus = await p.evaluate(() => {
+		document.querySelector('.head-tools button[aria-controls="list-search"]').click();
+		return document.activeElement?.getAttribute('name');
+	});
+	ok(syncFocus === 'q', `lista, telefon: lupa rozwija wyszukiwarkę i kursor trafia do pola od razu, w obsłudze dotknięcia (${syncFocus})`);
+	await p.fill('input[name="q"]', 'Telefon');
+	await Promise.all([p.waitForURL(/q=Telefon/), p.press('input[name="q"]', 'Enter')]);
+	ok(await p.isVisible('input[name="q"]'), 'lista, telefon: przy aktywnym wyszukiwaniu pole zostaje widoczne');
+	const afterSearch = await p.evaluate(() => ({ overflow: document.documentElement.scrollWidth - innerWidth, h: Math.round(document.querySelector('input[name="q"]').getBoundingClientRect().height) }));
+	ok(afterSearch.overflow <= 1 && afterSearch.h <= 56, `lista, telefon: po wyszukaniu strona bez poziomego przewijania, pole normalnej wysokości ${JSON.stringify(afterSearch)}`);
+	// Stan hover (zostaje po dotknięciu na iOS): ikony przy nagłówku czytelne, także „włączona” lupa.
+	for (const sel of ['.head-tools button[aria-controls="list-search"]', '.head-tools button[aria-controls="list-new"]']) {
+		await p.hover(sel);
+		const c = await p.locator(sel).evaluate((b) => {
+			const lum = (c) => { const [r, g, bl] = c.match(/\d+(\.\d+)?/g).slice(0, 3).map(Number).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * bl; };
+			const st = getComputedStyle(b), [a, d] = [lum(st.color), lum(st.backgroundColor)].sort((x, y) => y - x);
+			return (a + 0.05) / (d + 0.05);
+		});
+		ok(c >= 3, `lista, telefon, hover ${sel.match(/list-\w+/)[0]}: ikona widoczna (kontrast ${c.toFixed(1)}:1)`);
+	}
+	await snap(p, 'm-00-lista');
+
 	// ── Ekran prowadzącego na telefonie ──
 	const c = await admin.req('/panel?/create', { method: 'POST', form: { title: 'Gra z telefonu' } });
 	const id = c.loc.split('/').pop();

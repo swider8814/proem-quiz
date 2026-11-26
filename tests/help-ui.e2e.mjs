@@ -55,6 +55,9 @@ try {
 		// Na telefonie „Ustawienia” są w menu ⋯ obok tytułu quizu.
 		const settings = async () => { await mp.click('.more-narrow button.trigger'); await mp.click('.pop:not([hidden]) button:has-text("Ustawienia")'); };
 		await mp.goto(p.url().replace(/\/panel\/help.*/, '/panel'));
+		// Na telefonie pole nowego quizu rozwija „+” przy nagłówku „Quizy” – i od razu dostaje fokus.
+		await mp.click('.head-tools button[aria-controls="list-new"]');
+		ok(await mp.evaluate(() => document.activeElement?.getAttribute('name') === 'title'), `telefon ${vp.width} px: „+” rozwija pole nowego quizu z kursorem`);
 		await mp.fill('input[name="title"]', 'Telefon pomoc');
 		await mp.click('button:has-text("Utwórz quiz")');
 		await mp.waitForURL(/\/panel\/quizzes\/quiz_/);
@@ -95,6 +98,8 @@ try {
 	await ap.goto(`${srv.base}/panel/help`);
 	// Udostępnianie (formularz widzi właściciel, gdy jest komu udostępnić – tu admin i autorka).
 	await ap.goto(`${srv.base}/panel`);
+	// Telefon: gdy lista nie jest pusta, pole nowego quizu rozwija „+” przy nagłówku.
+	if (await ap.isVisible('.head-tools button[aria-controls="list-new"]')) await ap.click('.head-tools button[aria-controls="list-new"]');
 	await ap.fill('input[name="title"]', 'Admina');
 	await ap.click('button:has-text("Utwórz quiz")');
 	await ap.waitForURL(/\/panel\/quizzes\/quiz_/);
