@@ -42,6 +42,8 @@ try {
 	await ph.waitForSelector('text=або введіть свій');
 	ok(await ph.isVisible('.langpick'), 'quiz pozwala – wybór języka widoczny na ekranie nicka');
 	await ph.click('text=або введіть свій');
+	await ph.fill('input[aria-label="Ваш нік"]', 'Олена     Щука');
+	ok(await ph.isVisible('text=На екрані: Olena Shchuka'), 'podgląd scala spacje jak serwer (review Codexa)');
 	await ph.fill('input[aria-label="Ваш нік"]', 'Олена');
 	ok(await ph.isVisible('text=На екрані: Olena'), 'podgląd nicka łacinką pod polem');
 	await ph.click('button:has-text("Приєднатися")');

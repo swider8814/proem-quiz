@@ -102,7 +102,9 @@
 		store.set(LANG_KEY, v);
 	}
 	// Własny nick w quizie po polsku / angielsku: cyrylica zamieniana na łacinę (jak na serwerze) – podgląd pod polem.
-	const shownNick = $derived(quizLocale !== 'uk' && hasCyrillic(nick) ? translit(nick.trim()).slice(0, 20) : '');
+	// To samo czyszczenie co cleanNick na serwerze (server/game/text.js) – przed i po transliteracji (review Codexa).
+	const cleanNick = (v: string) => v.normalize('NFC').replace(/[\p{C}\p{Zl}\p{Zp}]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 20);
+	const shownNick = $derived(quizLocale !== 'uk' && hasCyrillic(nick) ? cleanNick(translit(cleanNick(nick))) : '');
 	const L = $derived(t(locale));
 	const theme = $derived(gs?.theme ?? info?.theme ?? null);
 	const style = $derived(theme?.style ?? 'poster');
