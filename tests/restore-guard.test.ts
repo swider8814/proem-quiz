@@ -48,5 +48,22 @@ addLinks();
 g = guardRestoredDb();
 ok(!g.restored && pending() === 1, 'następny zwykły restart: bez unieważniania');
 
+// Plik licznika nie da się zapisać (np. brak miejsca): unieważnienie i tak zatwierdzone, a funkcja zgłasza błąd
+// (start serwera zostaje przerwany) – review Codexa.
+db.delete(schema.appSettings).where(eq(schema.appSettings.key, 'db_generation')).run();
+addLinks();
+const counter = path.join(dir, 'db-generation');
+fs.rmSync(`${counter}.tmp`, { force: true });
+fs.mkdirSync(`${counter}.tmp`); // zapis pliku tymczasowego się nie uda
+let threw = false;
+try {
+	guardRestoredDb();
+} catch {
+	threw = true;
+}
+ok(threw && pending() === 0 && sessions() === 0, 'błąd zapisu pliku: unieważnienie zatwierdzone, a błąd zgłoszony (start przerwany)');
+fs.rmSync(`${counter}.tmp`, { recursive: true, force: true });
+ok(!guardRestoredDb().restored, 'po naprawie: kolejny start nie unieważnia ponownie');
+
 fs.rmSync(dir, { recursive: true, force: true });
 process.exit(finish() ? 1 : 0);

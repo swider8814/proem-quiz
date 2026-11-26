@@ -24,7 +24,8 @@ export function guardRestoredDb(): { restored: boolean; sessions: number; links:
 	} catch {
 		/* brak pliku – pierwszy start */
 	}
-	return db.transaction((tx) => {
+	// Najpierw baza (unieważnienie + nowy licznik) w jednej transakcji – jej błąd przerywa start aplikacji.
+	const result = db.transaction((tx) => {
 		const row = tx.select().from(schema.appSettings).where(eq(schema.appSettings.key, KEY)).get();
 		const inDb = row && /^\d+$/.test(row.value) ? Number(row.value) : 0;
 		const restored = onDisk !== null && inDb < onDisk;
@@ -36,10 +37,13 @@ export function guardRestoredDb(): { restored: boolean; sessions: number; links:
 		}
 		const next = String(Math.max(inDb, onDisk ?? 0) + 1);
 		tx.insert(schema.appSettings).values({ key: KEY, value: next }).onConflictDoUpdate({ target: schema.appSettings.key, set: { value: next } }).run();
-		// Plik zapisujemy atomowo (rename); jeśli zapis się nie uda, transakcja się wycofa i start się powtórzy.
-		const tmp = `${file}.tmp`;
-		fs.writeFileSync(tmp, next, { mode: 0o640 });
-		fs.renameSync(tmp, file);
-		return { restored, sessions, links };
+		return { restored, sessions, links, next };
 	});
+	// Potem plik – już PO zatwierdzeniu unieważnienia. Gdy zapis pliku się nie uda (brak miejsca, uprawnienia),
+	// unieważnienie i tak zostało zapisane, a licznik w bazie jest większy niż w pliku – kolejny start nie
+	// uzna tej bazy za odtworzoną. Błąd przerywa start (lepiej nie wystartować, niż działać bez ochrony).
+	const tmp = `${file}.tmp`;
+	fs.writeFileSync(tmp, result.next, { mode: 0o640 });
+	fs.renameSync(tmp, file);
+	return { restored: result.restored, sessions: result.sessions, links: result.links };
 }

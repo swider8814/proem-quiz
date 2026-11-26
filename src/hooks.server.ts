@@ -14,11 +14,14 @@ import { LANG_COOKIE, resolveLang } from '#lib/server/lang.js';
 import { guardRestoredDb } from '#lib/server/restore-guard.js';
 
 // Przed obsługą pierwszego żądania: baza odtworzona ze starszej kopii → bez sesji i nieużytych linków.
+// Błąd tej ochrony PRZERYWA start (rzucony dalej) – serwer nie może obsługiwać żądań z ważnymi linkami
+// z odtworzonej kopii. Kontener się nie uruchomi, a deploy wróci do poprzedniej wersji.
 try {
 	const g = guardRestoredDb();
 	if (g.restored) console.log(`[kopie] wykryto odtworzoną bazę – unieważniono ${g.sessions} sesji i ${g.links} nieużytych linków jednorazowych`);
 } catch (e) {
-	console.error('[kopie] sprawdzenie odtworzonej bazy nie powiodło się', e);
+	console.error('[kopie] sprawdzenie odtworzonej bazy nie powiodło się – zatrzymuję start', e);
+	throw e;
 }
 
 try {
