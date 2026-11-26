@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { initials } from '#lib/initials.js';
 	import '#lib/styles/panel.css';
 	import { page } from '$app/state';
 	import { panelDict } from '#lib/i18n/panel.js';
@@ -56,7 +57,7 @@
 					</nav>
 				{/if}
 				<div class="who">
-					<span class="avatar" aria-hidden="true">{data.user.name.slice(0, 1).toUpperCase()}</span>
+					<span class="avatar" aria-hidden="true">{initials(data.user.name)}</span>
 					<span class="id">
 						<strong>{data.user.name}</strong>
 						{#if data.user.role === 'admin'}<span class="role">{t.nav.admin}</span>{/if}
@@ -109,7 +110,7 @@
 	nav a:hover { background: var(--bg); }
 	nav a[aria-current='page'] { background: var(--soft); color: var(--text); font-weight: 600; }
 	.who { margin-top: auto; display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; padding: 0.75rem; border: 1px solid var(--line); border-radius: 0.75rem; font-size: 0.9rem; }
-	.avatar { flex: none; width: 2.25rem; height: 2.25rem; border-radius: 50%; background: var(--gold); display: flex; align-items: center; justify-content: center; font-weight: 700; }
+	.avatar { flex: none; width: 2.25rem; height: 2.25rem; border-radius: 50%; background: var(--gold); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; letter-spacing: 0.02em; }
 	.id { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 	.id strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.role { color: var(--muted); font-size: 0.85rem; }

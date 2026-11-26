@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { panelDict } from '#lib/i18n/panel.js';
-	let { data } = $props();
+	let { data, form } = $props();
 	const t = $derived(panelDict(page.data.lang));
 </script>
 
@@ -12,6 +12,20 @@
 {#if data.recoveryUsed}
 	<p class="notice">{t.security.recoveryUsed(data.remainingCodes)}</p>
 {/if}
+
+<div class="card">
+	<h2>{t.security.profile}</h2>
+	{#if form?.nameSaved}<p class="success">{t.security.nameSaved}</p>{/if}
+	{#if form?.nameError}<p class="error">{form.nameError}</p>{/if}
+	<form method="POST" action="?/name" class="name-form">
+		<label for="my-name">{t.users.name}</label>
+		<div class="row">
+			<input id="my-name" name="name" type="text" required minlength="2" maxlength="80" autocomplete="name" value={data.user.name} />
+			<button>{t.common.save}</button>
+		</div>
+		<p class="muted">{t.security.nameNote}</p>
+	</form>
+</div>
 
 <div class="card">
 	<h2>{t.security.totp}</h2>
@@ -45,6 +59,8 @@
 	h2 { margin-top: 0; }
 	.card { max-width: 40rem; margin-bottom: 1.5rem; }
 	.codes { display: flex; justify-content: space-between; gap: 1rem; margin-bottom: 0.5rem; }
+	.name-form .row { display: flex; gap: 0.75rem; }
+	.name-form .row input { flex: 1; min-width: 0; }
 	.meter { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; margin-bottom: 1rem; }
 	.meter span { height: 0.6rem; border-radius: 3px; background: var(--line-strong); }
 	.meter span.on { background: var(--accent); }

@@ -22,6 +22,19 @@ export function createInvite(userId: string, purpose: TokenPurpose = 'invite'): 
 	return token;
 }
 
+export const NAME_MAX = 80;
+
+/** Imię i nazwisko: bez znaków sterujących, pojedyncze spacje, 2–80 znaków. null = niepoprawne. */
+export function cleanName(raw: unknown): string | null {
+	if (typeof raw !== 'string') return null;
+	const name = raw.replace(/[\p{Cc}\p{Cf}]/gu, ' ').replace(/\s+/g, ' ').trim();
+	return name.length >= 2 && name.length <= NAME_MAX ? name : null;
+}
+
+export function renameUser(userId: string, name: string) {
+	db.update(schema.users).set({ name }).where(eq(schema.users.id, userId)).run();
+}
+
 export function inviteUser(input: { email: string; name: string; role: 'admin' | 'author'; locale?: 'pl' | 'en' }) {
 	const email = input.email.toLowerCase().trim();
 	const existing = db.select().from(schema.users).where(eq(schema.users.email, email)).get();

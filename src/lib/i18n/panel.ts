@@ -100,6 +100,9 @@ const pl = {
 	security: {
 		title: 'Bezpieczeństwo',
 		heading: 'Bezpieczeństwo konta',
+		profile: 'Twoje dane',
+		nameSaved: 'Imię i nazwisko zapisane.',
+		nameNote: 'Widać je przy Twoich quizach i na liście użytkowników.',
 		recoveryUsed: (n: number) => `Zalogowano kodem zapasowym. Zostało ${n}. Jeśli zgubiłeś telefon, skonfiguruj weryfikację na nowym urządzeniu poniżej.`,
 		totp: 'Weryfikacja dwuetapowa (TOTP)',
 		on: 'Włączona',
@@ -450,7 +453,9 @@ const pl = {
 		block: 'Zablokuj',
 		roleChanged: (n: string, admin: boolean) => `${n}: rola zmieniona na ${admin ? 'administrator' : 'autor'}.`,
 		toggled: (n: string, blocked: boolean) => `${n}: konto ${blocked ? 'zablokowane' : 'odblokowane'}.`,
-		reset2faDone: (n: string) => `${n}: weryfikacja dwuetapowa zresetowana, sesje wylogowane.`
+		reset2faDone: (n: string) => `${n}: weryfikacja dwuetapowa zresetowana, sesje wylogowane.`,
+		rename: 'Zmień imię i nazwisko',
+		renamed: (old: string, n: string) => `${old} → ${n}: imię i nazwisko zmienione.`
 	},
 	themes: {
 		title: 'Motywy',
@@ -713,6 +718,9 @@ const en: PanelDict = {
 	security: {
 		title: 'Security',
 		heading: 'Account security',
+		profile: 'Your details',
+		nameSaved: 'Name saved.',
+		nameNote: 'Shown next to your quizzes and in the user list.',
 		recoveryUsed: (n: number) => `You signed in with a recovery code. ${n} left. If you lost your phone, set up verification on a new device below.`,
 		totp: 'Two-step verification (TOTP)',
 		on: 'On',
@@ -1063,7 +1071,9 @@ const en: PanelDict = {
 		block: 'Block',
 		roleChanged: (n: string, admin: boolean) => `${n}: role changed to ${admin ? 'administrator' : 'author'}.`,
 		toggled: (n: string, blocked: boolean) => `${n}: account ${blocked ? 'blocked' : 'unblocked'}.`,
-		reset2faDone: (n: string) => `${n}: two-step verification reset, sessions signed out.`
+		reset2faDone: (n: string) => `${n}: two-step verification reset, sessions signed out.`,
+		rename: 'Change name',
+		renamed: (old: string, n: string) => `${old} → ${n}: name changed.`
 	},
 	themes: {
 		title: 'Themes',
