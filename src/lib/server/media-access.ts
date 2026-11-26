@@ -102,20 +102,68 @@ function referencedIds(): Set<string> {
 	return ids;
 }
 
-/** Usuwa media nieużywane od co najmniej doby. Zwraca liczbę usuniętych. */
+/**
+ * Usuwa media nieużywane od co najmniej doby. Zwraca liczbę usuniętych.
+ *
+ * Decyzja (lista używanych + usunięcie wierszy) zapada SYNCHRONICZNIE, bez `await` po drodze – żaden zapis
+ * quizu nie wejdzie między ustalenie listy a usunięcie wiersza. Wcześniej pętla oddawała sterowanie przy
+ * każdej operacji plikowej, więc quiz zapisany w trakcie sprzątania mógł wskazać plik, który za chwilę
+ * znikał na podstawie nieaktualnej listy. Pliki usuwamy dopiero potem.
+ */
 export async function sweepOrphanMedia(): Promise<number> {
-	const used = referencedIds();
-	const old = db
-		.select()
-		.from(schema.media)
-		.where(lt(schema.media.createdAt, new Date(Date.now() - GRACE_MS)))
-		.all();
-	let removed = 0;
-	for (const m of old) {
-		if (used.has(m.id)) continue;
-		db.delete(schema.media).where(eq(schema.media.id, m.id)).run();
+	const doomed = db.transaction(() => {
+		const used = referencedIds();
+		const old = db
+			.select()
+			.from(schema.media)
+			.where(lt(schema.media.createdAt, new Date(Date.now() - GRACE_MS)))
+			.all()
+			.filter((m) => !used.has(m.id));
+		for (const m of old) db.delete(schema.media).where(eq(schema.media.id, m.id)).run();
+		return old;
+	});
+	for (const m of doomed) {
 		await fs.rm(path.join(mediaDir, path.basename(m.file)), { force: true });
 		await fs.rm(thumbPath(m.file), { force: true });
+	}
+	await sweepStrayFiles();
+	return doomed.length;
+}
+
+/** Nazwa pliku w katalogu mediów → id media (plik główny, miniatura, pliki robocze uploadu i konwersji). */
+// Id ma zawsze 14 znaków base64url (newId: 10 bajtów) – stała długość, bo id może zawierać „_t”.
+const MEDIA_FILE = /^(med_[A-Za-z0-9_-]{14})(?:_t\.webp|\.[a-z0-9]{2,4}(?:\.part(?:\.palette\.png)?)?|\.upload)$/;
+const WORK_FILE = /\.(?:part|upload|palette\.png)$/;
+
+/**
+ * Pliki poza ewidencją: restart kontenera w trakcie konwersji albo między `rename` a zapisem w bazie
+ * zostawiał na dysku plik bez wiersza w `media` – poza kwotą i poza zwykłym sprzątaniem. Usuwamy pliki
+ * mediów bez wiersza oraz pliki robocze, starsze niż okres ochronny (świeże mogą należeć do trwającego
+ * uploadu). Inne pliki w katalogu nie są ruszane. Zwraca liczbę usuniętych plików.
+ */
+export async function sweepStrayFiles(): Promise<number> {
+	let names: string[];
+	try {
+		names = await fs.readdir(mediaDir);
+	} catch {
+		return 0;
+	}
+	const cutoff = Date.now() - GRACE_MS;
+	let removed = 0;
+	for (const name of names) {
+		const id = MEDIA_FILE.exec(name)?.[1];
+		if (!id) continue;
+		let st;
+		try {
+			st = await fs.stat(path.join(mediaDir, name));
+		} catch {
+			continue;
+		}
+		if (!st.isFile() || st.mtimeMs > cutoff) continue;
+		// Sprawdzenie bazy tuż przed usunięciem (bez `await` pomiędzy).
+		const known = !!db.select({ id: schema.media.id }).from(schema.media).where(eq(schema.media.id, id)).get();
+		if (known && !WORK_FILE.test(name)) continue;
+		await fs.rm(path.join(mediaDir, name), { force: true });
 		removed++;
 	}
 	return removed;
