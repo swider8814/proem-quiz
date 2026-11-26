@@ -124,7 +124,8 @@
 	.acts button { min-height: 2.25rem; padding: 0.3rem 0.8rem; font-size: 0.87rem; }
 	main { flex: 1; min-width: 0; box-sizing: border-box; padding: 2rem max(clamp(1rem, 4vw, 3rem), env(safe-area-inset-right)) max(3rem, calc(env(safe-area-inset-bottom) + 1.5rem)) clamp(1rem, 4vw, 3rem); }
 	.inner { max-width: 65rem; margin: 0 auto; }
-	.bare main { padding: 0; }
+	/* Edytor (cała szerokość): boczne wcięcia ekranu (iPhone w poziomie) na wspólnym kontenerze – obejmują pasek, listę, ustawienia i właściwości. */
+	.bare main { padding: 0 env(safe-area-inset-right) 0 env(safe-area-inset-left); }
 	.bare .inner { max-width: none; }
 	@media (max-width: 860px) {
 		.shell { display: block; }
