@@ -206,6 +206,8 @@ Na Dysku każda kopia ma spis swoich plików; plik audio/obraz znika z Dysku dop
 gdy nie potrzebuje go już żadna zachowana (90 dni) kopia bazy.
 Kopie nie zawierają sesji logowania – po odtworzeniu wszyscy logują się ponownie (hasło + 2FA, ten sam `TOTP_ENCRYPTION_KEY`).
 Nie zawierają też nieużytych linków aktywacji i resetu hasła – po odtworzeniu osobom, które nie zdążyły aktywować konta, trzeba wysłać nowe zaproszenie.
+Starsze kopie (sprzed tej zmiany) jeszcze je mają – dlatego aplikacja przy starcie sama wykrywa bazę podmienioną na starszą kopię
+(licznik startów w bazie i w pliku `data/db-generation`) i unieważnia wtedy sesje oraz nieużyte linki. Nie usuwaj pliku `data/db-generation`.
 
 ## Przydatne komendy na serwerze
 

@@ -1,0 +1,45 @@
+// Ochrona po odtworzeniu bazy z kopii zapasowej.
+//
+// Kopie robione przez `cli.js backup` nie zawierają sesji ani nieużytych linków jednorazowych. Starsze
+// kopie (sprzed tej zmiany – lokalnie, na NAS-ie i na Dysku przez 90 dni) je zawierają: po odtworzeniu
+// link aktywacji albo resetu hasła zużyty PO wykonaniu kopii znów by zadziałał, do swojego terminu.
+//
+// Wykrywanie: licznik startów aplikacji zapisany w bazie (app_settings.db_generation) i obok niej
+// w pliku data/db-generation. Plik nie jest częścią kopii bazy, więc po podmianie quiz.db na starszą
+// kopię licznik w bazie jest mniejszy niż w pliku (albo go brak) – wtedy unieważniamy sesje i nieużyte
+// linki jednorazowe. Pierwszy start (brak pliku) to zwykła instalacja albo pierwsze wdrożenie tej zmiany.
+import fs from 'node:fs';
+import path from 'node:path';
+import { eq, isNull } from 'drizzle-orm';
+import { dataDir, db, schema } from './db/index.js';
+
+const KEY = 'db_generation';
+
+export function guardRestoredDb(): { restored: boolean; sessions: number; links: number } {
+	const file = path.join(dataDir, 'db-generation');
+	let onDisk: number | null = null;
+	try {
+		const n = Number(fs.readFileSync(file, 'utf8').trim());
+		if (Number.isInteger(n) && n >= 0) onDisk = n;
+	} catch {
+		/* brak pliku – pierwszy start */
+	}
+	return db.transaction((tx) => {
+		const row = tx.select().from(schema.appSettings).where(eq(schema.appSettings.key, KEY)).get();
+		const inDb = row && /^\d+$/.test(row.value) ? Number(row.value) : 0;
+		const restored = onDisk !== null && inDb < onDisk;
+		let sessions = 0;
+		let links = 0;
+		if (restored) {
+			sessions = tx.delete(schema.sessions).run().changes;
+			links = tx.delete(schema.invites).where(isNull(schema.invites.usedAt)).run().changes;
+		}
+		const next = String(Math.max(inDb, onDisk ?? 0) + 1);
+		tx.insert(schema.appSettings).values({ key: KEY, value: next }).onConflictDoUpdate({ target: schema.appSettings.key, set: { value: next } }).run();
+		// Plik zapisujemy atomowo (rename); jeśli zapis się nie uda, transakcja się wycofa i start się powtórzy.
+		const tmp = `${file}.tmp`;
+		fs.writeFileSync(tmp, next, { mode: 0o640 });
+		fs.renameSync(tmp, file);
+		return { restored, sessions, links };
+	});
+}

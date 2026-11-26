@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import * as schema from './schema.js';
 
-const dataDir = process.env.DATA_DIR ?? path.resolve('data');
+export const dataDir = process.env.DATA_DIR ?? path.resolve('data');
 fs.mkdirSync(path.join(dataDir, 'media'), { recursive: true });
 
 const sqlite = new Database(path.join(dataDir, 'quiz.db'));
