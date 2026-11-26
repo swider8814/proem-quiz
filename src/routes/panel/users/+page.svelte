@@ -7,6 +7,27 @@
 	// Telefon: formularz zaproszenia chowa się pod przyciskiem (otwarty od razu, gdy wrócił z błędem).
 	let inviteOpen = $state(false);
 	$effect(() => { if (form?.inviteError) inviteOpen = true; });
+	// Pola zaproszenia jako stan: opis wybranej roli zmienia się na żywo (w opcjach krótkie nazwy,
+	// żeby się nie ucinały), a przerysowanie nie czyści wpisanego imienia i e-maila.
+	// Po błędzie wracają wartości z serwera; po udanym zaproszeniu formularz jest pusty.
+	const inviteDefaults = () => ({
+		name: form?.name ?? '',
+		email: form?.email ?? '',
+		role: form?.role === 'admin' ? 'admin' : 'author',
+		locale: (form?.locale ?? data.lang) === 'en' ? 'en' : 'pl'
+	});
+	const init = inviteDefaults(); // od razu, żeby też HTML z serwera miał właściwe wartości
+	let inviteName = $state(init.name);
+	let inviteEmail = $state(init.email);
+	let inviteRole = $state(init.role);
+	let inviteLocale = $state(init.locale);
+	$effect.pre(() => {
+		const d = inviteDefaults();
+		inviteName = d.name;
+		inviteEmail = d.email;
+		inviteRole = d.role;
+		inviteLocale = d.locale;
+	});
 
 	async function copy(text: string) {
 		await navigator.clipboard.writeText(text);
@@ -38,29 +59,30 @@
 	<h2>{U.invite}</h2>
 	{#if form?.inviteError}<p class="error">{form.inviteError}</p>{/if}
 	<form method="POST" action="?/invite" class="invite">
-		<div>
+		<div class="f-name">
 			<label for="name">{U.name}</label>
-			<input id="name" name="name" type="text" required value={form?.name ?? ''} />
+			<input id="name" name="name" type="text" required bind:value={inviteName} />
 		</div>
-		<div>
+		<div class="f-email">
 			<label for="email">{t.common.email}</label>
-			<input id="email" name="email" type="email" required value={form?.email ?? ''} />
+			<input id="email" name="email" type="email" required bind:value={inviteEmail} />
 		</div>
-		<div>
+		<div class="f-role">
 			<label for="role">{U.role}</label>
-			<select id="role" name="role">
-				<option value="author" selected={form?.role !== 'admin'}>{U.authorOption}</option>
-				<option value="admin" selected={form?.role === 'admin'}>{U.admin}</option>
+			<select id="role" name="role" bind:value={inviteRole} aria-describedby="role-hint">
+				<option value="author">{U.author}</option>
+				<option value="admin">{U.admin}</option>
 			</select>
 		</div>
-		<div>
+		<div class="f-locale">
 			<label for="locale">{U.language}</label>
-			<select id="locale" name="locale">
-				<option value="pl" selected={(form?.locale ?? data.lang) === 'pl'}>Polski</option>
-				<option value="en" selected={(form?.locale ?? data.lang) === 'en'}>English</option>
+			<select id="locale" name="locale" bind:value={inviteLocale}>
+				<option value="pl">Polski</option>
+				<option value="en">English</option>
 			</select>
 		</div>
-		<button>{U.createInvite}</button>
+		<button class="f-submit">{U.createInvite}</button>
+		<p class="hint" id="role-hint" aria-live="polite">{inviteRole === 'admin' ? U.adminHint : U.authorHint}</p>
 	</form>
 </div>
 
@@ -132,7 +154,17 @@
 <style>
 	h2 { margin-top: 0; }
 	.card { margin-bottom: 1.5rem; }
-	.invite { display: grid; grid-template-columns: 1fr 1fr 1fr 0.6fr auto; gap: 0 1rem; align-items: end; }
+	/* Dwa rzędy: imię + e-mail, potem rola (z opisem), język i przycisk. */
+	.invite { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto; grid-template-areas: 'name email email' 'role locale submit' 'hint hint hint'; gap: 1rem; align-items: end; }
+	.invite > * { min-width: 0; }
+	.f-name { grid-area: name; }
+	.f-email { grid-area: email; }
+	.f-role { grid-area: role; }
+	.f-locale { grid-area: locale; }
+	.f-submit { grid-area: submit; white-space: nowrap; }
+	.invite .hint { grid-area: hint; margin-top: -0.6rem; }
+	.invite :global(label) { margin-top: 0; }
+	.hint { margin: 0; color: var(--muted); font-size: 0.85rem; line-height: 1.35; }
 	.invite-toggle { display: none; }
 	.list { overflow-x: auto; padding: 0.5rem 1rem; }
 	tr.off td { opacity: 0.55; }
@@ -141,8 +173,8 @@
 	.actions button { min-height: 2.5rem; padding: 0.3rem 0.8rem; font-size: 0.9rem; }
 	td select { width: auto; min-height: 2.5rem; padding: 0.3rem 0.5rem; }
 	@media (max-width: 720px) {
-		.invite { grid-template-columns: 1fr; }
-		.invite button { margin-top: 1rem; }
+		.invite { grid-template-columns: 1fr; grid-template-areas: 'name' 'email' 'role' 'hint' 'locale' 'submit'; gap: 1rem; }
+		.f-submit { width: 100%; white-space: normal; }
 		.invite-toggle { display: flex; width: 100%; margin-bottom: 1rem; }
 		.invite-box { display: none; }
 		.invite-box.open { display: block; }
