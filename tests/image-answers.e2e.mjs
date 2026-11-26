@@ -71,7 +71,14 @@ try {
 		await p.goto(`${srv.base}/play?pin=${pin}`);
 		await p.waitForSelector('.avatars .av');
 		await p.click('.avatars .av >> nth=7');
-		await sleep(400);
+		// Kliknięta postać jest wyśrodkowywana płynnym przewinięciem – czekamy na jego koniec zamiast stałej pauzy
+		// (stałe 400 ms bywało za krótkie na obciążonym CI).
+		await p.waitForFunction(() => {
+			const s = document.querySelector('.avatars');
+			const prev = Number(s.dataset.lastLeft ?? -1);
+			s.dataset.lastLeft = String(s.scrollLeft);
+			return prev === s.scrollLeft;
+		}, null, { polling: 150, timeout: 5000 }).catch(() => {});
 		const lay = await p.evaluate(() => {
 			const card = document.querySelector('form.card').getBoundingClientRect();
 			const strip = document.querySelector('.avatars');
