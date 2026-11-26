@@ -127,6 +127,7 @@ export type QuizSettings = {
 	shuffleAnswers: boolean; // losowa kolejność odpowiedzi ABCD
 	lateJoin: boolean; // dołączanie po starcie gry
 	phoneAnswerText: boolean; // tekst odpowiedzi na telefonie (nie tylko kształty)
+	playerLanguage: boolean; // gracz może zmienić język napisów na telefonie (pytania zostają w języku quizu)
 };
 
 export const DEFAULT_QUIZ_SETTINGS: QuizSettings = {
@@ -146,7 +147,8 @@ export const DEFAULT_QUIZ_SETTINGS: QuizSettings = {
 	shuffleQuestions: false,
 	shuffleAnswers: false,
 	lateJoin: true,
-	phoneAnswerText: true
+	phoneAnswerText: true,
+	playerLanguage: true
 };
 
 export const quizzes = sqliteTable(

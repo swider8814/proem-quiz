@@ -74,6 +74,10 @@ const pl = {
 	kicked: 'Prowadzący usunął Cię z gry.',
 	replaced: 'Gra została otwarta na innym urządzeniu.',
 	reconnecting: 'Łączenie…',
+	/** Wybór języka napisów na telefonie (etykieta dla czytnika ekranu). */
+	language: 'Język',
+	/** Podgląd nicka po transliteracji cyrylicy (quiz po polsku / angielsku). */
+	shownAs: (n: string) => `Na ekranie: ${n}`,
 	err: {
 		'no-game': 'Nie ma gry z takim PIN-em.',
 		'game-ended': 'Ta gra już się zakończyła.',
@@ -137,6 +141,8 @@ const en: Dict = {
 	disconnected: (n: number) => `Disconnected: ${n}`,
 	lookAtScreen: 'Answers are on the host’s screen', kicked: 'The host removed you from the game.', replaced: 'The game was opened on another device.',
 	reconnecting: 'Connecting…',
+	language: 'Language',
+	shownAs: (n: string) => `On the screen: ${n}`,
 	err: {
 		'no-game': 'No game with that PIN.', 'game-ended': 'This game has ended.', started: 'The game has started – joining is closed.',
 		removed: 'You were removed from this game.', full: 'The game is full.', 'nick-short': 'Nickname is too short.',
@@ -166,6 +172,8 @@ const uk: Dict = {
 	disconnected: (n: number) => `Від’єднані: ${n}`,
 	lookAtScreen: 'Відповіді на екрані ведучого', kicked: 'Ведучий видалив вас із гри.', replaced: 'Гру відкрито на іншому пристрої.',
 	reconnecting: 'З’єднання…',
+	language: 'Мова',
+	shownAs: (n: string) => `На екрані: ${n}`,
 	err: {
 		'no-game': 'Немає гри з таким PIN.', 'game-ended': 'Ця гра вже завершилася.', started: 'Гра вже йде – приєднання закрито.',
 		removed: 'Вас видалено з цієї гри.', full: 'Гра заповнена.', 'nick-short': 'Нік закороткий.',

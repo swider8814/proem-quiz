@@ -16,6 +16,13 @@
 	import { ask, deviceId, gameSocket, keepAwake, remaining, resumePlayer, store } from '#lib/game/client.js';
 	import { errText, t } from '#lib/game/i18n.js';
 	import { logoFor, shapeColor, themeVars, type GameTheme } from '#lib/game/theme.js';
+	// Kopia modułu z serwera – podgląd nicka zgadza się z tym, co zobaczy prowadzący.
+	import { hasCyrillic, translit } from '#lib/game/translit.js';
+
+	type Lang = 'pl' | 'en' | 'uk';
+	const LANGS: { id: Lang; name: string }[] = [{ id: 'pl', name: 'Polski' }, { id: 'en', name: 'English' }, { id: 'uk', name: 'Українська' }];
+	const isLang = (v: unknown): v is Lang => v === 'pl' || v === 'en' || v === 'uk';
+	const LANG_KEY = 'pq:lang';
 
 	type Item = { id: string; label: string };
 	type Q = {
@@ -26,7 +33,7 @@
 	type Row = { nick: string; avatar?: number; score: number; rank: number; members?: string[]; me?: boolean };
 	type State = {
 		pin: string; state: 'lobby' | 'intro' | 'question' | 'reveal' | 'leaderboard' | 'ended';
-		title: string; locale: string; theme: GameTheme; teamMode: boolean;
+		title: string; locale: string; theme: GameTheme; teamMode: boolean; playerLanguage?: boolean;
 		me: { id: string; nick: string; avatar?: number; score: number; streak: number };
 		now: number; question?: Q; deadline?: number | null; introEnds?: number | null; answered?: boolean;
 		rank?: number | null; players?: number; behindBy?: number;
@@ -64,7 +71,7 @@
 	});
 	let phase = $state<'pin' | 'nick' | 'game' | 'kicked' | 'replaced'>('pin');
 	let pin = $state('');
-	let info = $state<{ title: string; locale: string; theme: GameTheme; nicknameMode: string; teamMode: boolean; avatars?: boolean } | null>(null);
+	let info = $state<{ title: string; locale: string; theme: GameTheme; nicknameMode: string; teamMode: boolean; avatars?: boolean; playerLanguage?: boolean } | null>(null);
 	let nick = $state('');
 	let suggestion = $state('');
 	let ownNick = $state(false);
@@ -83,7 +90,19 @@
 	let toast = $state('');
 	let toastTimer: ReturnType<typeof setTimeout> | null = null;
 
-	const locale = $derived(gs?.locale ?? info?.locale ?? 'pl');
+	// Język napisów: wybór gracza (zapamiętany na telefonie), o ile quiz na to pozwala; inaczej język quizu.
+	// Przed wpisaniem PIN-u quiz nie jest znany – wtedy wybór gracza albo polski. Pytania zawsze w języku quizu.
+	let chosenLang = $state<Lang | null>(null);
+	const quizLocale = $derived(gs?.locale ?? info?.locale ?? null);
+	const langAllowed = $derived((gs ?? info)?.playerLanguage !== false);
+	const locale = $derived(langAllowed && chosenLang ? chosenLang : (quizLocale ?? 'pl'));
+	function pickLang(v: string) {
+		if (!isLang(v)) return;
+		chosenLang = v;
+		store.set(LANG_KEY, v);
+	}
+	// Własny nick w quizie po polsku / angielsku: cyrylica zamieniana na łacinę (jak na serwerze) – podgląd pod polem.
+	const shownNick = $derived(quizLocale !== 'uk' && hasCyrillic(nick) ? translit(nick.trim()).slice(0, 20) : '');
 	const L = $derived(t(locale));
 	const theme = $derived(gs?.theme ?? info?.theme ?? null);
 	const style = $derived(theme?.style ?? 'poster');
@@ -181,6 +200,8 @@
 	}
 
 	onMount(() => {
+		const saved = store.get(LANG_KEY);
+		if (isLang(saved)) chosenLang = saved;
 		connect();
 		const tick = setInterval(() => (now = Date.now()), 200);
 		const unlock = keepAwake();
@@ -223,7 +244,7 @@
 		const p = pin.replace(/\D/g, '');
 		if (p.length !== 6) return;
 		busy = true;
-		const r = await ask<{ ok?: boolean; error?: string; title: string; locale: string; theme: GameTheme; nicknameMode: string; teamMode: boolean; avatars?: boolean; suggestion: string }>(socket!, 'check', { pin: p });
+		const r = await ask<{ ok?: boolean; error?: string; title: string; locale: string; theme: GameTheme; nicknameMode: string; teamMode: boolean; avatars?: boolean; playerLanguage?: boolean; suggestion: string }>(socket!, 'check', { pin: p });
 		busy = false;
 		// Wysłana wcześniej próba powrotu (token) zdążyła wygrać – gracz jest już w swojej grze, nie zmieniamy ekranu.
 		if (gs) return;
@@ -295,12 +316,25 @@
 	<meta name="robots" content="noindex" />
 </svelte:head>
 
-<div class="game play" data-style={style} style={themeVars(theme)}>
+<div class="game play" data-style={style} style={themeVars(theme)} lang={locale}>
 	{#if theme?.decor === 'snow'}<Snow count={18} />{/if}
 	{#if !connected && phase === 'game' && gs?.state !== 'ended'}
 		<div class="offline" role="status">{L.reconnecting}</div>
 	{/if}
 	{#if toast}<div class="toast" role="status" transition:fly={{ y: 30, duration: 250 }}>{toast}</div>{/if}
+
+	{#if (phase === 'pin' || (phase === 'nick' && info)) && langAllowed}
+		<!-- Język napisów na telefonie: natywna lista (wygodna na telefonie, czytelna dla czytnika ekranu). -->
+		<div class="langrow">
+			<label class="langpick">
+				<Icon name="languages" weight={2.5} />
+				<select value={locale} onchange={(e) => pickLang(e.currentTarget.value)} aria-label={L.language}>
+					{#each LANGS as l (l.id)}<option value={l.id} lang={l.id}>{l.name}</option>{/each}
+				</select>
+				<Icon name="chevronDown" weight={2.5} />
+			</label>
+		</div>
+	{/if}
 
 	{#if phase === 'pin'}
 		<main class="center" in:fly={{ y: 24, duration: 380 }}>
@@ -347,7 +381,8 @@
 						<button type="button" class="linkish" onclick={() => (ownNick = true)}>{L.ownNick}</button>
 					{/if}
 				{:else}
-					<input class="g-input" maxlength="20" bind:value={nick} autocomplete="off" autocapitalize="words" aria-label={team ? L.teamName : L.yourNick} />
+					<input class="g-input" maxlength="20" bind:value={nick} autocomplete="off" autocapitalize="words" aria-label={team ? L.teamName : L.yourNick} aria-describedby={shownNick ? 'nick-latin' : undefined} />
+					{#if shownNick}<p class="hint" id="nick-latin" aria-live="polite">{L.shownAs(shownNick)}</p>{/if}
 					{#if info.nicknameMode !== 'custom-only'}
 						<button type="button" class="linkish" onclick={() => (ownNick = false)}><Icon name="dice" /> {L.drawAgain}</button>
 					{/if}
@@ -576,6 +611,13 @@
 		.play { --col: 900px; }
 		.prompt { font-size: 2.1rem; }
 	}
+	/* Wybór języka: mała pigułka w prawym górnym rogu kolumny (w przepływie strony – nie zasłania tytułu). */
+	.langrow { display: flex; justify-content: flex-end; }
+	.langpick { position: relative; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; min-height: 44px; border-radius: 999px; background: var(--surface); color: var(--text); border: 2px solid rgba(0, 0, 0, 0.12); font-weight: 800; font-size: 0.95rem; }
+	.langpick select { appearance: none; -webkit-appearance: none; border: 0; background: transparent; color: inherit; font: inherit; padding: 0; margin: 0; min-height: 40px; cursor: pointer; }
+	.langpick select:focus-visible { outline: none; }
+	.langpick:focus-within { outline: 3px solid var(--accent); outline-offset: 2px; }
+	.langpick :global(.icon) { flex: none; pointer-events: none; }
 	.center { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
 	.card { width: 100%; padding: 22px; display: flex; flex-direction: column; gap: 14px; }
 	.logo { max-height: 64px; max-width: 70%; }

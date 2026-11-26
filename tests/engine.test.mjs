@@ -415,6 +415,25 @@ for (const cd of [0, 3]) {
 	ok(ro.addPlayer({ nick: 'Marta', deviceId: 'ro1' }).player?.nick !== 'Marta', 'tylko losowe: wpisany nick ignorowany (bez zmian)');
 }
 
+// Nicki pisane cyrylicą: w quizie PL/EN zapisywane łacinką (prowadzący musi je przeczytać), w quizie UK bez zmian.
+{
+	const g = registry().get(registry().create({ ...quiz, quizId: 'cyr', settings: { ...quiz.settings, teamMode: true } }, 'user1').pin);
+	const a = g.addPlayer({ nick: 'Олена', deviceId: 'cyr1', members: ['Мар’яна', 'Kasia'] });
+	ok(a.player?.nick === 'Olena', `quiz PL: cyrylica → łacina (${a.player?.nick})`);
+	ok(a.player?.members.join(',') === 'Mariana,Kasia', `quiz PL: imiona w drużynie też łacinką (${a.player?.members})`);
+	ok(g.addPlayer({ nick: 'Olena', deviceId: 'cyr2' }).error === 'nick-taken', 'nick zajęty sprawdzany po transliteracji');
+	ok(g.addPlayer({ nick: 'Щщщщщщщщщщщщщщщщщщщщ', deviceId: 'cyr3' }).player?.nick.length === 20, 'po transliteracji nadal najwyżej 20 znaków');
+	ok(g.addPlayer({ nick: 'сука', deviceId: 'cyr4' }).error === 'nick-blocked', 'filtr słów działa na cyrylicę przed i po transliteracji');
+	ok(g.addPlayer({ nick: 'Kot', deviceId: 'cyr5', members: ['хуй'] }).error === 'nick-blocked', 'filtr działa na imiona w drużynie');
+	const uk = registry().get(registry().create({ ...quiz, quizId: 'cyr-uk', locale: 'uk' }, 'user1').pin);
+	ok(uk.addPlayer({ nick: 'Олена', deviceId: 'cyr6' }).player?.nick === 'Олена', 'quiz UK: cyrylica zostaje');
+	const v = g.playerView(a.player);
+	ok(v.playerLanguage === true, 'domyślnie gracz może zmienić język napisów');
+	const locked = registry().get(registry().create({ ...quiz, quizId: 'cyr-lock', settings: { ...quiz.settings, playerLanguage: false } }, 'user1').pin);
+	const lp = locked.addPlayer({ nick: 'Ala', deviceId: 'cyr7' }).player;
+	ok(locked.playerView(lp).playerLanguage === false, 'quiz z wyłączonym wyborem: playerLanguage=false w stanie gracza');
+}
+
 // Rotacja składu: definitywne wyjście usuwa rekord i historię odpowiedzi z pamięci (limit 300 dotyczy aktywnych).
 {
 	const g = registry().get(registry().create({ ...quiz, quizId: 'rot' }, 'user1').pin);
