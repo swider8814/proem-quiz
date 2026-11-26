@@ -104,9 +104,10 @@ export const HELP: HelpSection[] = [
 			title: 'Prowadzenie gry',
 			summary: 'Uruchomienie, PIN, ekran dla widzów i sterowanie.',
 			steps: [
-				'Podłącz komputer (albo tablet) do projektora lub telewizora i do głośników. Otwórz quiz i kliknij **Uruchom grę**.',
+				'Podłącz komputer do projektora lub telewizora i do głośników albo wyślij obraz z tabletu na telewizor (AirPlay, Chromecast). Otwórz quiz i kliknij **Uruchom grę**.',
 				'Na ekranie pojawi się **PIN** i kod QR. Gracze wchodzą na **quiz.proem.pl** na telefonie i wpisują PIN (albo skanują kod).',
-				'**Otwórz ekran dla widzów** – otwiera osobne okno. Przeciągnij je na projektor i naciśnij **F** (pełny ekran). Na Twoim ekranie zostaje widok prowadzącego.',
+				'Komputer z drugim ekranem: **Otwórz ekran dla widzów** – otwiera osobne okno. Przeciągnij je na projektor i naciśnij **F** (pełny ekran). Na Twoim ekranie zostaje widok prowadzącego.',
+				'Tablet albo jeden ekran powielony na telewizor: zostań w widoku prowadzącego i kliknij **Pełny ekran**. Widzowie widzą to samo co Ty.',
 				'Kliknij **Test dźwięku**, zanim wejdą gracze. Jeśli przeglądarka zablokuje dźwięk, kliknij dowolny przycisk na stronie.',
 				'Przy graczu w poczekalni: strzałka w kółku nadaje nowy losowy nick, **×** usuwa gracza (nie wróci z tego telefonu).',
 				'Gdy wszyscy są, kliknij **Start**. Dalej: **spacja** lub strzałka w prawo przechodzi do kolejnego kroku, **R** odtwarza fragment piosenki ponownie.',
@@ -118,9 +119,10 @@ export const HELP: HelpSection[] = [
 			title: 'Running a game',
 			summary: 'Starting, PIN, audience screen and controls.',
 			steps: [
-				'Connect the computer (or tablet) to the projector or TV and to the speakers. Open the quiz and click **Start game**.',
+				'Connect the computer to the projector or TV and to the speakers, or send the tablet screen to the TV (AirPlay, Chromecast). Open the quiz and click **Start game**.',
 				'The screen shows a **PIN** and a QR code. Players go to **quiz.proem.pl** on their phones and enter the PIN (or scan the code).',
-				'**Open audience screen** – opens a separate window. Drag it to the projector and press **F** (full screen). The host view stays on your screen.',
+				'Computer with a second screen: **Open audience screen** – opens a separate window. Drag it to the projector and press **F** (full screen). The host view stays on your screen.',
+				'Tablet or one screen mirrored to the TV: stay in the host view and click **Full screen**. The audience sees the same as you.',
 				'Click **Sound test** before players join. If the browser blocks sound, click any button on the page.',
 				'Next to a player in the lobby: the circular arrow gives a new random nickname, **×** removes the player (they cannot rejoin from that phone).',
 				'When everyone is in, click **Start**. Then **space** or the right arrow moves to the next step, **R** replays the song clip.',
@@ -256,8 +258,8 @@ export const HELP_TIPS = {
 	},
 	screen: {
 		section: 'host',
-		pl: 'Otwiera osobne okno dla projektora. Przeciągnij je na drugi ekran i naciśnij F. Na Twoim ekranie zostaje widok prowadzącego z graczami i przyciskami.',
-		en: 'Opens a separate window for the projector. Drag it to the second screen and press F. Your screen keeps the host view with players and buttons.'
+		pl: 'Komputer z drugim ekranem: otwiera osobne okno dla projektora. Przeciągnij je na drugi ekran i naciśnij F. Na Twoim ekranie zostaje widok prowadzącego z graczami i przyciskami. Tablet z obrazem na telewizorze: wystarczy Pełny ekran.',
+		en: 'Computer with a second screen: opens a separate window for the projector. Drag it to the second screen and press F. Your screen keeps the host view with players and buttons. Tablet mirrored to a TV: just use Full screen.'
 	},
 	share: {
 		section: 'reports',
