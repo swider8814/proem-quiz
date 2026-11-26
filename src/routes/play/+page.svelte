@@ -181,8 +181,8 @@
 				const res = await resumePlayer(
 					() => ask(socket!, 'rejoin', { pin: tryPin, token }),
 					() => store.del(sessionKey(tryPin)),
-					// Gracz sam zaczął dołączać (wpisał PIN) albo już jest w grze – nie ponawiamy i nie nadpisujemy ekranu.
-					{ shouldStop: () => destroyed || phase !== 'pin' || gs !== null }
+					// Gracz sam zaczął dołączać (zatwierdził PIN) albo już jest w grze – nie ponawiamy i nie nadpisujemy ekranu.
+					{ shouldStop: () => destroyed || manualPin || phase !== 'pin' || gs !== null }
 				);
 				if (res === 'ok' || res === 'cancelled' || destroyed || phase !== 'pin') return;
 			}
@@ -199,14 +199,20 @@
 		};
 	});
 
+	/** Gracz zatwierdził PIN – automatyczny powrót do poprzedniej gry przestaje być ponawiany. */
+	let manualPin = false;
+
 	async function checkPin(e?: Event) {
 		e?.preventDefault();
+		manualPin = true;
 		error = '';
 		const p = pin.replace(/\D/g, '');
 		if (p.length !== 6) return;
 		busy = true;
 		const r = await ask<{ ok?: boolean; error?: string; title: string; locale: string; theme: GameTheme; nicknameMode: string; teamMode: boolean; avatars?: boolean; suggestion: string }>(socket!, 'check', { pin: p });
 		busy = false;
+		// Wysłana wcześniej próba powrotu (token) zdążyła wygrać – gracz jest już w swojej grze, nie zmieniamy ekranu.
+		if (gs) return;
 		if (!r.ok) {
 			error = errText(locale, r.error ?? 'default');
 			return;
