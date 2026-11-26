@@ -872,7 +872,7 @@ const en: PanelDict = {
 		nicknames: 'Player nicknames',
 		nickRandomOrCustom: 'Random or custom (filtered)',
 		nickRandomOnly: 'Random only (younger children)',
-		nickCustomOnly: 'Own only (players type a name or nickname)',
+		nickCustomOnly: 'Custom only (players type a name or nickname)',
 		teamMode: 'Team mode (one phone per team)',
 		lateJoin: 'Players can join after the game has started',
 		phoneText: 'Answer text on phones (not only colours and shapes)',

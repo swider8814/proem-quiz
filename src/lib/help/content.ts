@@ -92,7 +92,7 @@ export const HELP: HelpSection[] = [
 				'In the editor click **Settings**. Here you choose the theme (colours and logo) and the **Game language** – texts on the screen and on phones.',
 				'Every new question gets the **Default answer time**. You can change it in the question itself (10/20/30/60 buttons or the **other** field).',
 				'**Points** per question: **Standard**, **Double** (e.g. the last question) or **None** (a warm-up).',
-				'**Player nicknames**: **Random or custom** (with a word filter), **Random only** (safest for younger children) or **Own only** (everyone types a name or nickname).',
+				'**Player nicknames**: **Random or custom** (with a word filter), **Random only** (safest for younger children) or **Custom only** (everyone types a name or nickname).',
 				'**Team mode**: one phone per team. **Team discussion time** shows the question before answering so the team can discuss it.',
 				'**Background music** plays from the host computer. It stops during audio questions and on the podium.'
 			]
@@ -242,7 +242,7 @@ export const HELP_TIPS = {
 	nick: {
 		section: 'settings',
 		pl: 'Losowe lub własne – gracz może zmienić losowy nick na swój (filtr słów). Tylko losowe – nikt nie wpisze nic nieodpowiedniego. Tylko własne – każdy wpisuje imię lub nick.',
-		en: 'Random or custom – players may replace the random nickname with their own (word filter). Random only – nobody can type anything inappropriate. Own only – everyone types a name or nickname.'
+		en: 'Random or custom – players may replace the random nickname with their own (word filter). Random only – nobody can type anything inappropriate. Custom only – everyone types a name or nickname.'
 	},
 	points: {
 		section: 'settings',
