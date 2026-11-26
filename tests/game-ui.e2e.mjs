@@ -318,7 +318,9 @@ try {
 	ok(hostErrors.length === 0, `brak błędów JS u prowadzącego ${hostErrors.join(' | ')}`);
 	// Zamknięcie okna prowadzącego: ekran widzów nie może zostać zamrożony na ostatnim widoku.
 	await host.close();
-	await screen.waitForSelector('text=czekam na okno prowadzącego', { timeout: 5000 });
+	// Zwykle od razu (sygnał „op-bye” przy zamknięciu karty), a gdy przeglądarka go nie wyśle – po braku
+	// sygnału życia przez 6 s (opLost w Host.svelte). Limit 5 s był krótszy od tej drugiej drogi (niestabilne CI).
+	await screen.waitForSelector('text=czekam na okno prowadzącego', { timeout: 10_000 });
 	ok(true, 'po zamknięciu okna prowadzącego ekran widzów pokazuje komunikat');
 	ok(screen.errors.length === 0, `brak błędów JS na ekranie widzów ${screen.errors.join(' | ')}`);
 	ok(phones.every((p) => p.errors.length === 0), `brak błędów JS na telefonach ${phones.flatMap((p) => p.errors).join(' | ')}`);

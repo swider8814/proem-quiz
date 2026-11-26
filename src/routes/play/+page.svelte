@@ -160,6 +160,20 @@
 		phase = 'pin';
 	}
 
+	/**
+	 * Wybór postaci: na telefonie (rząd przewijany w bok) kliknięta postać jest wyśrodkowywana – inaczej
+	 * przyciągnięcie przewijania (scroll-snap) mogło zostawić ją uciętą przy krawędzi.
+	 */
+	function pickAvatar(i: number, el: HTMLElement) {
+		avatar = i;
+		const strip = el.parentElement;
+		if (!strip || strip.scrollWidth <= strip.clientWidth) return;
+		const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+		// Pozycja względem samego rzędu (getBoundingClientRect) – niezależnie od tego, który przodek jest offsetParent.
+		const delta = el.getBoundingClientRect().left - strip.getBoundingClientRect().left;
+		strip.scrollTo({ left: strip.scrollLeft + delta - (strip.clientWidth - el.offsetWidth) / 2, behavior: reduce ? 'auto' : 'smooth' });
+	}
+
 	/** Telefon: postacie w jednym rzędzie przewijanym w bok – wylosowana na starcie ma być widoczna. */
 	function showSelected(el: HTMLElement) {
 		const sel = el.querySelector<HTMLElement>('.av.sel');
@@ -317,7 +331,7 @@
 					<span class="big-label">{L.pickAvatar}</span>
 					<div class="avatars" role="radiogroup" aria-label={L.pickAvatar} use:showSelected>
 						{#each Array(AVATAR_COUNT) as _, i}
-							<button type="button" class="av" class:sel={avatar === i} role="radio" aria-checked={avatar === i} aria-label={L.avatarNames[i] ?? `${L.pickAvatar} ${i + 1}`} onclick={() => (avatar = i)}>
+							<button type="button" class="av" class:sel={avatar === i} role="radio" aria-checked={avatar === i} aria-label={L.avatarNames[i] ?? `${L.pickAvatar} ${i + 1}`} onclick={(e) => pickAvatar(i, e.currentTarget)}>
 								<Avatar id={i} size="100%" animated={avatar === i} />
 								{#if avatar === i}<span class="av-check" aria-hidden="true"><Icon name="check" /></span>{/if}
 							</button>

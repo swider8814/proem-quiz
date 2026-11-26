@@ -630,7 +630,13 @@ export class Game {
 		return v;
 	}
 
-	playerView(p) {
+	/** Ranking i pozycje graczy – liczone RAZ na rozesłanie stanu, a nie osobno dla każdego telefonu. */
+	rankingIndex() {
+		const ranking = this.ranking();
+		return { ranking, pos: new Map(ranking.map((r, i) => [r.id, i])) };
+	}
+
+	playerView(p, idx = null) {
 		const v = {
 			pin: this.pin,
 			state: this.state,
@@ -652,8 +658,10 @@ export class Game {
 			v.answered = p.answers.has(this.index);
 		}
 		if (this.state === 'reveal' || this.state === 'leaderboard' || this.state === 'ended') {
-			const ranking = this.ranking();
-			const mine = ranking.find((r) => r.id === p.id);
+			// Przy 300 graczach zamknięcie pytania to 300 widoków – sortowanie i wyszukiwanie tylko raz (rankingIndex).
+			const { ranking, pos } = idx ?? this.rankingIndex();
+			const at = pos.get(p.id);
+			const mine = at === undefined ? undefined : ranking[at];
 			v.rank = mine?.rank ?? null;
 			v.players = ranking.length;
 			const ahead = mine && mine.rank > 1 ? ranking[mine.rank - 2] : null;
@@ -675,8 +683,8 @@ export class Game {
 		return v;
 	}
 
-	sendPlayerState(p) {
-		if (p.socketId) this.io.sockets.get(p.socketId)?.emit('state', this.playerView(p));
+	sendPlayerState(p, idx = null) {
+		if (p.socketId) this.io.sockets.get(p.socketId)?.emit('state', this.playerView(p, idx));
 	}
 
 	/** Odświeżenie widoku prowadzącego najwyżej raz na sekundę (np. fala rozłączeń przy 300 graczach). */
@@ -694,7 +702,8 @@ export class Game {
 
 	broadcastAll() {
 		this.io.to(this.hostRoom).emit('state', this.hostView());
-		for (const p of this.activePlayers()) this.sendPlayerState(p);
+		const idx = ['reveal', 'leaderboard', 'ended'].includes(this.state) ? this.rankingIndex() : null;
+		for (const p of this.activePlayers()) this.sendPlayerState(p, idx);
 	}
 
 	dispose() {

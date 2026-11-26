@@ -428,6 +428,30 @@ for (const cd of [0, 3]) {
 	ok(g.addPlayer({ random: true, deviceId: 'rot0' }).player !== undefined, 'gracz, który sam wyszedł, może dołączyć ponownie');
 }
 
+// Rozesłanie stanu do 300 telefonów: ranking liczony raz, a nie osobno dla każdego gracza (review Codexa).
+{
+	const g = registry().get(registry().create({ ...quiz, quizId: 'rank' }, 'user1').pin);
+	const players = [];
+	for (let i = 0; i < 300; i++) players.push(g.addPlayer({ random: true, deviceId: `rk${i}` }).player);
+	players.forEach((p, i) => { p.score = (i * 37) % 1000; p.socketId = `fake${i}`; });
+	const sent = [];
+	g.io = { to: () => ({ emit() {} }), sockets: { get: (id) => ({ emit: (_ev, v) => sent.push([id, v]) }) }, in: () => ({ disconnectSockets() {} }) };
+	g.state = 'leaderboard';
+	g.index = 0;
+	let calls = 0;
+	const orig = g.ranking.bind(g);
+	g.ranking = () => { calls++; return orig(); };
+	g.broadcastAll();
+	ok(sent.length === 300 && calls <= 3, `rozesłanie do 300 telefonów: ${calls} sortowań rankingu (wcześniej ~300)`);
+	const best = players.reduce((a, b) => (b.score > a.score ? b : a));
+	const v = sent.find(([id]) => id === best.socketId)[1];
+	ok(v.rank === 1 && v.players === 300 && v.behindBy === 0, 'miejsce i dystans liczone poprawnie z jednego rankingu');
+	const second = sent.map(([, x]) => x).find((x) => x.rank === 2);
+	ok(second && second.behindBy === best.score - second.me.score, 'drugi gracz: poprawna strata do pierwszego');
+	g.state = 'ended';
+	g.io = { to: () => ({ emit() {} }), sockets: { get: () => undefined }, in: () => ({ disconnectSockets() {} }) };
+}
+
 // PIN brute force: wspólny budżet nietrafień dla check, suggest i join (review Codexa).
 // Wymagamy jawnej odpowiedzi „rate-limited” – sam brak odpowiedzi nie jest dowodem działania limitu.
 {
