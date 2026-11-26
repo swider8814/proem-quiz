@@ -13,7 +13,7 @@
 	--a1: #3d7bff;
 	--a2: #ffc93c;
 	--a3: #2ec27e;
-	--font: 'Archivo Variable', system-ui, sans-serif;
+	--font: 'Archivo Variable', 'Inter Variable', system-ui, sans-serif;
 	--line: #111111;
 	--bw: 4px; /* grubość obramowań */
 	--radius: 0px;
@@ -50,7 +50,7 @@
 	--shadow: 0 1px 2px rgba(23, 32, 58, 0.06), 0 8px 24px rgba(23, 32, 58, 0.06);
 	--shadow-sm: 0 1px 2px rgba(23, 32, 58, 0.08);
 	--tile-text: #17203a;
-	--font: 'Plus Jakarta Sans Variable', system-ui, sans-serif;
+	--font: 'Plus Jakarta Sans Variable', 'Inter Variable', system-ui, sans-serif;
 }
 
 .g-box {

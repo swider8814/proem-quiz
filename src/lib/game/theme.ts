@@ -12,9 +12,9 @@ const HEX = /^#[0-9a-fA-F]{3,8}$/;
 
 // Tylko czcionki dołączone do aplikacji (żadnych dowolnych wartości z bazy w CSS).
 const FONT_FAMILIES: Record<string, string> = {
-	Archivo: "'Archivo Variable', system-ui, sans-serif",
+	Archivo: "'Archivo Variable', 'Inter Variable', system-ui, sans-serif",
 	Montserrat: "'Montserrat Variable', system-ui, sans-serif",
-	'Plus Jakarta Sans': "'Plus Jakarta Sans Variable', system-ui, sans-serif",
+	'Plus Jakarta Sans': "'Plus Jakarta Sans Variable', 'Inter Variable', system-ui, sans-serif",
 	Inter: "'Inter Variable', system-ui, sans-serif"
 };
 const safe = (c: string | undefined, fallback: string) => (c && HEX.test(c) ? c : fallback);
