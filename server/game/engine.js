@@ -68,6 +68,8 @@ export function shuffled(quiz) {
 			const perm = shuffle(d.answers.map((_, i) => i));
 			const data = { ...d, answers: perm.map((i) => d.answers[i]) };
 			if (Array.isArray(d.images)) data.images = perm.map((i) => d.images[i] ?? null);
+			// Opisy obrazków (czytnik ekranu) tą samą permutacją – inaczej opis trafiłby do innego przycisku niż obrazek.
+			if (Array.isArray(d.alts)) data.alts = perm.map((i) => d.alts[i] ?? null);
 			if (Array.isArray(d.correct)) data.correct = d.correct.map((c) => perm.indexOf(c)).sort((a, b) => a - b);
 			return { ...q, data };
 		});
