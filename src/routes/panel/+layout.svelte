@@ -19,7 +19,7 @@
 					{ href: '/panel/settings', label: t.nav.settings, icon: 'settings' as const }
 				]
 			: []),
-		{ href: '/panel/security', label: t.nav.security, icon: 'shield' as const },
+		{ href: '/panel/security', label: t.nav.security, icon: 'user' as const },
 		{ href: '/panel/help', label: t.nav.help, icon: 'help' as const }
 	]);
 
