@@ -70,6 +70,10 @@ export function setShare(actor: User, quizId: string, targetId: string, permissi
 	return null;
 }
 
+/**
+ * Lista quizów dostępnych dla użytkownika – lekkie wiersze do filtrowania, wyszukiwania i liczników folderów.
+ * Okładki i liczbę pytań dokłada `quizCardDetails` tylko dla bieżącej strony listy.
+ */
 export function listQuizzes(user: User) {
 	const shares = db.select({ quizId: schema.quizShares.quizId, permission: schema.quizShares.permission }).from(schema.quizShares).where(eq(schema.quizShares.userId, user.id)).all();
 	const shared = shares.map((s) => s.quizId);
@@ -82,28 +86,43 @@ export function listQuizzes(user: User) {
 			ownerId: schema.quizzes.ownerId,
 			ownerName: schema.users.name,
 			updatedAt: schema.quizzes.updatedAt,
-			themeName: schema.themes.name,
-			themeColors: schema.themes.colors
+			themeId: schema.quizzes.themeId
 		})
 		.from(schema.quizzes)
 		.innerJoin(schema.users, eq(schema.quizzes.ownerId, schema.users.id))
-		.leftJoin(schema.themes, eq(schema.quizzes.themeId, schema.themes.id))
 		.where(where)
 		.orderBy(desc(schema.quizzes.updatedAt))
 		.all();
-	const counts = new Map<string, number>();
-	for (const q of db.select({ quizId: schema.questions.quizId, n: count() }).from(schema.questions).groupBy(schema.questions.quizId).all()) {
-		counts.set(q.quizId, q.n);
-	}
-	// Okładka karty na liście: kolory motywu quizu (quiz bez motywu gra w motywie domyślnym).
-	const fallback = db.select({ colors: schema.themes.colors }).from(schema.themes).where(eq(schema.themes.isDefault, true)).get()?.colors ?? null;
-	return rows.map(({ themeColors, ...r }) => ({
+	return rows.map((r) => ({
 		...r,
-		cover: (themeColors ?? fallback) ? { background: (themeColors ?? fallback)!.background, answers: (themeColors ?? fallback)!.answers } : null,
-		questionCount: counts.get(r.id) ?? 0,
 		mine: r.ownerId === user.id,
 		canEdit: r.ownerId === user.id || user.role === 'admin' || editShared.has(r.id)
 	}));
+}
+
+/**
+ * Dane kart dla jednej strony listy: okładka (kolory motywu; quiz bez motywu – motyw domyślny) i liczba pytań.
+ * Wcześniej liczba pytań była agregowana dla WSZYSTKICH quizów w bazie przy każdym otwarciu listy –
+ * na tym samym procesie, który prowadzi gry.
+ */
+export function quizCardDetails<T extends { id: string; themeId: string | null }>(page: T[]) {
+	const ids = page.map((q) => q.id);
+	const counts = new Map<string, number>();
+	if (ids.length) {
+		for (const q of db.select({ quizId: schema.questions.quizId, n: count() }).from(schema.questions).where(inArray(schema.questions.quizId, ids)).groupBy(schema.questions.quizId).all()) {
+			counts.set(q.quizId, q.n);
+		}
+	}
+	const themeIds = [...new Set(page.map((q) => q.themeId).filter((x): x is string => !!x))];
+	const themes = new Map(
+		(themeIds.length ? db.select({ id: schema.themes.id, name: schema.themes.name, colors: schema.themes.colors }).from(schema.themes).where(inArray(schema.themes.id, themeIds)).all() : []).map((t) => [t.id, t])
+	);
+	const fallback = db.select({ colors: schema.themes.colors }).from(schema.themes).where(eq(schema.themes.isDefault, true)).get()?.colors ?? null;
+	return page.map(({ themeId, ...q }) => {
+		const theme = themeId ? themes.get(themeId) : undefined;
+		const c = theme?.colors ?? fallback;
+		return { ...q, themeName: theme?.name ?? null, cover: c ? { background: c.background, answers: c.answers } : null, questionCount: counts.get(q.id) ?? 0 };
+	});
 }
 
 export function defaultThemeId() {
