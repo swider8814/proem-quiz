@@ -15,6 +15,7 @@ const MIN_FREE_BYTES = Number(process.env.MEDIA_MIN_FREE_BYTES) || 1024 ** 3; //
 const MAX_IMAGE_SIDE = 1600; // większe zdjęcia z telefonu są zmniejszane (ekran i tak ma ~1920 px)
 const THUMB_SIDE = 480; // miniatura dla telefonów (obrazki odpowiedzi) – kilkadziesiąt KB zamiast MB
 const MAX_IMAGE_PIXELS = 40_000_000; // „bomby” z ogromnymi wymiarami odrzucamy przed dekodowaniem
+const MAX_GIF_FRAMES = 300; // animacja: liczba klatek sprawdzana przed dekodowaniem (bez tego limit pikseli dotyczy tylko jednej klatki)
 const FFMPEG_CONCURRENCY = 1;
 const FFMPEG_MAX_PENDING = 8;
 
@@ -128,6 +129,7 @@ export function thumbPath(file: string) {
  * z zachowaniem animacji (duży zmniejszany do 1600 px), miniatura z pierwszej klatki.
  */
 async function processImage(src: string, out: string, thumb: string, ext: string) {
+	const palette = `${out}.palette.png`; // plik roboczy GIF-a, usuwany zawsze po użyciu
 	let w = 0;
 	let h = 0;
 	try {
@@ -138,14 +140,36 @@ async function processImage(src: string, out: string, thumb: string, ext: string
 	}
 	if (!(w > 0 && h > 0)) throw new MediaError('imageRead');
 	if (w * h > MAX_IMAGE_PIXELS) throw new MediaError('imageHuge');
+	if (ext === 'gif') {
+		// Liczba klatek z kontenera (pakiety, bez dekodowania obrazu) – wiele klatek = wielokrotność RAM i dysku.
+		let frames = NaN;
+		try {
+			const out = await run('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-count_packets', '-show_entries', 'stream=nb_read_packets', '-of', 'csv=p=0', src], 15_000);
+			frames = parseInt(out, 10);
+		} catch {
+			throw new MediaError('imageRead');
+		}
+		if (!(frames > 0)) throw new MediaError('imageRead');
+		if (frames > MAX_GIF_FRAMES) throw new MediaError('gifLong');
+	}
 	const fit = (side: number) => `scale='min(${side},iw)':'min(${side},ih)':force_original_aspect_ratio=decrease`;
 	const base = ['-nostdin', '-hide_banner', '-loglevel', 'error', '-y', '-i', src, '-map_metadata', '-1', '-frames:v', '1'];
 	try {
 		if (ext === 'gif') {
 			// Animowany GIF jest zawsze przekodowywany (usuwa komentarze i XMP), z zachowaniem animacji;
 			// duży jest przy tym zmniejszany do 1600 px – projektor nie dekoduje ogromnych klatek.
-			const vf = `${fit(MAX_IMAGE_SIDE)}:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer`;
-			await run('ffmpeg', ['-nostdin', '-hide_banner', '-loglevel', 'error', '-y', '-i', src, '-map_metadata', '-1', '-vf', vf, '-loop', '0', '-f', 'gif', out], 60_000);
+			// Dwa przebiegi (paleta do pliku, potem kodowanie z paletą) zamiast `split` w jednym filtrze:
+			// `split` + `palettegen` buforuje WSZYSTKIE klatki w RAM, zanim powstanie paleta, a kontener ma
+			// ~448 MB. Każdy przebieg ma twardy limit klatek, a wynik – limit rozmiaru zapisywanego pliku (-fs).
+			const scale = `${fit(MAX_IMAGE_SIDE)}:flags=lanczos`;
+			const head = ['-nostdin', '-hide_banner', '-loglevel', 'error', '-y', '-i', src];
+			try {
+				await run('ffmpeg', [...head, '-vf', `${scale},palettegen=stats_mode=diff`, '-frames:v', '1', '-f', 'image2', '-c:v', 'png', palette], 60_000);
+				await run('ffmpeg', [...head, '-i', palette, '-map_metadata', '-1', '-lavfi', `[0:v]${scale}[x];[x][1:v]paletteuse=dither=bayer`,
+					'-frames:v', String(MAX_GIF_FRAMES), '-fs', String(MAX_OUTPUT_BYTES), '-loop', '0', '-f', 'gif', out], 60_000);
+			} finally {
+				await fs.rm(palette, { force: true });
+			}
 		} else {
 			const codec = ext === 'png' ? ['-c:v', 'png', '-f', 'image2'] : ext === 'webp' ? ['-c:v', 'libwebp', '-quality', '85', '-f', 'webp'] : ['-c:v', 'mjpeg', '-q:v', '3', '-f', 'image2'];
 			await run('ffmpeg', [...base, '-vf', fit(MAX_IMAGE_SIDE), ...codec, out], 60_000);
@@ -176,7 +200,8 @@ export async function saveUpload(ownerId: string, originalName: string, data: Ui
 	if (!type) throw new MediaError('unsupported');
 	if (data.byteLength > LIMITS[type.kind]) throw new MediaError('fileTooBig', 413);
 	await fs.mkdir(mediaDir, { recursive: true });
-	await ensureSpace(type.kind === 'audio' ? MAX_OUTPUT_BYTES : data.byteLength);
+	// Wynik audio i animacji może być większy niż wejście – rezerwujemy twardy limit pliku wynikowego.
+	await ensureSpace(type.kind === 'audio' || type.ext === 'gif' ? MAX_OUTPUT_BYTES : data.byteLength);
 
 	const id = newId('med');
 	const file = type.kind === 'audio' ? `${id}.mp3` : `${id}.${type.ext}`;

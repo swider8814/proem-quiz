@@ -16,7 +16,7 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"db:generate": "drizzle-kit generate",
 		"start": "node server/index.js",
-		"test": "node tests/profanity.test.mjs && node tests/net.test.mjs && node tests/engine.test.mjs && node tests/realtime-security.test.mjs && tsx tests/media-sweep.test.ts && tsx tests/login-race.test.ts && tsx tests/totp-setup-race.test.ts && tsx tests/slider.test.ts && tsx tests/resume.test.ts && tsx tests/theme.test.ts && node tests/deploy-files.test.mjs && node tests/firewall.test.mjs && node tests/hints.test.mjs && tsx tests/help.test.ts",
+		"test": "node tests/profanity.test.mjs && node tests/net.test.mjs && node tests/engine.test.mjs && node tests/realtime-security.test.mjs && tsx tests/media-sweep.test.ts && tsx tests/gif-budget.test.ts && tsx tests/login-race.test.ts && tsx tests/totp-setup-race.test.ts && tsx tests/slider.test.ts && tsx tests/resume.test.ts && tsx tests/theme.test.ts && node tests/deploy-files.test.mjs && node tests/firewall.test.mjs && node tests/hints.test.mjs && tsx tests/help.test.ts",
 		"test:e2e": "node tests/e2e-auth.test.mjs && node tests/http-security.test.mjs && node tests/panel.test.mjs && node tests/i18n.test.mjs && node tests/backup.test.mjs && node tests/version.test.mjs",
 		"test:load": "node tests/load/run.mjs 300 10",
 		"test:load:media": "node tests/load/media.mjs 300 3",
