@@ -7,7 +7,7 @@
 	import { HELP_TIPS, type HelpTipId } from './content.js';
 
 	let { id }: { id: HelpTipId } = $props();
-	const lang = $derived(page.data.lang === 'en' ? 'en' : 'pl');
+	const lang = $derived(page.data.lang === 'pl' ? 'pl' : 'en'); // ukraiński – na razie pomoc po angielsku
 	const t = $derived(panelDict(page.data.lang));
 	const tip = $derived(HELP_TIPS[id]);
 	let open = $state(false);

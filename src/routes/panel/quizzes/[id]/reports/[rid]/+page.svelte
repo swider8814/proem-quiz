@@ -8,7 +8,7 @@
 	const t = $derived(panelDict(data.lang));
 	const R = $derived(t.reports);
 	const d = $derived(data.report.data);
-	const fmt = (x: Date) => new Date(x).toLocaleString(data.lang === 'en' ? 'en-GB' : 'pl-PL', { dateStyle: 'medium', timeStyle: 'short' });
+	const fmt = (x: Date) => new Date(x).toLocaleString(panelDict(data.lang).list.dateLocale, { dateStyle: 'medium', timeStyle: 'short' });
 	const minutes = $derived(Math.max(1, Math.round((+new Date(data.report.endedAt) - +new Date(data.report.startedAt)) / 60000)));
 	const graded = (type: string) => type !== 'poll' && type !== 'slide';
 	const pct = (q: { answered: number; correct: number }) => (q.answered ? Math.round((q.correct / q.answered) * 100) : 0);

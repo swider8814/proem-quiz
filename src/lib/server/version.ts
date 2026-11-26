@@ -17,5 +17,5 @@ export function appVersion(): AppVersion {
 /** Data w strefie Polski (serwer działa w UTC), np. „25.11.2026, 13:41”. */
 export function fmtBuiltAt(iso: string | null, locale: string) {
 	if (!iso) return null;
-	return new Intl.DateTimeFormat(locale === 'en' ? 'en-GB' : 'pl-PL', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Europe/Warsaw' }).format(new Date(iso));
+	return new Intl.DateTimeFormat(locale === 'en' ? 'en-GB' : locale === 'uk' ? 'uk-UA' : 'pl-PL', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Europe/Warsaw' }).format(new Date(iso));
 }

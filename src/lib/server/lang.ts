@@ -3,8 +3,8 @@ import type { User } from './auth/index.js';
 
 export const LANG_COOKIE = 'pq_lang';
 
-/** Język panelu dla konta (uk → en). */
-export const userLang = (user: Pick<User, 'locale'>): PanelLang => (user.locale === 'pl' ? 'pl' : 'en');
+/** Język panelu dla konta (nieznana wartość → polski). */
+export const userLang = (user: Pick<User, 'locale'>): PanelLang => (isPanelLang(user.locale) ? user.locale : 'pl');
 
 /**
  * Język panelu: konto po pełnym logowaniu; w sesji pośredniej (kod 2FA / obowiązkowa konfiguracja 2FA)

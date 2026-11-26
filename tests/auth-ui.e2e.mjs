@@ -29,7 +29,9 @@ try {
 		await page.goto(srv.base + '/login');
 		await hydrated(page);
 		const before = await page.getAttribute('html', 'lang');
-		await page.click('form[action="/lang"] button');
+		// Menu języka: otwórz, wybierz drugi język (PL ↔ EN)
+		await page.click('.lang button.trigger');
+		await page.click(`form[action="/lang"] button[lang="${locale === 'pl-PL' ? 'en' : 'pl'}"]`);
 		// Przełącznik przeładowuje stronę – sprawdzamy w pętli (wykonanie skryptu ginie przy nawigacji).
 		let lang = before;
 		for (let i = 0; i < 150 && lang === before; i++) {

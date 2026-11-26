@@ -43,7 +43,8 @@ export const actions: Actions = {
 		const rawName = String(f.get('name') ?? '').trim();
 		const name = cleanName(rawName) ?? rawName;
 		const role = f.get('role') === 'admin' ? 'admin' : 'author';
-		const locale = f.get('locale') === 'en' ? 'en' : 'pl';
+		const rawLocale = f.get('locale');
+		const locale = isPanelLang(rawLocale) ? rawLocale : 'pl';
 		const t = panelDict(locals.lang).err;
 		if (!isValidEmail(email)) return fail(400, { inviteError: t.badEmail, email, name, role, locale });
 		if (!cleanName(name)) return fail(400, { inviteError: t.giveName, email, name, role, locale });

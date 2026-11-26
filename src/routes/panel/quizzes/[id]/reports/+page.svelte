@@ -3,7 +3,7 @@
 	import { panelDict } from '#lib/i18n/panel.js';
 	let { data } = $props();
 	const R = $derived(panelDict(data.lang).reports);
-	const fmt = (d: Date) => new Date(d).toLocaleString(data.lang === 'en' ? 'en-GB' : 'pl-PL', { dateStyle: 'medium', timeStyle: 'short' });
+	const fmt = (d: Date) => new Date(d).toLocaleString(panelDict(data.lang).list.dateLocale, { dateStyle: 'medium', timeStyle: 'short' });
 </script>
 
 <svelte:head><title>{R.title} – {data.quiz.title}</title></svelte:head>

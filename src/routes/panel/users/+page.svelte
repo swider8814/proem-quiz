@@ -5,7 +5,7 @@
 	import { replaceState } from '$app/navigation';
 	import Icon from '#lib/Icon.svelte';
 	import RowMenu from '#lib/RowMenu.svelte';
-	import { panelDict } from '#lib/i18n/panel.js';
+	import { PANEL_LANGS, isPanelLang, panelDict } from '#lib/i18n/panel.js';
 	let { data, form } = $props();
 	const t = $derived(panelDict(data.lang));
 	const U = $derived(t.users);
@@ -23,7 +23,7 @@
 		name: form?.name ?? '',
 		email: form?.email ?? '',
 		role: form?.role === 'admin' ? 'admin' : 'author',
-		locale: (form?.locale ?? data.lang) === 'en' ? 'en' : 'pl'
+		locale: isPanelLang(form?.locale) ? form.locale : isPanelLang(data.lang) ? data.lang : 'pl'
 	});
 	const init = inviteDefaults(); // od razu, żeby też HTML z serwera miał właściwe wartości
 	let inviteName = $state(init.name);
@@ -47,7 +47,7 @@
 	let q = $state((sp.get('q') ?? '').slice(0, 100));
 	let status = $state(pick(sp.get('status'), STATUSES, 'all'));
 	let role = $state(pick(sp.get('role'), ['all', 'author', 'admin'] as const, 'all'));
-	let lang = $state(pick(sp.get('lang'), ['all', 'pl', 'en'] as const, 'all'));
+	let lang = $state(pick(sp.get('lang'), ['all', 'pl', 'en', 'uk'] as const, 'all'));
 
 	const filterQuery = $derived.by(() => {
 		const p = new URLSearchParams();
@@ -134,8 +134,7 @@
 		<div class="f-locale">
 			<label for="locale">{U.language}</label>
 			<select id="locale" name="locale" bind:value={inviteLocale}>
-				<option value="pl">Polski</option>
-				<option value="en">English</option>
+				{#each PANEL_LANGS as l (l)}<option value={l}>{panelDict(l).langName}</option>{/each}
 			</select>
 		</div>
 		<button class="f-submit">{U.createInvite}</button>
@@ -153,8 +152,7 @@
 		</select>
 		<select bind:value={lang} aria-label={U.language}>
 			<option value="all">{U.allLangs}</option>
-			<option value="pl">Polski</option>
-			<option value="en">English</option>
+			{#each PANEL_LANGS as l (l)}<option value={l}>{panelDict(l).langName}</option>{/each}
 		</select>
 	</div>
 	<div class="chips" role="group" aria-label={U.filterStatus}>
@@ -217,8 +215,7 @@
 						<form method="POST" action={act('locale')} use:enhance={send()}>
 							<input type="hidden" name="id" value={u.id} />
 							<select name="locale" onchange={(e) => e.currentTarget.form?.requestSubmit()} aria-label={U.language}>
-								<option value="pl" selected={u.locale === 'pl'}>PL</option>
-								<option value="en" selected={u.locale !== 'pl'}>EN</option>
+								{#each PANEL_LANGS as l (l)}<option value={l} selected={u.locale === l}>{l.toUpperCase()}</option>{/each}
 							</select>
 						</form>
 					</td>
