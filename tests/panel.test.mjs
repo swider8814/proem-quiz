@@ -182,6 +182,10 @@ try {
 	ok((await setShare(author, { userId: kasiaId, permission: 'host' })).status === 200, 'udostępnienie do prowadzenia');
 	const list = (await kasia.req('/panel')).text;
 	ok(list.includes('Quiz autora'), 'udostępniony quiz na liście drugiej osoby');
+	// Wyszukiwanie po autorze (imię i nazwisko konta „autor”), bez względu na wielkość liter
+	const byAuthor = (await kasia.req('/panel?q=AUTOR')).text;
+	ok(byAuthor.includes('Quiz autora'), 'wyszukiwanie po autorze znajduje udostępniony quiz');
+	ok(!(await kasia.req('/panel?q=nikt-taki')).text.includes('Quiz autora'), 'wyszukiwanie po nieznanym autorze nic nie zwraca');
 	ok((await kasia.req(`/panel/quizzes/${sq}`)).status === 200, 'osoba z dostępem „prowadzenie” otwiera quiz (podgląd)');
 	ok((await kasia.req(`/panel/quizzes/${sq}/host`)).status === 200, 'osoba z dostępem „prowadzenie” otwiera ekran gry');
 	ok((await kasia.req(`/panel/api/quizzes/${sq}`, { method: 'PUT', body: quizBody('Przejęty'), headers: json })).status === 403, 'dostęp „prowadzenie” nie pozwala edytować');
