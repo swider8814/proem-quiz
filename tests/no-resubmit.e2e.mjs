@@ -55,12 +55,12 @@ try {
 		const row = () => p.locator('tr', { hasText: email });
 		answer = false;
 		await row().locator('button.trigger').click(); // „Usuń” jest w menu ⋯ wiersza
-		await row().locator('.pop button.danger:has-text("Usuń")').click();
+		await p.locator('.pop:not([hidden]) button.danger:has-text("Usuń")').click();
 		await p.waitForTimeout(500);
 		ok(dialogs.length === 1 && (await row().count()) === 1, `${s.name}: anulowane usuwanie nie usuwa konta`);
 		answer = true;
 		await row().locator('button.trigger').click();
-		await Promise.all([p.waitForSelector('p.success'), row().locator('.pop button.danger:has-text("Usuń")').click()]);
+		await Promise.all([p.waitForSelector('p.success'), p.locator('.pop:not([hidden]) button.danger:has-text("Usuń")').click()]);
 		await p.waitForFunction((e) => ![...document.querySelectorAll('tr')].some((r) => r.textContent?.includes(e)), email);
 		ok(dialogs.length === 2, `${s.name}: potwierdzone usuwanie usuwa konto`);
 		ok((await reloadMethod(p)) === 'GET', `${s.name}: odświeżenie po usunięciu = GET`);

@@ -5,6 +5,8 @@
 	 *
 	 * Okienko ma `position: fixed` i liczoną pozycję, więc nie ucina go przewijany kontener
 	 * (tabela użytkowników ma overflow-x). Otwiera się pod przyciskiem, a gdy brak miejsca – nad nim.
+	 * Po załadowaniu strony okienko jest przenoszone do <body>: przodek z `transform` (np. karta quizu
+	 * przy :hover) zmieniłby blok odniesienia dla `position: fixed` i menu wylądowałoby obok przycisku.
 	 * Zamyka się po kliknięciu poza nim, po Escape (fokus wraca na przycisk), po wybraniu pozycji
 	 * (link, przycisk, wysłanie formularza). Pole <select> w środku menu go nie zamyka.
 	 *
@@ -55,6 +57,18 @@
 		if (open && !pop?.contains(e.target as Node) && !btn?.contains(e.target as Node)) close();
 	}
 
+	/** Przenosi okienko do <body> (patrz wyżej); przy zniszczeniu komponentu usuwa je stamtąd. */
+	function portal(node: HTMLElement) {
+		document.body.appendChild(node);
+		return { destroy: () => node.remove() };
+	}
+
+	// Tab poza menu (okienko jest w <body>, więc fokus może z niego wyjść daleko od przycisku) – zamknij.
+	function onFocusOut(e: FocusEvent) {
+		const to = e.relatedTarget as Node | null;
+		if (to && !pop?.contains(to) && !btn?.contains(to)) close();
+	}
+
 	function onPopClick(e: MouseEvent) {
 		// Wybór pozycji zamyka menu; przycisk wysyłający formularz wyśle go mimo to (formularz jest w DOM).
 		if ((e.target as Element).closest('a[href], button')) close();
@@ -90,7 +104,7 @@
 	<Icon name="more" weight={2.5} />
 </button>
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-<div class="pop" class:up {id} bind:this={pop} hidden={!open} style:top="{top}px" style:left="{left}px" onclick={onPopClick} onsubmit={() => close()}>
+<div class="pop" class:up {id} use:portal bind:this={pop} hidden={!open} style:top="{top}px" style:left="{left}px" onclick={onPopClick} onfocusout={onFocusOut} onsubmit={() => close()}>
 	{@render children()}
 </div>
 

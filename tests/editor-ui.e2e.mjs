@@ -194,13 +194,19 @@ try {
 	await p.click('.chip >> text=Wszystkie');
 	await p.waitForURL(/\/panel$/);
 	const fid = await p.$eval('.chip.folder', (a) => new URL(a.href).searchParams.get('f'));
+	// Karta przy :hover ma transform – menu (position: fixed) musi i tak otworzyć się przy przycisku ⋯.
+	await p.hover('.list li >> nth=0');
 	await p.click('.list li >> nth=0 >> button.trigger');
-	ok(await p.isVisible('.list li >> nth=0 >> .pop'), 'menu „Więcej” otwarte');
+	ok(await p.isVisible('.pop:not([hidden])'), 'menu „Więcej” otwarte');
+	await p.waitForTimeout(250); // po animacji otwierania
+	const [tb, pb] = [await p.locator('.list li >> nth=0 >> button.trigger').boundingBox(), await p.locator('.pop:not([hidden])').boundingBox()];
+	const gap = Math.min(Math.abs(pb.y - (tb.y + tb.height)), Math.abs(tb.y - (pb.y + pb.height)));
+	ok(gap <= 12 && Math.abs(pb.x + pb.width - (tb.x + tb.width)) <= 12, `menu przy przycisku ⋯ mimo transform karty (odstęp ${Math.round(gap)} px)`);
 	await p.keyboard.press('Escape');
-	ok(!(await p.isVisible('.list li >> nth=0 >> .pop')), 'Escape zamyka menu „Więcej”');
+	ok(!(await p.isVisible('.pop:not([hidden])')), 'Escape zamyka menu „Więcej”');
 	ok(await p.evaluate(() => document.activeElement?.classList.contains('trigger')), 'po Escape fokus wraca na przycisk ⋯');
 	await p.click('.list li >> nth=0 >> button.trigger');
-	await p.selectOption('.list li >> nth=0 >> select[name=folder]', fid);
+	await p.selectOption('.pop:not([hidden]) select[name=folder]', fid);
 	await p.waitForFunction(() => document.querySelector('.chip.folder span')?.textContent === '1');
 	ok(/\/panel$/.test(p.url()), 'przeniesienie do folderu bez zmiany widoku listy');
 	ok((await p.$$('.pop:not([hidden])')).length === 0, 'menu zamyka się po przeniesieniu do folderu');

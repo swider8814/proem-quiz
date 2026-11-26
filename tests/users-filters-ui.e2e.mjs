@@ -32,7 +32,7 @@ try {
 	await p.locator('tr', { hasText: 'blok@proem.pl' }).locator('button.trigger').click();
 	let blockMsg = '';
 	p.once('dialog', (dlg) => { blockMsg = dlg.message(); dlg.accept(); });
-	await Promise.all([p.waitForURL(/\/panel\/users/), p.locator('tr', { hasText: 'blok@proem.pl' }).locator('.pop button:has-text("Zablokuj")').click()]);
+	await Promise.all([p.waitForURL(/\/panel\/users/), p.locator('.pop:not([hidden]) button:has-text("Zablokuj")').click()]);
 	ok(/Zablokować konto/.test(blockMsg), 'blokada pyta o potwierdzenie (confirm)');
 	await p.waitForSelector('p.success');
 
@@ -110,14 +110,14 @@ try {
 	p.once('dialog', (dlg) => dlg.dismiss());
 	const nowak = p.locator('tr', { hasText: 'nowak@proem.pl' });
 	await nowak.locator('button.trigger').click();
-	await nowak.locator('.pop button:has-text("Usuń")').click();
+	await p.locator('.pop:not([hidden]) button:has-text("Usuń")').click();
 	await p.waitForTimeout(300);
 	ok((await emails()).includes('nowak@proem.pl'), 'usuń: anulowanie potwierdzenia nic nie zmienia');
 	let msg = '';
 	p.once('dialog', (dlg) => { msg = dlg.message(); dlg.accept(); });
-	ok(!(await nowak.locator('.pop').isVisible()), 'menu zamyka się po wybraniu pozycji');
+	ok((await p.locator('.pop:not([hidden])').count()) === 0, 'menu zamyka się po wybraniu pozycji');
 	await nowak.locator('button.trigger').click();
-	await Promise.all([p.waitForSelector('p.success'), nowak.locator('.pop button:has-text("Usuń")').click()]);
+	await Promise.all([p.waitForSelector('p.success'), p.locator('.pop:not([hidden]) button:has-text("Usuń")').click()]);
 	ok(/Łukasz Nowak \(nowak@proem\.pl\)/.test(msg), 'usuń: potwierdzenie z imieniem i e-mailem');
 	ok(/konto usunięte/.test(await p.textContent('p.success')) && (await emails()).join() === 'ewa@proem.pl', 'usuń: konto znika, filtr „czekające” zostaje');
 	await snap(p, 'usun-desktop');
@@ -145,13 +145,13 @@ try {
 	await last.scrollIntoViewIfNeeded();
 	await last.locator('button.trigger').click();
 	await m.waitForTimeout(250); // po animacji otwierania
-	const box = await last.locator('.pop').boundingBox();
+	const box = await m.locator('.pop:not([hidden])').boundingBox();
 	ok(box && box.x >= 0 && box.y >= 0 && box.x + box.width <= 390 && box.y + box.height <= 844, `telefon: menu ⋯ w całości na ekranie (${JSON.stringify(box)})`);
-	const itemH = await last.locator('.pop button').first().evaluate((b) => b.offsetHeight);
+	const itemH = await m.locator('.pop:not([hidden]) button').first().evaluate((b) => b.offsetHeight);
 	ok(itemH >= 44, `telefon: pozycje menu ≥ 44 px (${itemH})`);
 	await snap(m, 'menu-telefon');
 	await m.locator('h1').click();
-	ok(!(await last.locator('.pop').isVisible()), 'telefon: dotknięcie poza menu je zamyka');
+	ok((await m.locator('.pop:not([hidden])').count()) === 0, 'telefon: dotknięcie poza menu je zamyka');
 	await phone.close();
 } catch (e) {
 	ok(false, `wyjątek: ${e?.stack ?? e}`);
