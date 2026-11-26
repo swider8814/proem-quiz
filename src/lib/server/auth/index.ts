@@ -67,7 +67,14 @@ export async function checkCredentials(email: string, password: string): Promise
 		await verifyPassword(await dummyHash, password);
 		return null;
 	}
-	return (await verifyPassword(user.passwordHash, password)) ? user : null;
+	if (!(await verifyPassword(user.passwordHash, password))) return null;
+	// Weryfikacja hasła jest asynchroniczna – w tym czasie mógł się skończyć reset hasła, włączenie 2FA,
+	// zmiana roli albo blokada konta. Sesję wystawiamy na podstawie ŚWIEŻEGO stanu, a jeśli zmienił się
+	// hash hasła lub konto zablokowano – odrzucamy logowanie. Wywołujący tworzy sesję synchronicznie
+	// (bez `await` po tej funkcji), więc stan nie zmieni się już do zapisu sesji.
+	const fresh = getUser(user.id);
+	if (!fresh || fresh.disabled || fresh.passwordHash !== user.passwordHash) return null;
+	return fresh;
 }
 
 export const getUser = (id: string) => db.select().from(schema.users).where(eq(schema.users.id, id)).get() ?? null;
@@ -209,8 +216,18 @@ export async function verifyUserTotp(user: User, code: string): Promise<boolean>
 /**
  * Włącza (lub zmienia) TOTP po poprawnym kodzie. Wszystkie sesje użytkownika są usuwane,
  * a osoba kończąca konfigurację dostaje nową, pełną sesję. Zwraca kody zapasowe (pokazywane raz).
+ *
+ * `user` i `sessionId` to stan z chwili rozpoczęcia żądania. Jeśli w trakcie (asynchroniczne sprawdzanie
+ * kodu i hasła) inna konfiguracja albo reset 2FA zmieniły konto lub usunęły tę sesję, zwraca 'stale'
+ * i niczego nie zapisuje – starsza operacja nie nadpisze sekretu ani kodów zapasowych nowszej.
  */
-export async function enableTotp(user: User, secret: string, code: string, meta: { ip?: string; userAgent?: string }) {
+export async function enableTotp(
+	user: User,
+	sessionId: string,
+	secret: string,
+	code: string,
+	meta: { ip?: string; userAgent?: string }
+): Promise<{ codes: string[]; token: string; session: Session } | 'stale' | null> {
 	const step = await checkTotp(secret, code);
 	if (step === null) return null;
 	const codes = Array.from({ length: 10 }, () => {
@@ -220,6 +237,17 @@ export async function enableTotp(user: User, secret: string, code: string, meta:
 	return db.transaction(() => {
 		const fresh = getUser(user.id);
 		if (!fresh || fresh.disabled) return null;
+		const live = db
+			.select({ id: schema.sessions.id })
+			.from(schema.sessions)
+			.where(and(eq(schema.sessions.id, sessionId), eq(schema.sessions.userId, user.id)))
+			.get();
+		// Podwójne wysłanie TEGO SAMEGO formularza (ten sam sekret z ciasteczka konfiguracji): pierwsze żądanie
+		// już włączyło TOTP i usunęło sesję, ale przeglądarka pokaże odpowiedź drugiego. Drugie musi więc
+		// zwrócić pełny wynik (nowe kody, nowa sesja), inaczej kody zapasowe z pierwszego przepadłyby.
+		// Inny sekret (druga konfiguracja) albo reset 2FA (sekret = null) nadal kończą się 'stale'.
+		const sameSetup = fresh.totpEnabled && !!fresh.totpSecret && decrypt(fresh.totpSecret) === secret;
+		if (!sameSetup && (!live || fresh.totpSecret !== user.totpSecret || fresh.totpEnabled !== user.totpEnabled)) return 'stale';
 		db.update(schema.users)
 			.set({ totpSecret: encrypt(secret), totpEnabled: true, totpLastStep: step })
 			.where(eq(schema.users.id, user.id))

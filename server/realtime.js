@@ -347,9 +347,7 @@ function playerConnection(socket, games) {
 		const game = currentGame();
 		const player = game?.players.get(socket.data.playerId);
 		if (game && player && player.socketId === socket.id) {
-			player.kicked = true; // gracz sam wyszedł
-			player.connected = false;
-			player.socketId = null;
+			game.removePlayer(player); // gracz sam wyszedł – rekord znika z pamięci
 			game.broadcastLobby();
 		}
 		reply(ack, { ok: true });
