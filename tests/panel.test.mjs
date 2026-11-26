@@ -185,6 +185,19 @@ try {
 		ok(page.text.includes('Wersja B') && !page.text.includes('Spóźniony zapis'), 'po konflikcie w bazie zostaje wcześniejszy zapis');
 		ok((await put('Quiz autora')).status === 200, 'zapis wymuszony (bez wersji) nadpisuje');
 	}
+	// Lista quizów: liczba pytań i okładka liczone dla bieżącej strony (review Codexa) – nadal poprawne.
+	{
+		const made = [];
+		for (let i = 0; i < 22; i++) made.push((await author.req('/panel?/create', { method: 'POST', form: { title: `Pusty ${i}` } })).loc.split('/').pop());
+		await author.req(`/panel/api/quizzes/${sq}`, { method: 'PUT', body: quizBody('Quiz autora'), headers: json }); // najnowszy → strona 1
+		const p1 = await author.req('/panel');
+		const card = p1.text.slice(p1.text.indexOf('Quiz autora') - 1500, p1.text.indexOf('Quiz autora') + 200);
+		ok(/1 pytanie/.test(card), 'lista: quiz z jednym pytaniem pokazuje „1 pytanie”');
+		const p2 = await author.req('/panel?p=2');
+		ok(p2.status === 200 && /0 pytań/.test(p2.text) && !p2.text.includes('Quiz autora'), 'lista: druga strona z własnymi liczbami pytań');
+		const search = await author.req('/panel?q=' + encodeURIComponent('pusty 21'));
+		ok(search.text.includes('Pusty 21') && !search.text.includes('Pusty 20'), 'lista: wyszukiwanie po tytule działa');
+	}
 	ok((await kasia.req(`/panel/quizzes/${sq}`)).status === 404, 'przed udostępnieniem inny autor nie widzi quizu');
 	ok((await kasia.req(`/panel/quizzes/${sq}/share`)).status === 404, 'obcy nie otworzy strony udostępniania');
 

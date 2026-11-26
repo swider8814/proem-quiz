@@ -2,7 +2,7 @@ import { error, fail, redirect } from '@sveltejs/kit';
 import { eq } from 'drizzle-orm';
 import type { Actions, PageServerLoad } from './$types';
 import { db, schema } from '#lib/server/db/index.js';
-import { canEdit, createQuiz, duplicateQuiz, listQuizzes, quizAccess } from '#lib/server/quizzes.js';
+import { canEdit, createQuiz, duplicateQuiz, listQuizzes, quizAccess, quizCardDetails } from '#lib/server/quizzes.js';
 import { createFolder, deleteFolder, folderOfQuizzes, listFolders, moveQuiz, renameFolder } from '#lib/server/folders.js';
 import { sweepOrphanMedia } from '#lib/server/media-access.js';
 import { panelDict } from '#lib/i18n/panel.js';
@@ -45,7 +45,8 @@ export const load: PageServerLoad = ({ locals, url }) => {
 	const counts = new Map<string, number>();
 	for (const q of all) if (q.folderId) counts.set(q.folderId, (counts.get(q.folderId) ?? 0) + 1);
 	return {
-		quizzes: filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+		// Okładki i liczba pytań tylko dla bieżącej strony (nie dla całej bazy).
+		quizzes: quizCardDetails(filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)),
 		total: all.length,
 		found: filtered.length,
 		page,
