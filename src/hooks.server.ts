@@ -9,8 +9,15 @@ import {
 } from '#lib/server/auth/index.js';
 
 import { sweepOrphanMedia } from '#lib/server/media-access.js';
-import { sweepOldReports } from '#lib/server/reports.js';
+import { stripLegacyReportDetails, sweepOldReports } from '#lib/server/reports.js';
 import { LANG_COOKIE, resolveLang } from '#lib/server/lang.js';
+
+try {
+	const n = stripLegacyReportDetails();
+	if (n) console.log(`[raporty] usunięto szczegóły odpowiedzi graczy z ${n} starszych raportów`);
+} catch (e) {
+	console.error('[raporty] przycinanie starszych raportów nie powiodło się', e);
+}
 
 setInterval(() => {
 	purgeExpiredSessions();

@@ -52,8 +52,7 @@
 		<table>
 			<thead>
 				<tr>
-					<th>{R.place}</th><th>{d.teamMode ? R.team : R.player}</th><th class="num">{R.score}</th><th class="num">{R.correct}</th>
-					{#each d.questions as _, i}<th class="num q" title={d.questions[i].prompt}>{i + 1}</th>{/each}
+					<th>{R.place}</th><th>{d.teamMode ? R.team : R.player}</th><th class="num">{R.score}</th>
 				</tr>
 			</thead>
 			<tbody>
@@ -62,10 +61,6 @@
 						<td>{p.rank}.</td>
 						<td>{p.nick}</td>
 						<td class="num"><strong>{p.score}</strong></td>
-						<td class="num">{p.correct}/{d.questions.filter((q) => graded(q.type)).length}</td>
-						{#each p.perQuestion as a, i}
-							<td class="num q" class:ok={a?.c === true} class:bad={a?.c === false}>{d.questions[i]?.type === 'slide' ? '' : a ? (a.c === null ? '•' : a.p) : '–'}</td>
-						{/each}
 					</tr>
 				{/each}
 			</tbody>
@@ -100,9 +95,6 @@
 	.scroll { overflow-x: auto; }
 	table { min-width: 100%; }
 	.num { text-align: right; font-variant-numeric: tabular-nums; }
-	th.q, td.q { text-align: center; min-width: 2.4rem; }
-	td.ok { background: #e5f4e4; }
-	td.bad { background: #fbebeb; }
 	.hard { margin: 0; padding-left: 1.2rem; }
 	.hard li { margin: 0.4rem 0; position: relative; }
 	.bar { display: inline-block; width: 5rem; height: 0.6rem; margin-right: 0.5rem; border-radius: 1rem; background: linear-gradient(90deg, #2ec27e var(--p), #f0efec var(--p)); vertical-align: middle; }

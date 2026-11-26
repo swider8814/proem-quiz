@@ -49,7 +49,7 @@ za reverse proxy Nginx (Cytrus). Stan gier w pamięci procesu.
 | Obrazki odpowiedzi dla telefonów bez logowania | `/game-media/<PIN>/<id>`: tylko obrazki odpowiedzi BIEŻĄCEGO pytania trwającej gry, miniatury 480 px |
 | Metadane zdjęć (np. GPS), „bomby” pikselowe | każdy obrazek przekodowany bez metadanych; > 40 Mpx odrzucane przed dekodowaniem |
 | Formuły w eksporcie CSV (nick „=…”) | komórki zaczynające się od `= + - @` poprzedzone apostrofem |
-| Dane dzieci w raportach | tylko nicki i punkty (bez imion członków drużyn), usuwane po 90 dniach |
+| Dane dzieci w raportach | na graczu tylko nick, miejsce i punkty (bez imion członków drużyn i bez przebiegu odpowiedzi); statystyki pytań wyłącznie zbiorcze; usuwane po 90 dniach (kopie zapasowe – według ich retencji) |
 | Przejęty kontener → serwer / app.proem.pl | osobny użytkownik, sieć, limity, tylko `./data`; zapora `scripts/mikrus-firewall.sh` (host i sieci prywatne zablokowane) |
 | Okno widzów przejęte przez obcą stronę | BroadcastChannel działa tylko w tej samej domenie; kanał per gra (PIN) |
 

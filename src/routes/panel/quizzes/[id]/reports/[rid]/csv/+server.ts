@@ -11,7 +11,7 @@ export const GET: RequestHandler = ({ params, locals }) => {
 	const t = panelDict(locals.lang);
 	const R = t.reports;
 	const csv = reportCsv(r, {
-		place: R.place, player: r.data.teamMode ? R.team : R.player, score: R.score, correct: R.correct, answered: R.answered,
+		place: R.place, player: r.data.teamMode ? R.team : R.player, score: R.score,
 		question: R.question, type: R.type, answeredCount: R.answeredCount, correctCount: R.correctCount, wrongCount: R.wrongCount, avgTime: R.avgTime,
 		types: t.editor.types
 	});

@@ -351,23 +351,9 @@ export class Game {
 				avgMs: times.length ? Math.round(times.reduce((x, y) => x + y, 0) / times.length) : null
 			};
 		});
-		const byId = new Map(active.map((p) => [p.id, p]));
-		const players = this.ranking().map((r) => {
-			const p = byId.get(r.id);
-			const perQuestion = played.map((_, i) => {
-				const a = p.answers.get(i);
-				return a ? { c: a.correct, p: a.points, ms: a.elapsed } : null;
-			});
-			// Imiona członków drużyn NIE trafiają do raportu – istnieją tylko w trakcie gry (dane dzieci).
-			return {
-				nick: r.nick,
-				score: r.score,
-				rank: r.rank,
-				correct: perQuestion.filter((a) => a?.c === true).length,
-				answered: perQuestion.filter(Boolean).length,
-				perQuestion
-			};
-		});
+		// Dane dzieci: w raporcie tylko nick, miejsce i punkty. Bez imion członków drużyn i bez przebiegu
+		// odpowiedzi poszczególnych graczy – statystyki pytań wyżej są wyłącznie zbiorcze.
+		const players = this.ranking().map((r) => ({ nick: r.nick, score: r.score, rank: r.rank }));
 		return {
 			quizId: this.quiz.quizId,
 			title: this.quiz.title,
