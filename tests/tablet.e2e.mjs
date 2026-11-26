@@ -24,6 +24,7 @@ try {
 	}
 	const html = await (await fetch(`${srv.base}/login`)).text();
 	ok(html.includes('rel="manifest"') && html.includes('rel="apple-touch-icon"') && html.includes('/icons/favicon.svg') && html.includes('/favicon.ico'), 'strona linkuje manifest, ikonę iPada i favicon');
+	ok(!html.includes('rel="icon" href="/icons/icon.svg"'), 'brak konkurencyjnego faviconu icon.svg (przeglądarka wybrałaby ostatni)');
 
 	const { browser: admin } = await makeAdmin(srv, 'tablet@proem.pl');
 	const c = await admin.req('/panel?/create', { method: 'POST', form: { title: 'Tablet' } });
