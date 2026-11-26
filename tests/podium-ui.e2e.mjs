@@ -95,4 +95,4 @@ try {
 	await browser.close();
 	srv.stop();
 }
-finish();
+process.exit(finish() ? 1 : 0);
