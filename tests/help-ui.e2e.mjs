@@ -52,12 +52,14 @@ try {
 		const mctx = await browser.newContext({ viewport: vp, isMobile: true, hasTouch: true });
 		await mctx.addCookies([{ name: 'pq_session', value: author.jar.pq_session, url: srv.base }]);
 		const mp = waitForHydration(await mctx.newPage());
+		// Na telefonie „Ustawienia” są w menu ⋯ obok tytułu quizu.
+		const settings = async () => { await mp.click('.more-narrow button.trigger'); await mp.click('.pop:not([hidden]) button:has-text("Ustawienia")'); };
 		await mp.goto(p.url().replace(/\/panel\/help.*/, '/panel'));
 		await mp.fill('input[name="title"]', 'Telefon pomoc');
 		await mp.click('button:has-text("Utwórz quiz")');
 		await mp.waitForURL(/\/panel\/quizzes\/quiz_/);
 		await mp.click('.add:not(.add-mobile) button:has-text("Dodaj pytanie")');
-		await mp.click('button:has-text("Ustawienia")');
+		await settings();
 		const teamBefore = await mp.isChecked('label:has-text("Tryb drużynowy") input[type="checkbox"]');
 		const n = await mp.locator('.helptip button.q').count();
 		const bad = [];
@@ -73,7 +75,7 @@ try {
 		// Każde „?” na wysokości środka tekstu etykiety, we wszystkich widokach (edytor, udostępnianie, prowadzenie).
 		const quizUrl = mp.url();
 		const offs = [...(await tipOffsets(mp))];
-		await mp.click('button:has-text("Ustawienia")'); // zamyka ustawienia → widok pytania (Punkty, Tłumaczenie)
+		await settings(); // zamyka ustawienia → widok pytania (Punkty, Tłumaczenie)
 		offs.push(...(await tipOffsets(mp)));
 		for (const sub of ['/share', '/host']) {
 			await mp.goto(quizUrl + sub);
@@ -82,7 +84,7 @@ try {
 		const off = offs.filter((o) => o.diff === null || o.diff < -1.2 || o.diff > 0.8);
 		ok(offs.length >= 6 && new Set(offs.map((o) => o.id)).size >= 5 && off.length === 0, `telefon ${vp.width} px: ${offs.length} × „?” wyrównane do tekstu etykiety ${JSON.stringify(off)}`);
 		await mp.goto(quizUrl);
-		await mp.click('button:has-text("Ustawienia")');
+		await settings();
 		ok((await mp.isChecked('label:has-text("Tryb drużynowy") input[type="checkbox"]')) === teamBefore, `telefon ${vp.width} px: „?” przy trybie drużynowym nie przełącza przełącznika`);
 		await mctx.close();
 	}

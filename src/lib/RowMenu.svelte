@@ -35,6 +35,9 @@
 	function place() {
 		if (!btn || !pop) return;
 		const r = btn.getBoundingClientRect();
+		// Przycisk ⋯ zniknął (np. obrót tabletu ponad breakpoint, gdzie akcje są w pasku) – menu w <body>
+		// zostałoby samo na wierzchu, więc zamykamy je.
+		if (!btn.getClientRects().length) return close();
 		const w = pop.offsetWidth;
 		const h = pop.scrollHeight;
 		const gap = 6;
