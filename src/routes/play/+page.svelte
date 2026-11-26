@@ -358,7 +358,7 @@
 						<input class="g-input member" maxlength="20" bind:value={members[i]} autocomplete="off" autocapitalize="words" placeholder={L.memberName(i + 1)} aria-label={L.memberName(i + 1)} />
 					{/each}
 					{#if members.length < 6}
-						<button type="button" class="linkish" onclick={() => members.push('')}>+ {L.addMember}</button>
+						<button type="button" class="linkish" onclick={() => members.push('')}><Icon name="plus" />{L.addMember}</button>
 					{/if}
 				{/if}
 				{#if error}<p class="err" role="alert">{error}</p>{/if}

@@ -28,7 +28,12 @@ try {
 	const p = waitForHydration(await ctx.newPage());
 	await p.goto(`${srv.base}/panel/users`);
 	// Blokada przez interfejs.
-	await Promise.all([p.waitForURL(/\/panel\/users/), p.locator('tr', { hasText: 'blok@proem.pl' }).locator('button:has-text("Zablokuj")').click()]);
+	// Blokowanie jest w menu ⋯ wiersza (w wierszu zostaje najwyżej jedna akcja zależna od stanu).
+	await p.locator('tr', { hasText: 'blok@proem.pl' }).locator('button.trigger').click();
+	let blockMsg = '';
+	p.once('dialog', (dlg) => { blockMsg = dlg.message(); dlg.accept(); });
+	await Promise.all([p.waitForURL(/\/panel\/users/), p.locator('.pop:not([hidden]) button:has-text("Zablokuj")').click()]);
+	ok(/Zablokować konto/.test(blockMsg), 'blokada pyta o potwierdzenie (confirm)');
 	await p.waitForSelector('p.success');
 
 	const emails = () => p.locator('.list tbody tr td.person .muted').allTextContents();
@@ -103,12 +108,16 @@ try {
 	// „Usuń” przy nieaktywowanym koncie: potwierdzenie, filtry zostają.
 	await p.goto(`${srv.base}/panel/users?status=pending`);
 	p.once('dialog', (dlg) => dlg.dismiss());
-	await p.locator('tr', { hasText: 'nowak@proem.pl' }).locator('button:has-text("Usuń")').click();
+	const nowak = p.locator('tr', { hasText: 'nowak@proem.pl' });
+	await nowak.locator('button.trigger').click();
+	await p.locator('.pop:not([hidden]) button:has-text("Usuń")').click();
 	await p.waitForTimeout(300);
 	ok((await emails()).includes('nowak@proem.pl'), 'usuń: anulowanie potwierdzenia nic nie zmienia');
 	let msg = '';
 	p.once('dialog', (dlg) => { msg = dlg.message(); dlg.accept(); });
-	await Promise.all([p.waitForSelector('p.success'), p.locator('tr', { hasText: 'nowak@proem.pl' }).locator('button:has-text("Usuń")').click()]);
+	ok((await p.locator('.pop:not([hidden])').count()) === 0, 'menu zamyka się po wybraniu pozycji');
+	await nowak.locator('button.trigger').click();
+	await Promise.all([p.waitForSelector('p.success'), p.locator('.pop:not([hidden]) button:has-text("Usuń")').click()]);
 	ok(/Łukasz Nowak \(nowak@proem\.pl\)/.test(msg), 'usuń: potwierdzenie z imieniem i e-mailem');
 	ok(/konto usunięte/.test(await p.textContent('p.success')) && (await emails()).join() === 'ewa@proem.pl', 'usuń: konto znika, filtr „czekające” zostaje');
 	await snap(p, 'usun-desktop');
@@ -129,7 +138,20 @@ try {
 	await m.waitForFunction(() => document.querySelectorAll('.list tbody tr').length === 1);
 	ok(true, 'telefon: filtr statusu działa');
 	await m.locator('.chips .chip', { hasText: 'Wszystkie' }).click();
+	await m.waitForFunction(() => document.querySelectorAll('.list tbody tr').length > 1);
 	await snap(m, 'filtry-telefon');
+	// Menu ⋯ na telefonie: mieści się na ekranie, pozycje mają wygodną wysokość.
+	const last = m.locator('.list tbody tr').last();
+	await last.scrollIntoViewIfNeeded();
+	await last.locator('button.trigger').click();
+	await m.waitForTimeout(250); // po animacji otwierania
+	const box = await m.locator('.pop:not([hidden])').boundingBox();
+	ok(box && box.x >= 0 && box.y >= 0 && box.x + box.width <= 390 && box.y + box.height <= 844, `telefon: menu ⋯ w całości na ekranie (${JSON.stringify(box)})`);
+	const itemH = await m.locator('.pop:not([hidden]) button').first().evaluate((b) => b.offsetHeight);
+	ok(itemH >= 44, `telefon: pozycje menu ≥ 44 px (${itemH})`);
+	await snap(m, 'menu-telefon');
+	await m.locator('h1').click();
+	ok((await m.locator('.pop:not([hidden])').count()) === 0, 'telefon: dotknięcie poza menu je zamyka');
 	await phone.close();
 } catch (e) {
 	ok(false, `wyjątek: ${e?.stack ?? e}`);

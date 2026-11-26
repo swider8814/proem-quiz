@@ -266,12 +266,12 @@
 		<span class="status" class:dirty class:clean={!dirty && !saving && !saveError} aria-live="polite">
 			{#if saving}{E.saving}{:else if saveError}<span class="err">{saveError}</span>{:else if dirty}{E.unsaved}{:else}{E.saved}{/if}
 		</span>
-		<button class="secondary" type="button" onclick={() => (showSettings = !showSettings)} aria-expanded={showSettings}>{E.settings}</button>
-		{#if data.canShare}<a class="btn secondary" href="/panel/quizzes/{data.quiz.id}/share">{E.share}</a>{/if}
-		<a class="btn secondary" href="/panel/quizzes/{data.quiz.id}/reports">{E.reports}</a>
-		{#if !ro}<button type="button" class="save" onclick={() => save()} disabled={saving || !dirty}>{E.save}</button>{/if}
+		<button class="secondary" type="button" onclick={() => (showSettings = !showSettings)} aria-expanded={showSettings} title={E.settings}><Icon name="settings" weight={2} /><span class="lbl">{E.settings}</span></button>
+		{#if data.canShare}<a class="btn secondary" href="/panel/quizzes/{data.quiz.id}/share" title={E.share}><Icon name="share" weight={2} /><span class="lbl">{E.share}</span></a>{/if}
+		<a class="btn secondary" href="/panel/quizzes/{data.quiz.id}/reports" title={E.reports}><Icon name="chart" weight={2} /><span class="lbl">{E.reports}</span></a>
+		{#if !ro}<button type="button" class="save" onclick={() => save()} disabled={saving || !dirty}><Icon name="save" weight={2} />{E.save}</button>{/if}
 		<a class="btn start" href="/panel/quizzes/{data.quiz.id}/host" class:disabled={dirty || questions.length === 0} aria-disabled={dirty || questions.length === 0}>
-			<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4l13 8-13 8z" /></svg>{E.start}
+			<Icon name="play" weight={2} />{E.start}
 		</a>
 	</div>
 </header>
@@ -454,7 +454,7 @@
 		<button type="button" class="secondary" onclick={() => (selected = Math.max(0, selected - 1))} disabled={selected === 0} aria-label={E.prevQ}><Icon name="back" /></button>
 		<button type="button" class="secondary grow" onclick={() => (listOpen = !listOpen)} aria-expanded={listOpen} aria-controls="q-list">{listOpen ? E.hideList : E.listToggle(selected + 1, questions.length)}</button>
 		<button type="button" class="secondary" onclick={() => (selected = Math.min(questions.length - 1, selected + 1))} disabled={selected === questions.length - 1} aria-label={E.nextQ}><Icon name="next" /></button>
-		{#if !ro}<button type="button" class="qnav-add" onclick={add} aria-label={E.addQuestion} title={E.addQuestion}>+</button>{/if}
+		{#if !ro}<button type="button" class="qnav-add" onclick={add} aria-label={E.addQuestion} title={E.addQuestion}><Icon name="plus" /></button>{/if}
 	</div>
 {/if}
 
@@ -488,7 +488,7 @@
 				<select bind:value={addType} aria-label={E.newType}>
 					{#each QTYPES as qt}<option value={qt}>{E.types[qt]}</option>{/each}
 				</select>
-				<button type="button" onclick={add}>{E.addQuestion}</button>
+				<button type="button" onclick={add}><Icon name="plus" weight={2} />{E.addQuestion}</button>
 			</div>
 		{/if}
 		</div>
@@ -574,7 +574,7 @@
 											<input type="text" class="img-alt" maxlength="150" value={d.alts?.[i] ?? ''} oninput={(e) => setAnswerAlt(i, (e.currentTarget as HTMLInputElement).value)} placeholder={E.answerAltPh} aria-label={E.imageAltFor(String.fromCharCode(65 + i))} disabled={ro} />
 											{#if !d.answers[i]?.trim() && !d.alts?.[i]?.trim()}<span class="img-alt-hint">{E.imageAltMissing}</span>{/if}
 										{:else if !ro}
-											<label class="link file-link">{E.addAnswerImage}<input type="file" accept="image/*" onchange={(e) => pickAnswerImage(e, i)} /></label>
+											<label class="link file-link"><Icon name="plus" weight={2} size="0.95em" />{E.addAnswerImage}<input type="file" accept="image/*" onchange={(e) => pickAnswerImage(e, i)} /></label>
 										{/if}
 									</div>
 								{/if}
@@ -598,7 +598,7 @@
 							{#if d.accepted.length > 1}<button type="button" class="secondary" onclick={() => d.accepted.splice(i, 1)} aria-label={E.remove}><Icon name="close" /></button>{/if}
 						</div>
 					{/each}
-					{#if d.accepted.length < 10}<button type="button" class="link" onclick={() => d.accepted.push('')}>{E.addVariant}</button>{/if}
+					{#if d.accepted.length < 10}<button type="button" class="link" onclick={() => d.accepted.push('')}><Icon name="plus" weight={2} size="0.95em" />{E.addVariant}</button>{/if}
 					<label>{E.typos}
 						<select bind:value={d.typoTolerance}>
 							<option value={0}>{E.typos0}</option><option value={1}>{E.typos1}</option><option value={2}>{E.typos2}</option>
@@ -614,7 +614,7 @@
 							{#if d.items.length > 3}<button type="button" class="secondary" onclick={() => d.items.splice(i, 1)} aria-label={E.remove}><Icon name="close" /></button>{/if}
 						</div>
 					{/each}
-					{#if d.items.length < 6}<button type="button" class="link" onclick={() => d.items.push('')}>{E.addItem}</button>{/if}
+					{#if d.items.length < 6}<button type="button" class="link" onclick={() => d.items.push('')}><Icon name="plus" weight={2} size="0.95em" />{E.addItem}</button>{/if}
 					<label class="check"><input type="checkbox" bind:checked={d.partialCredit} /> {E.partial}</label>
 				{/if}
 
@@ -678,8 +678,8 @@
 				<div class="q-tools">
 					<button type="button" class="secondary" onclick={() => move(selected, -1)} disabled={selected === 0} aria-label={E.moveUp}><Icon name="up" /></button>
 					<button type="button" class="secondary" onclick={() => move(selected, 1)} disabled={selected === questions.length - 1} aria-label={E.moveDown}><Icon name="down" /></button>
-					<button type="button" class="secondary grow" onclick={() => duplicate(selected)}>{E.duplicate}</button>
-					<button type="button" class="danger grow" onclick={() => remove(selected)}>{E.remove}</button>
+					<button type="button" class="secondary grow" onclick={() => duplicate(selected)}><Icon name="copy" weight={2} />{E.duplicate}</button>
+					<button type="button" class="danger grow" onclick={() => remove(selected)}><Icon name="trash" weight={2} />{E.remove}</button>
 				</div>
 			</fieldset>
 		</aside>
@@ -689,7 +689,7 @@
 				<select bind:value={addType} aria-label={E.newType}>
 					{#each QTYPES as qt}<option value={qt}>{E.types[qt]}</option>{/each}
 				</select>
-				<button type="button" onclick={add}>{E.addQuestion}</button>
+				<button type="button" onclick={add}><Icon name="plus" weight={2} />{E.addQuestion}</button>
 			</div>
 		{/if}
 	{/if}
@@ -795,7 +795,7 @@
 	.answer .ans-img input.img-alt[type='text']:focus { box-shadow: 0 0 0 2px #0b0d1a; border-radius: 0.5rem; }
 	.img-alt-hint { flex-basis: 100%; font-size: 0.78rem; font-weight: 600; color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45); }
 	.ans-img img { height: 64px; max-width: 120px; object-fit: contain; border-radius: 0.4rem; background: #fff; border: 2px solid var(--accent); }
-	.ans-img :global(button.link), .file-link { position: relative; cursor: pointer; display: inline-flex; align-items: center; min-height: 1.75rem; padding: 0 0.6rem; border-radius: 0.5rem; background: #fff; color: var(--text); text-decoration: none; font-size: 0.8rem; font-weight: 600; margin: 0; }
+	.ans-img :global(button.link), .file-link { position: relative; cursor: pointer; display: inline-flex; align-items: center; gap: 0.3rem; min-height: 1.75rem; padding: 0 0.6rem; border-radius: 0.5rem; background: #fff; color: var(--text); text-decoration: none; font-size: 0.8rem; font-weight: 600; margin: 0; }
 	.file-link input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 	.tf { display: flex; flex-wrap: wrap; gap: 0.5rem 2rem; padding: 0.5rem 0; }
 	.row { display: flex; gap: 0.5rem; align-items: center; }
@@ -830,6 +830,9 @@
 		.title-wrap { flex-basis: calc(100% - 3.5rem); }
 		.bar-actions { margin-left: 0; width: 100%; }
 		.bar-actions .start { margin-left: auto; }
+		/* Telefon: ustawienia, udostępnianie i raporty jako same ikony (nazwa w title/aria-label). */
+		.bar-actions .lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+		.bar-actions .secondary { width: 2.75rem; padding: 0; flex: none; }
 		.status { flex-basis: 100%; }
 		.settings, .below > .notice { margin-inline: 1rem; }
 		.qnav { display: flex; gap: 0.5rem; padding: 0.6rem 1rem; background: var(--surface); border-bottom: 1px solid var(--line); }

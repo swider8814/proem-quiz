@@ -4,6 +4,7 @@
 	import { page } from '$app/state';
 	import { replaceState } from '$app/navigation';
 	import Icon from '#lib/Icon.svelte';
+	import RowMenu from '#lib/RowMenu.svelte';
 	import { panelDict } from '#lib/i18n/panel.js';
 	let { data, form } = $props();
 	const t = $derived(panelDict(data.lang));
@@ -110,7 +111,7 @@
 {#if form?.message}<p class="success">{form.message}</p>{/if}
 {#if form?.actionError}<p class="error">{form.actionError}</p>{/if}
 
-<button type="button" class="invite-toggle" aria-expanded={inviteOpen} aria-controls="invite-box" onclick={() => (inviteOpen = !inviteOpen)}>+ {U.invite}</button>
+<button type="button" class="invite-toggle" aria-expanded={inviteOpen} aria-controls="invite-box" onclick={() => (inviteOpen = !inviteOpen)}><Icon name="plus" weight={2} />{U.invite}</button>
 <div class="card invite-box" id="invite-box" class:open={inviteOpen}>
 	<h2>{U.invite}</h2>
 	{#if form?.inviteError}<p class="error">{form.inviteError}</p>{/if}
@@ -179,9 +180,9 @@
 		</div>
 	{:else}
 	<table>
-		<colgroup><col class="c-person" /><col class="c-role" /><col class="c-lang" /><col class="c-status" /><col class="c-2fa" /><col class="c-actions" /></colgroup>
+		<colgroup><col class="c-person" /><col class="c-role" /><col class="c-lang" /><col class="c-status" /><col class="c-actions" /></colgroup>
 		<thead>
-			<tr><th>{U.person}</th><th>{U.role}</th><th>{t.common.language}</th><th>{U.status}</th><th>2FA</th><th></th></tr>
+			<tr><th>{U.person}</th><th>{U.role}</th><th>{t.common.language}</th><th>{U.status}</th><th><span class="sr">{U.actions}</span></th></tr>
 		</thead>
 		<tbody>
 			{#each shown as u (u.id)}
@@ -195,8 +196,7 @@
 								<button type="button" class="secondary" onclick={() => (renaming = null)}>{t.common.cancel}</button>
 							</form>
 						{:else}
-							<strong>{u.name}</strong>
-							<button type="button" class="link edit-name" aria-label="{U.rename}: {u.name}" title={U.rename} onclick={() => (renaming = u.id)}><Icon name="edit" size="0.95em" /></button><br />
+							<strong>{u.name}</strong><br />
 						{/if}
 						<span class="muted">{u.email}</span>
 					</td>
@@ -223,40 +223,55 @@
 						</form>
 					</td>
 					<td data-label={U.status}>
-						{#if u.disabled}<span class="tag off">{U.blocked}</span>
-						{:else if !u.activated}<span class="tag warn">{U.pending}</span>
-						{:else}<span class="tag ok">{U.active}</span>{/if}
+						<div class="status">
+							{#if u.disabled}<span class="tag off">{U.blocked}</span>
+							{:else if !u.activated}<span class="tag warn">{U.pending}</span>
+							{:else}<span class="tag ok">{U.active}</span>{/if}
+							<span class="twofa" class:need={!u.totpEnabled && u.role === 'admin'}>2FA: {u.totpEnabled ? t.common.yes.toLowerCase() : u.role === 'admin' ? U.required.toLowerCase() : t.common.no.toLowerCase()}</span>
+						</div>
 					</td>
-					<td data-label="2FA">
-						{#if u.totpEnabled}<span class="tag ok">{t.common.yes}</span>
-						{:else if u.role === 'admin'}<span class="tag warn">{U.required}</span>
-						{:else}<span class="tag off">{t.common.no}</span>{/if}
-					</td>
-					<td class="actions">
-						{#if u.id !== data.user.id}
-							{#if !u.activated}
-								<form method="POST" action={act('reinvite')} use:enhance={send()}>
-									<input type="hidden" name="id" value={u.id} /><button class="secondary">{U.newLink}</button>
-								</form>
+					<td class="actions" class:solo={u.id === data.user.id || (u.activated && !u.disabled)}>
+						<div class="acts">
+							{#if u.id !== data.user.id}
+								<!-- Jedna akcja zależna od stanu konta; reszta w menu ⋯. -->
+								{#if !u.activated && !u.disabled}
+									<form method="POST" action={act('reinvite')} use:enhance={send()}>
+										<input type="hidden" name="id" value={u.id} /><button class="secondary"><Icon name="send" weight={2} />{U.newLink}</button>
+									</form>
+								{:else if u.disabled}
+									<form method="POST" action={act('toggle')} use:enhance={send()}>
+										<input type="hidden" name="id" value={u.id} /><button class="secondary"><Icon name="unlock" weight={2} />{U.unblock}</button>
+									</form>
+								{/if}
 							{/if}
-							{#if u.totpEnabled}
-								<form method="POST" action={act('reset2fa')} use:enhance={send({ confirm: () => U.reset2faConfirm(u.name) })}>
-									<input type="hidden" name="id" value={u.id} /><button class="secondary">{U.reset2fa}</button>
-								</form>
-							{/if}
-							{#if u.activated || u.disabled}
-								<form method="POST" action={act('toggle')} use:enhance={send()}>
-									<input type="hidden" name="id" value={u.id} />
-									<button class={u.disabled ? 'secondary' : 'danger'}>{u.disabled ? U.unblock : U.block}</button>
-								</form>
-							{/if}
-							{#if !u.activated}
-								<!-- Nieaktywowane konto nie ma quizów ani plików – można je usunąć (zamiast blokować). -->
-								<form method="POST" action={act('delete')} use:enhance={send({ confirm: () => U.deleteConfirm(u.name, u.email) })}>
-									<input type="hidden" name="id" value={u.id} /><button class="danger">{U.delete}</button>
-								</form>
-							{/if}
-						{/if}
+							<RowMenu label={U.moreFor(u.name)}>
+								<button type="button" onclick={() => (renaming = u.id)}><Icon name="edit" weight={2} />{U.rename}</button>
+								{#if u.id !== data.user.id}
+									{#if !u.activated && u.disabled}
+										<form method="POST" action={act('reinvite')} use:enhance={send()}>
+											<input type="hidden" name="id" value={u.id} /><button><Icon name="send" weight={2} />{U.newLink}</button>
+										</form>
+									{/if}
+									{#if u.totpEnabled}
+										<form method="POST" action={act('reset2fa')} use:enhance={send({ confirm: () => U.reset2faConfirm(u.name) })}>
+											<input type="hidden" name="id" value={u.id} /><button><Icon name="key" weight={2} />{U.reset2fa}</button>
+										</form>
+									{/if}
+									{#if u.activated && !u.disabled}
+										<form method="POST" action={act('toggle')} use:enhance={send({ confirm: () => U.blockConfirm(u.name) })}>
+											<input type="hidden" name="id" value={u.id} /><button><Icon name="lock" weight={2} />{U.block}</button>
+										</form>
+									{/if}
+									{#if !u.activated}
+										<!-- Nieaktywowane konto nie ma quizów ani plików – można je usunąć (zamiast blokować). -->
+										<hr />
+										<form method="POST" action={act('delete')} use:enhance={send({ confirm: () => U.deleteConfirm(u.name, u.email) })}>
+											<input type="hidden" name="id" value={u.id} /><button class="danger"><Icon name="trash" weight={2} />{U.delete}</button>
+										</form>
+									{/if}
+								{/if}
+							</RowMenu>
+						</div>
 					</td>
 				</tr>
 			{/each}
@@ -267,6 +282,7 @@
 
 <style>
 	h2 { margin-top: 0; }
+	.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 	.card { margin-bottom: 1.5rem; }
 	/* Dwa rzędy: imię + e-mail, potem rola (z opisem), język i przycisk. */
 	.invite { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto; grid-template-areas: 'name email email' 'role locale submit' 'hint hint hint'; gap: 1rem; align-items: end; }
@@ -299,16 +315,19 @@
 	.empty p { margin: 0 0 1rem; color: var(--muted); }
 	/* Stałe proporcje kolumn – tabela wygląda tak samo przy jednej i przy wielu osobach. */
 	table { table-layout: fixed; min-width: 50rem; }
-	.c-person { width: auto; } .c-role { width: 10rem; } .c-lang { width: 5.5rem; } .c-status { width: 11rem; } .c-2fa { width: 7rem; } .c-actions { width: 17rem; }
+	.c-person { width: auto; } .c-role { width: 10rem; } .c-lang { width: 5.5rem; } .c-status { width: 11.5rem; } .c-actions { width: 11rem; }
 	td.person { overflow-wrap: anywhere; }
-	tr.off td { opacity: 0.55; }
-	.edit-name { margin-left: 0.35rem; padding: 0.2rem; min-height: 0; vertical-align: middle; color: var(--muted); }
+	td.person .muted { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.status { display: flex; flex-direction: column; align-items: flex-start; gap: 0.25rem; }
+	.twofa { font-size: 0.8rem; color: var(--muted); }
+	.twofa.need { color: #8a5a00; font-weight: 600; }
+	/* Zablokowane konto przygaszone – poza akcjami („Odblokuj” ma być wyraźne). */
+	tr.off td:not(.actions) { opacity: 0.55; }
 	.rename { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
 	.rename input[name='name'] { flex: 1 1 12rem; min-width: 0; min-height: 2.5rem; }
 	.rename button { min-height: 2.5rem; padding: 0.3rem 0.8rem; font-size: 0.9rem; }
-	td.actions { text-align: right; white-space: nowrap; }
-	td.actions :global(form) { display: inline-block; margin-left: 0.4rem; }
-	.actions button { min-height: 2.5rem; padding: 0.3rem 0.8rem; font-size: 0.9rem; }
+	.acts { display: flex; justify-content: flex-end; align-items: center; gap: 0.4rem; }
+	.acts > form > button { min-height: 2.5rem; padding: 0.3rem 0.8rem; font-size: 0.9rem; white-space: nowrap; }
 	td select { width: auto; min-height: 2.5rem; padding: 0.3rem 0.5rem; }
 	@media (max-width: 720px) {
 		.invite { grid-template-columns: 1fr; grid-template-areas: 'name' 'email' 'role' 'hint' 'locale' 'submit'; gap: 1rem; }
@@ -325,11 +344,13 @@
 		.list td[data-label]::before { content: attr(data-label); display: block; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 0.25rem; }
 		.list td.person, .list td.actions { grid-column: 1 / -1; }
 		.list td.person strong { font-size: 1.05rem; }
-		.list td.actions { display: flex; gap: 0.5rem; white-space: normal; }
-		.list td.actions :global(form) { margin: 0; }
-		.list td.actions:empty { display: none; }
-		.list td.actions :global(form) { flex: 1; }
-		.list td.actions button { width: 100%; min-height: 2.75rem; }
+		/* ⋯ w prawym górnym rogu karty; w dolnym rzędzie zostaje tylko akcja zależna od stanu (jeśli jest). */
+		.list tr { position: relative; }
+		.list td.person { padding-right: 3.25rem; }
+		.acts :global(.trigger) { position: absolute; top: 0.75rem; right: 0.75rem; }
+		.list td.actions.solo, .list td.actions.solo .acts { display: contents; }
+		.acts > form { flex: 1; }
+		.acts > form > button { width: 100%; min-height: 2.75rem; }
 		td select { width: 100%; min-height: 2.75rem; }
 		table { table-layout: auto; min-width: 0; }
 		.frow .q { flex-basis: 100%; }

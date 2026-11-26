@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Icon from '#lib/Icon.svelte';
 	import { enhance } from '$app/forms';
 	import { send } from '#lib/forms.js';
 	import BackLink from '#lib/BackLink.svelte';
@@ -25,14 +26,14 @@
 			{#each data.shares as s (s.userId)}
 				<li>
 					<div class="who"><strong>{s.name}</strong> <span class="muted">{s.email}</span></div>
-					<form method="POST" action="?/set" use:enhance={send({ reset: true })} class="row">
+					<form method="POST" action="?/set" use:enhance={send({ reset: true, confirm: (b) => (b?.getAttribute('name') === 'remove' ? S.removeAccessConfirm(s.name) : null) })} class="row">
 						<input type="hidden" name="userId" value={s.userId} />
 						<select name="permission" aria-label={S.permissionFor(s.name)} value={s.permission}
 							onchange={(e) => e.currentTarget.form?.requestSubmit()}>
 							<option value="host">{S.host}</option>
 							<option value="edit">{S.edit}</option>
 						</select>
-						<button type="submit" name="remove" value="1" class="secondary">{S.removeAccess}</button>
+						<button type="submit" name="remove" value="1" class="danger"><Icon name="trash" weight={2} />{S.removeAccess}</button>
 					</form>
 				</li>
 			{/each}

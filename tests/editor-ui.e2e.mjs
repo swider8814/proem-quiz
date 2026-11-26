@@ -35,7 +35,7 @@ try {
 
 	// Pytanie audio
 	await p.selectOption('select[aria-label="Typ nowego pytania"]', 'audio');
-	await p.click('button:has-text("+ Dodaj pytanie")');
+	await p.click('button:has-text("Dodaj pytanie")');
 	await p.setInputFiles('.audio input[type="file"]', mp3);
 	await p.waitForSelector('.audio .play', { timeout: 20000 });
 	await p.waitForFunction(() => !document.querySelector('.wave .loading'), null, { timeout: 15000 });
@@ -59,7 +59,7 @@ try {
 
 	// Pytanie ABCD z obrazkiem i dwiema poprawnymi
 	await p.selectOption('select[aria-label="Typ nowego pytania"]', 'choice');
-	await p.click('button:has-text("+ Dodaj pytanie")');
+	await p.click('button:has-text("Dodaj pytanie")');
 	{
 		// Podpowiedź znika po kliknięciu w pole (nie wygląda jak wpisany tekst)
 		const prompt = p.locator('input[placeholder^="np. Jaka jest stolica"]');
@@ -81,18 +81,18 @@ try {
 
 	// Prawda / fałsz
 	await p.selectOption('select[aria-label="Typ nowego pytania"]', 'truefalse');
-	await p.click('button:has-text("+ Dodaj pytanie")');
+	await p.click('button:has-text("Dodaj pytanie")');
 	await p.fill('input[placeholder^="np. Jaka jest stolica"]', 'Mikołaj ma renifery');
 	// Tekst
 	await p.selectOption('select[aria-label="Typ nowego pytania"]', 'text');
-	await p.click('button:has-text("+ Dodaj pytanie")');
+	await p.click('button:has-text("Dodaj pytanie")');
 	await p.fill('input[placeholder^="np. Jaka jest stolica"]', 'Jak ma na imię renifer z czerwonym nosem?');
 	await p.fill('input[aria-label="Akceptowana odpowiedź 1"]', 'Rudolf');
-	await p.click('button:has-text("+ dodaj wariant")');
+	await p.click('button:has-text("dodaj wariant")');
 	await p.fill('input[aria-label="Akceptowana odpowiedź 2"]', 'Rudolph');
 	// Kolejność
 	await p.selectOption('select[aria-label="Typ nowego pytania"]', 'order');
-	await p.click('button:has-text("+ Dodaj pytanie")');
+	await p.click('button:has-text("Dodaj pytanie")');
 	await p.fill('input[placeholder^="np. Jaka jest stolica"]', 'Ułóż zdanie');
 	for (const [i, w] of ['I', 'love', 'Christmas'].entries()) await p.fill(`input[aria-label="Element ${i + 1}"]`, w);
 
@@ -194,13 +194,33 @@ try {
 	await p.click('.chip >> text=Wszystkie');
 	await p.waitForURL(/\/panel$/);
 	const fid = await p.$eval('.chip.folder', (a) => new URL(a.href).searchParams.get('f'));
-	await p.click('.list li >> nth=0 >> details.more summary');
-	await p.selectOption('.list li >> nth=0 >> select[name=folder]', fid);
+	// Karta przy :hover ma transform – menu (position: fixed) musi i tak otworzyć się przy przycisku ⋯.
+	await p.hover('.list li >> nth=0');
+	await p.click('.list li >> nth=0 >> button.trigger');
+	ok(await p.isVisible('.pop:not([hidden])'), 'menu „Więcej” otwarte');
+	await p.waitForTimeout(250); // po animacji otwierania
+	const [tb, pb] = [await p.locator('.list li >> nth=0 >> button.trigger').boundingBox(), await p.locator('.pop:not([hidden])').boundingBox()];
+	const gap = Math.min(Math.abs(pb.y - (tb.y + tb.height)), Math.abs(tb.y - (pb.y + pb.height)));
+	ok(gap <= 12 && Math.abs(pb.x + pb.width - (tb.x + tb.width)) <= 12, `menu przy przycisku ⋯ mimo transform karty (odstęp ${Math.round(gap)} px)`);
+	await p.keyboard.press('Escape');
+	ok(!(await p.isVisible('.pop:not([hidden])')), 'Escape zamyka menu „Więcej”');
+	// Niski ekran (telefon w poziomie, duże powiększenie): menu mieści się w oknie i przewija w środku.
+	const vp = p.viewportSize();
+	await p.setViewportSize({ width: vp.width, height: 300 });
+	await p.locator('.list li >> nth=0 >> button.trigger').scrollIntoViewIfNeeded();
+	await p.click('.list li >> nth=0 >> button.trigger');
+	await p.waitForTimeout(250);
+	const low = await p.locator('.pop:not([hidden])').evaluate((el) => { const b = el.getBoundingClientRect(); return { t: b.top, b: b.bottom, vh: innerHeight, scroll: el.scrollHeight > el.clientHeight, oy: getComputedStyle(el).overflowY }; });
+	ok(low.t >= 0 && low.b <= low.vh, `niski ekran: menu w całości w oknie (${Math.round(low.t)}–${Math.round(low.b)} z ${low.vh})`);
+	ok(!low.scroll || low.oy === 'auto', 'niski ekran: za wysokie menu przewija się w środku');
+	await p.keyboard.press('Escape');
+	await p.setViewportSize(vp);
+	ok(await p.evaluate(() => document.activeElement?.classList.contains('trigger')), 'po Escape fokus wraca na przycisk ⋯');
+	await p.click('.list li >> nth=0 >> button.trigger');
+	await p.selectOption('.pop:not([hidden]) select[name=folder]', fid);
 	await p.waitForFunction(() => document.querySelector('.chip.folder span')?.textContent === '1');
 	ok(/\/panel$/.test(p.url()), 'przeniesienie do folderu bez zmiany widoku listy');
-	// Menu „Więcej” otwiera się w górę i może przykryć zakładki (zwłaszcza gdy „Bez folderu” właśnie zniknęło) – Escape je zamyka.
-	await p.keyboard.press('Escape');
-	ok((await p.$$('details.more[open]')).length === 0, 'Escape zamyka menu „Więcej”');
+	ok((await p.$$('.pop:not([hidden])')).length === 0, 'menu zamyka się po przeniesieniu do folderu');
 	await p.click('.chip.folder');
 	await p.waitForURL(/f=fld_/);
 	ok((await p.$$('.list li')).length === 1, 'quiz widoczny w folderze');

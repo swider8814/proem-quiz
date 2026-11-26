@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { send } from '#lib/forms.js';
+	import Icon from '#lib/Icon.svelte';
 	import BackLink from '#lib/BackLink.svelte';
 	import { panelDict } from '#lib/i18n/panel.js';
 	let { data } = $props();
@@ -28,10 +29,10 @@
 <p class="muted">{fmt(data.report.endedAt)} · {R.players(d.players.length)} · {R.duration}: {R.minutes(minutes)}</p>
 
 <div class="actions">
-	<a class="btn" href="/panel/quizzes/{data.quizId}/reports/{data.report.id}/csv" download>{R.download}</a>
+	<a class="btn" href="/panel/quizzes/{data.quizId}/reports/{data.report.id}/csv" download><Icon name="download" weight={2} />{R.download}</a>
 	{#if data.canDelete}
 		<form method="POST" action="?/delete" use:enhance={send({ confirm: () => R.removeConfirm })}>
-			<button class="secondary">{R.remove}</button>
+			<button class="danger"><Icon name="trash" weight={2} />{R.remove}</button>
 		</form>
 	{/if}
 </div>
