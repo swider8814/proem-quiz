@@ -184,6 +184,12 @@ try {
 	ok(/Ustawienia/.test(menuItems) && /Raporty/.test(menuItems), `telefon: menu ⋯ ma ustawienia i raporty (${menuItems.replace(/\s+/g, ' ')})`);
 	await m.click('.pop:not([hidden]) button:has-text("Ustawienia")');
 	ok(await m.isVisible('fieldset.settings'), 'telefon: „Ustawienia” z menu otwierają ustawienia quizu');
+	// Obrót tabletu / szersze okno przy otwartym menu: przycisk ⋯ znika, więc menu też (nie zostaje na wierzchu).
+	await m.click('.more-narrow .trigger');
+	await m.setViewportSize({ width: 1024, height: 768 });
+	await m.waitForTimeout(150);
+	ok((await m.locator('.pop:not([hidden])').count()) === 0, 'po poszerzeniu ekranu ponad breakpoint otwarte menu ⋯ się zamyka');
+	await m.setViewportSize({ width: 390, height: 844 });
 	// Stan hover (na iOS zostaje po dotknięciu): „Zapisano” i „Uruchom grę” dalej czytelne.
 	for (const sel of ['.bar .save', '.bar .start']) {
 		await m.hover(sel);
