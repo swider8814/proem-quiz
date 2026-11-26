@@ -65,5 +65,19 @@ ok(threw && pending() === 0 && sessions() === 0, 'błąd zapisu pliku: unieważn
 fs.rmSync(`${counter}.tmp`, { recursive: true, force: true });
 ok(!guardRestoredDb().restored, 'po naprawie: kolejny start nie unieważnia ponownie');
 
+// Nieczytelny albo uszkodzony licznik to NIE pierwszy start – start przerwany, ślad nie nadpisany (review Codexa).
+const saved = fs.readFileSync(counter, 'utf8');
+fs.writeFileSync(counter, 'xyz');
+let bad = false;
+try { guardRestoredDb(); } catch { bad = true; }
+ok(bad && fs.readFileSync(counter, 'utf8') === 'xyz', 'uszkodzony plik licznika: start przerwany, plik nie nadpisany');
+fs.rmSync(counter);
+fs.mkdirSync(counter); // odczyt się nie uda (EISDIR), ale nie jest to brak pliku
+let unreadable = false;
+try { guardRestoredDb(); } catch { unreadable = true; }
+ok(unreadable, 'nieczytelny licznik (błąd inny niż brak pliku): start przerwany');
+fs.rmSync(counter, { recursive: true });
+fs.writeFileSync(counter, saved);
+
 fs.rmSync(dir, { recursive: true, force: true });
 process.exit(finish() ? 1 : 0);

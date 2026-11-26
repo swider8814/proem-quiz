@@ -18,11 +18,17 @@ const KEY = 'db_generation';
 export function guardRestoredDb(): { restored: boolean; sessions: number; links: number } {
 	const file = path.join(dataDir, 'db-generation');
 	let onDisk: number | null = null;
+	let raw: string | null = null;
 	try {
-		const n = Number(fs.readFileSync(file, 'utf8').trim());
-		if (Number.isInteger(n) && n >= 0) onDisk = n;
-	} catch {
-		/* brak pliku – pierwszy start */
+		raw = fs.readFileSync(file, 'utf8').trim();
+	} catch (e) {
+		// Tylko BRAK pliku oznacza pierwszy start. Inny błąd odczytu (uprawnienia, katalog zamiast pliku)
+		// przerywa start – inaczej odtworzona baza nie zostałaby wykryta, a ślad nadpisany.
+		if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
+	}
+	if (raw !== null) {
+		if (!/^\d+$/.test(raw)) throw new Error(`Nieprawidłowa zawartość ${file} – nie da się sprawdzić, czy baza nie jest odtworzoną kopią`);
+		onDisk = Number(raw);
 	}
 	// Najpierw baza (unieważnienie + nowy licznik) w jednej transakcji – jej błąd przerywa start aplikacji.
 	const result = db.transaction((tx) => {
