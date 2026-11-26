@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { tick } from 'svelte';
 	import { send } from '#lib/forms.js';
 	import Icon from '#lib/Icon.svelte';
 	import RowMenu from '#lib/RowMenu.svelte';
@@ -25,6 +26,21 @@
 		return s ? `?${s}&/${name}` : `?/${name}`;
 	};
 	let newFolderOpen = $state(false);
+	// Telefon: pole nowego quizu i wyszukiwarka chowają się pod ikonami przy nagłówku „Quizy”.
+	let createOpen = $state(false);
+	// svelte-ignore state_referenced_locally
+	let searchOpen = $state(!!data.query);
+	const empty = $derived(data.total === 0 && data.folders.length === 0);
+	let newTitle: HTMLInputElement | undefined = $state();
+	let searchInput: HTMLInputElement | undefined = $state();
+	/** Rozwija pole (telefon) i od razu stawia w nim kursor, żeby można było pisać. */
+	async function reveal(which: 'create' | 'search') {
+		if (which === 'create') createOpen = !createOpen;
+		else searchOpen = !searchOpen;
+		await tick();
+		if (which === 'create' && createOpen) newTitle?.focus();
+		if (which === 'search' && searchOpen) searchInput?.focus();
+	}
 	let renaming = $state(false);
 
 </script>
@@ -33,9 +49,16 @@
 
 <div class="head">
 	<h1>{t.list.title}</h1>
-	<form method="POST" action="?/create" class="new" use:enhance={send()}>
+	<!-- Tylko telefon: lupa i plus rozwijają wyszukiwarkę i pole nowego quizu (na szerokim ekranie są widoczne zawsze). -->
+	<div class="head-tools">
+		{#if !empty}
+			<button type="button" class="secondary" class:on={searchOpen} aria-label={t.list.search} title={t.list.search} aria-expanded={searchOpen} aria-controls="list-search" onclick={() => reveal('search')}><Icon name="search" weight={2} /></button>
+		{/if}
+		{#if !empty}<button type="button" class:on={createOpen} aria-label={t.list.create} title={t.list.create} aria-expanded={createOpen} aria-controls="list-new" onclick={() => reveal('create')}><Icon name="plus" weight={2.25} /></button>{/if}
+	</div>
+	<form method="POST" action="?/create" class="new" class:open={createOpen || empty} id="list-new" use:enhance={send()}>
 		{#if current}<input type="hidden" name="folder" value={current.id} />{/if}
-		<input name="title" type="text" placeholder={t.list.newTitle} aria-label={t.list.newTitle} required maxlength="120" />
+		<input bind:this={newTitle} name="title" type="text" placeholder={t.list.newTitle} aria-label={t.list.newTitle} required maxlength="120" />
 		<button><Icon name="plus" weight={2} />{t.list.create}</button>
 	</form>
 </div>
@@ -66,15 +89,15 @@
 					<button type="button" class="secondary" aria-label={t.common.cancel ?? 'OK'} onclick={() => (newFolderOpen = false)}><Icon name="close" /></button>
 				</form>
 			{:else}
-				<button type="button" class="chip add" onclick={() => (newFolderOpen = true)}><Icon name="plus" weight={2} />{t.list.newFolder}</button>
+				<button type="button" class="chip add" title={t.list.newFolder} onclick={() => (newFolderOpen = true)}><Icon name="folderPlus" weight={2} /><span class="add-lbl">{t.list.newFolder}</span></button>
 			{/if}
 		</nav>
 
-		<form method="GET" action="/panel" class="search">
+		<form method="GET" action="/panel" class="search" class:open={searchOpen} id="list-search">
 			{#if data.folder !== 'all'}<input type="hidden" name="f" value={data.folder} />{/if}
-			<input name="q" type="search" value={data.query} placeholder={t.list.search} aria-label={t.list.search} maxlength="100" />
-			<button class="secondary">{t.list.searchBtn}</button>
-			{#if data.query}<a class="btn secondary" href={href({ q: '', p: 1 })}>{t.list.clearSearch}</a>{/if}
+			<input bind:this={searchInput} name="q" type="search" value={data.query} placeholder={t.list.search} aria-label={t.list.search} maxlength="100" />
+			<button class="secondary" title={t.list.searchBtn}><Icon name="search" weight={2} /><span class="lbl">{t.list.searchBtn}</span></button>
+			{#if data.query}<a class="btn secondary" href={href({ q: '', p: 1 })} title={t.list.clearSearch}><Icon name="close" weight={2} /><span class="lbl">{t.list.clearSearch}</span></a>{/if}
 		</form>
 	</div>
 
@@ -200,4 +223,25 @@
 	.move-lbl { display: flex; align-items: center; gap: 0.65rem; font-weight: 500; }
 	.empty { text-align: center; padding: 2.5rem; }
 	.pager { display: flex; align-items: center; justify-content: center; gap: 1rem; margin-top: 1.5rem; flex-wrap: wrap; }
+	.head-tools { display: none; }
+	/* Telefon: „Quizy” + lupa + plus w jednym rzędzie; pola rozwijane; filtry w jednym rzędzie przewijanym w bok. */
+	@media (max-width: 720px) {
+		.head { flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1rem; }
+		.head h1 { flex: 1; margin: 0; }
+		.head-tools { display: flex; gap: 0.5rem; }
+		.head-tools button { width: 44px; min-height: 44px; padding: 0; flex: none; }
+		.head-tools button.secondary.on, .head-tools button.secondary.on:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); color: #fff; }
+		.new:not(.open), .search:not(.open) { display: none; }
+		/* Siatka z kolumną minmax(0, 1fr): długi rząd filtrów nie rozpycha strony w bok. */
+		.filters { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.75rem; }
+		.search { order: -1; flex-wrap: nowrap; }
+		.search input { min-width: 0; }
+		.search > .secondary { width: 44px; padding: 0; flex: none; justify-content: center; }
+		.search .lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+		.folders { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-inline: -1rem; padding-inline: 1rem; flex: none; }
+		.folders::-webkit-scrollbar { display: none; }
+		.folders > * { flex: none; }
+		.chip.add { width: 2.25rem; padding: 0; justify-content: center; }
+		.add-lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+	}
 </style>

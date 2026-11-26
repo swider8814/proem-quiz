@@ -67,6 +67,8 @@ try {
 
 		// 4. Nowy quiz: akcja z przekierowaniem (Post/Redirect/Get) prowadzi do edytora zwykłym adresem.
 		await p.goto(`${srv.base}/panel`);
+		// Telefon: przy niepustej liście pole nowego quizu rozwija „+” przy nagłówku.
+		if (await p.isVisible('.head-tools button[aria-controls="list-new"]')) await p.click('.head-tools button[aria-controls="list-new"]');
 		await p.fill('form.new input[name="title"]', `Quiz ${s.name}`);
 		await Promise.all([p.waitForURL(/\/panel\/quizzes\/[^/?]+$/), p.click('form.new button')]);
 		ok((await reloadMethod(p)) === 'GET', `${s.name}: odświeżenie edytora po utworzeniu quizu = GET`);
