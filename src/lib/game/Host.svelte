@@ -16,7 +16,7 @@
 	import { fly, scale } from 'svelte/transition';
 	import { backOut } from 'svelte/easing';
 	import { Music, playPodium, type MusicKind, type PodiumSound } from './sounds.js';
-	import { ask, gameSocket, keepAwake, remaining } from './client.js';
+	import { ask, canFullscreen, gameSocket, keepAwake, remaining, toggleFullscreen } from './client.js';
 	import { t } from './i18n.js';
 	import { logoFor, shapeColor, themeVars, type GameTheme } from './theme.js';
 
@@ -335,6 +335,7 @@
 	}
 
 	onMount(() => {
+		fsAvailable = canFullscreen();
 		if (typeof BroadcastChannel !== 'undefined') {
 			channel = new BroadcastChannel(channelName);
 			channel.onmessage = onChannel;
@@ -428,10 +429,9 @@
 		}
 	}
 
-	function fullscreen() {
-		if (document.fullscreenElement) document.exitFullscreen();
-		else document.documentElement.requestFullscreen?.().catch(() => {});
-	}
+	// Przycisk „Pełny ekran” tylko tam, gdzie przeglądarka na to pozwala (nie ma go np. na iPhonie).
+	let fsAvailable = $state(false);
+	const fullscreen = () => toggleFullscreen();
 
 	function onKey(e: KeyboardEvent) {
 		if (!isScreen) music.resume();
@@ -754,7 +754,7 @@
 			{#if hs.settings.music && hs.settings.music !== 'none'}
 				<button class="g-btn ghost tool" onclick={toggleMusic} aria-pressed={!musicOff}><Icon name="music" /> {musicOff ? PH.musicOn : PH.musicOff}</button>
 			{/if}
-			<button class="g-btn ghost tool" onclick={fullscreen} title="F"><Icon name="fullscreen" /> {L.fullscreen}</button>
+			{#if fsAvailable}<button class="g-btn ghost tool" onclick={fullscreen} title="F"><Icon name="fullscreen" /> {L.fullscreen}</button>{/if}
 			<span class="spacer"></span>
 			{#if hs.state === 'ended'}
 				<a class="g-btn ghost tool" href="/panel/quizzes/{quizId}/reports" target="_blank" rel="noopener">{PH.report}</a>
