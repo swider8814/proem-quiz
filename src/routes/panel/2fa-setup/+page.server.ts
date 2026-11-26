@@ -81,7 +81,11 @@ export const actions: Actions = {
 			if (e instanceof BusyError) return fail(503, { error: t.err.busy });
 			throw e;
 		}
-		const res = await enableTotp(user, secret, code, { ip: clientIp(event), userAgent: request.headers.get('user-agent') ?? undefined });
+		const res = await enableTotp(user, locals.session!.id, secret, code, { ip: clientIp(event), userAgent: request.headers.get('user-agent') ?? undefined });
+		if (res === 'stale') {
+			cookies.delete(COOKIE, { path: cookieOpts.path });
+			return fail(409, { error: t.err.setupExpired });
+		}
 		if (!res) {
 			return fail(400, { error: t.err.codeMismatch });
 		}
