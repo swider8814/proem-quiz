@@ -463,7 +463,10 @@ const pl = {
 		fNo2fa: 'Administratorzy bez 2FA',
 		shown: (n: number, total: number) => `Pokazano ${n} z ${total}`,
 		noMatch: 'Brak osób dla tych filtrów.',
-		clearFilters: 'Wyczyść filtry'
+		clearFilters: 'Wyczyść filtry',
+		delete: 'Usuń',
+		deleteConfirm: (n: string, e: string) => `Usunąć konto ${n} (${e})? Link z zaproszenia przestanie działać. Tej operacji nie da się cofnąć.`,
+		deleted: (n: string) => `${n}: konto usunięte.`
 	},
 	themes: {
 		title: 'Motywy',
@@ -584,6 +587,8 @@ const pl = {
 		accountExists: 'Konto z tym adresem już istnieje.',
 		giveName: 'Podaj imię i nazwisko.',
 		alreadyActive: 'To konto jest już aktywne.',
+		ownDelete: 'Nie możesz usunąć własnego konta.',
+		onlyPendingDelete: 'Usunąć można tylko konto, które nie zostało aktywowane. Aktywne konto zablokuj.',
 		ownRole: 'Nie możesz zmienić własnej roli.',
 		ownBlock: 'Nie możesz zablokować własnego konta.',
 		own2fa: 'Własnej weryfikacji nie resetujesz tutaj – użyj „Bezpieczeństwo”.',
@@ -1089,7 +1094,10 @@ const en: PanelDict = {
 		fNo2fa: 'Admins without 2FA',
 		shown: (n: number, total: number) => `Showing ${n} of ${total}`,
 		noMatch: 'No people match these filters.',
-		clearFilters: 'Clear filters'
+		clearFilters: 'Clear filters',
+		delete: 'Delete',
+		deleteConfirm: (n: string, e: string) => `Delete the account of ${n} (${e})? The invitation link will stop working. This can’t be undone.`,
+		deleted: (n: string) => `${n}: account deleted.`
 	},
 	themes: {
 		title: 'Themes',
@@ -1209,6 +1217,8 @@ const en: PanelDict = {
 		accountExists: 'An account with this address already exists.',
 		giveName: 'Enter a full name.',
 		alreadyActive: 'This account is already active.',
+		ownDelete: 'You can’t delete your own account.',
+		onlyPendingDelete: 'Only an account that was never activated can be deleted. Block an active account instead.',
 		ownRole: 'You can’t change your own role.',
 		ownBlock: 'You can’t block your own account.',
 		own2fa: 'Reset your own verification in “Security”, not here.',
