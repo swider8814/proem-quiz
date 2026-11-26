@@ -243,6 +243,8 @@ for (const cd of [0, 3]) {
 	ok(jr.error === 'nick-blocked', 'drużyna: niecenzuralne imię członka odrzucone');
 	jr = await emit(ta, 'join', { pin: g.pin, nick: 'Stolik 1', deviceId: 'team1', members: ['Ala', '  Ola ', { x: 1 }, 'B'.repeat(500), '', 'Jan', 'Ewa', 'Iza', 'Kuba', 'Zosia'] });
 	ok(jr.ok, 'drużyna dołączyła z członkami');
+	const tb = mk();
+	ok((await emit(tb, 'join', { pin: g.pin, nick: 'Stolik 2', deviceId: 'team2', members: ['Basia'] })).ok, 'druga drużyna dołączyła');
 	await sleep(100);
 	const tm = hostSt.players?.find((p) => p.nick === 'Stolik 1')?.members ?? [];
 	ok(JSON.stringify(tm) === JSON.stringify(['Ala', 'Ola', 'Jan', 'Ewa', 'Iza', 'Kuba']), `członkowie oczyszczeni i ograniczeni do 6: ${tm}`);
@@ -257,9 +259,14 @@ for (const cd of [0, 3]) {
 	gg.onEnd = (r) => (rep = r);
 	await emit(h, 'host:end', {});
 	await sleep(50);
-	ok(rep && rep.data.players.length === 1 && !JSON.stringify(rep).includes('Ala') && !('members' in rep.data.players[0]), 'raport drużyny bez imion członków');
+	ok(rep && rep.data.players.length === 2 && !JSON.stringify(rep).includes('Ala') && !rep.data.players.some((p) => 'members' in p), 'raport drużyny bez imion członków');
+	// Ranking na telefon: imiona członków innych drużyn nie trafiają na cudze telefony
+	const teamA = gg.activePlayers().find((p) => p.nick === 'Stolik 1');
+	const rows = JSON.stringify(gg.fullRanking(teamA));
+	ok(rows.includes('Stolik 2') && !rows.includes('Basia') && !rows.includes('Ala'), 'ranking na telefon: bez imion członków drużyn');
 	h.close();
 	ta.close();
+	tb.close();
 }
 
 // Ankieta, suwak i slajd

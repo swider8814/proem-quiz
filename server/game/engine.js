@@ -469,9 +469,13 @@ export class Game {
 
 	// ── Widoki stanu (co kto widzi) ─────────────────────────────────────
 
-	/** Wiersz rankingu dla telefonu gracza: bez identyfikatorów innych graczy, z flagą „to ja”. */
+	/**
+	 * Wiersz rankingu dla telefonu gracza: bez identyfikatorów i bez imion członków drużyn
+	 * (dane dzieci – na cudzy telefon trafia tylko nick, awatar, wynik i miejsce). Własna drużyna
+	 * ma swoich członków w `me.members`; prowadzący widzi pełny ranking w osobnym widoku.
+	 */
 	publicRow(r, p) {
-		return { nick: r.nick, avatar: r.avatar, score: r.score, rank: r.rank, ...(r.members ? { members: r.members } : {}), ...(r.id === p.id ? { me: true } : {}) };
+		return { nick: r.nick, avatar: r.avatar, score: r.score, rank: r.rank, ...(r.id === p.id ? { me: true } : {}) };
 	}
 
 	/** Pełny ranking na telefon gracza (po zakończeniu gry, na żądanie „Pokaż wszystkich”). */
