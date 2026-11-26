@@ -202,6 +202,21 @@ try {
 	const [tb, pb] = [await p.locator('.list li >> nth=0 >> button.trigger').boundingBox(), await p.locator('.pop:not([hidden])').boundingBox()];
 	const gap = Math.min(Math.abs(pb.y - (tb.y + tb.height)), Math.abs(tb.y - (pb.y + pb.height)));
 	ok(gap <= 12 && Math.abs(pb.x + pb.width - (tb.x + tb.width)) <= 12, `menu przy przycisku ⋯ mimo transform karty (odstęp ${Math.round(gap)} px)`);
+	// Pozycje menu (link „Raporty” i przyciski formularzy) mają tę samą wysokość, ikona i tekst wyśrodkowane.
+	const items = await p.locator('.pop:not([hidden])').evaluate((el) => [...el.querySelectorAll(':scope > a, :scope > form > button')].map((b) => {
+		const r = b.getBoundingClientRect(), ic = b.querySelector('svg').getBoundingClientRect();
+		return { h: Math.round(r.height), off: Math.abs(ic.top + ic.height / 2 - (r.top + r.height / 2)) };
+	}));
+	ok(new Set(items.map((i) => i.h)).size === 1, `pozycje menu równej wysokości (${items.map((i) => i.h).join(', ')})`);
+	ok(items.every((i) => i.off <= 2), 'ikony w menu wyśrodkowane w pionie');
+	// Mysz wciąż nad ⋯ (jak „przyklejony” hover po dotknięciu na iOS): kropki muszą być widoczne na tle.
+	await p.hover('.list li >> nth=0 >> button.trigger');
+	const contrast = await p.locator('.list li >> nth=0 >> button.trigger').evaluate((b) => {
+		const lum = (c) => { const [r, g, bl] = c.match(/\d+(\.\d+)?/g).slice(0, 3).map(Number).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * bl; };
+		const s = getComputedStyle(b), [a, c] = [lum(s.color), lum(s.backgroundColor)].sort((x, y) => y - x);
+		return (a + 0.05) / (c + 0.05);
+	});
+	ok(contrast >= 3, `otwarty ⋯ przy hover: kropki widoczne (kontrast ${contrast.toFixed(1)}:1)`);
 	await p.keyboard.press('Escape');
 	ok(!(await p.isVisible('.pop:not([hidden])')), 'Escape zamyka menu „Więcej”');
 	// Niski ekran (telefon w poziomie, duże powiększenie): menu mieści się w oknie i przewija w środku.

@@ -119,12 +119,14 @@
 
 <style>
 	.trigger { width: 2.5rem; min-height: 2.5rem; padding: 0; flex: none; font-size: 1.15rem; }
-	.trigger.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+	/* Także przy :hover – iOS zostawia hover po dotknięciu, a jasne tło ukrywało białe kropki. */
+	.trigger.on, .trigger.on:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); color: #fff; }
 	.pop { position: fixed; z-index: 60; min-width: 13rem; max-width: calc(100vw - 1rem); box-sizing: border-box; display: flex; flex-direction: column; padding: 0.35rem; background: #fff; border: 1px solid var(--line-strong); border-radius: 0.75rem; box-shadow: 0 12px 32px rgba(27, 31, 59, 0.18); overflow-y: auto; overscroll-behavior: contain; text-align: left; white-space: normal; transform-origin: top right; animation: pop-in var(--dur-fast) var(--ease-out); }
 	.pop[hidden] { display: none; }
 	.pop.up { transform-origin: bottom right; }
 	.pop :global(form) { display: block; margin: 0; }
-	.pop :global(a), .pop :global(button) { display: flex; width: 100%; justify-content: flex-start; gap: 0.65rem; min-height: 2.5rem; padding: 0.4rem 0.7rem; border: 0; border-radius: 0.5rem; background: none; color: var(--text); font-size: 0.95rem; font-weight: 500; text-align: left; text-decoration: none; white-space: nowrap; }
+	/* box-sizing: link (<a>) ma domyślnie content-box i z paddingiem był wyższy od przycisków. */
+	.pop :global(a), .pop :global(button) { box-sizing: border-box; display: flex; width: 100%; align-items: center; justify-content: flex-start; gap: 0.65rem; line-height: 1.25; min-height: 2.5rem; padding: 0.4rem 0.7rem; border: 0; border-radius: 0.5rem; background: none; color: var(--text); font-size: 0.95rem; font-weight: 500; text-align: left; text-decoration: none; white-space: nowrap; }
 	.pop :global(a:hover), .pop :global(button:hover:not(:disabled)) { background: var(--soft); filter: none; }
 	.pop :global(button.danger) { color: var(--danger); }
 	.pop :global(button.danger:hover:not(:disabled)) { background: #fdf1f3; }
