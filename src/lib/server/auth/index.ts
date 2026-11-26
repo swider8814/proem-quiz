@@ -216,8 +216,18 @@ export async function verifyUserTotp(user: User, code: string): Promise<boolean>
 /**
  * Włącza (lub zmienia) TOTP po poprawnym kodzie. Wszystkie sesje użytkownika są usuwane,
  * a osoba kończąca konfigurację dostaje nową, pełną sesję. Zwraca kody zapasowe (pokazywane raz).
+ *
+ * `user` i `sessionId` to stan z chwili rozpoczęcia żądania. Jeśli w trakcie (asynchroniczne sprawdzanie
+ * kodu i hasła) inna konfiguracja albo reset 2FA zmieniły konto lub usunęły tę sesję, zwraca 'stale'
+ * i niczego nie zapisuje – starsza operacja nie nadpisze sekretu ani kodów zapasowych nowszej.
  */
-export async function enableTotp(user: User, secret: string, code: string, meta: { ip?: string; userAgent?: string }) {
+export async function enableTotp(
+	user: User,
+	sessionId: string,
+	secret: string,
+	code: string,
+	meta: { ip?: string; userAgent?: string }
+): Promise<{ codes: string[]; token: string; session: Session } | 'stale' | null> {
 	const step = await checkTotp(secret, code);
 	if (step === null) return null;
 	const codes = Array.from({ length: 10 }, () => {
@@ -227,6 +237,12 @@ export async function enableTotp(user: User, secret: string, code: string, meta:
 	return db.transaction(() => {
 		const fresh = getUser(user.id);
 		if (!fresh || fresh.disabled) return null;
+		const live = db
+			.select({ id: schema.sessions.id })
+			.from(schema.sessions)
+			.where(and(eq(schema.sessions.id, sessionId), eq(schema.sessions.userId, user.id)))
+			.get();
+		if (!live || fresh.totpSecret !== user.totpSecret || fresh.totpEnabled !== user.totpEnabled) return 'stale';
 		db.update(schema.users)
 			.set({ totpSecret: encrypt(secret), totpEnabled: true, totpLastStep: step })
 			.where(eq(schema.users.id, user.id))
