@@ -32,9 +32,6 @@ export const IP_LIMIT = { max: 30, windowMs: 15 * 60 * 1000 };
 export const MFA_LIMIT = { max: 5, windowMs: 10 * 60 * 1000 };
 export const UPLOAD_LIMIT = { max: 60, windowMs: 60 * 60 * 1000 };
 
-/** Tylko dla testów. */
-export const _resetAll = () => buckets.clear();
-
 /** Oddaje jedną zarezerwowaną próbę (np. udane logowanie nie obciąża limitu IP). */
 export function refund(key: string) {
 	const b = buckets.get(key);

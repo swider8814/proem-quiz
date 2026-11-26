@@ -378,5 +378,5 @@ function playerConnection(socket, games) {
 	});
 }
 
-/** Tylko dla testów. */
+/** Tylko dla testów (tests/engine.test.mjs – limity zgadywania PIN-ów). */
 export const _resetLimits = () => buckets.clear();
