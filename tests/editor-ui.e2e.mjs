@@ -119,6 +119,9 @@ try {
 	await p.keyboard.press('Control+s');
 	await p.waitForFunction(() => /Zapisano/.test(document.querySelector('.status')?.textContent ?? ''), null, { timeout: 30000 });
 	ok(true, 'zapis Ctrl+S (z wycięciem fragmentu audio)');
+	await p.waitForTimeout(300); // po przejściu koloru (transition)
+	const savedBtn = await p.locator('.bar .save').evaluate((b) => ({ text: b.textContent.trim(), bg: getComputedStyle(b).backgroundColor }));
+	ok(/Zapisano/.test(savedBtn.text) && savedBtn.bg === 'rgb(239, 250, 243)', `po zapisie przycisk „✓ Zapisano” na zielonym tle (${JSON.stringify(savedBtn)})`);
 	await snap(p, 'ed-02-zapisane');
 
 	// Po odświeżeniu wszystko jest
@@ -165,6 +168,38 @@ try {
 	});
 	ok(!overflow, 'edytor na telefonie bez poziomego przewijania');
 	await snap(m, 'ed-03-telefon');
+	// Nagłówek na telefonie: rząd 1 – wróć, tytuł, ⋯; rząd 2 – Zapisz i Uruchom grę po połowie.
+	const head = await m.evaluate(() => {
+		const r = (s) => document.querySelector(s).getBoundingClientRect();
+		const [back, title, more, save, start] = ['.bar .back', '.bar .title-wrap', '.more-narrow .trigger', '.bar .save', '.bar .start'].map(r);
+		const mid = (b) => b.top + b.height / 2;
+		return { row1: Math.max(Math.abs(mid(back) - mid(title)), Math.abs(mid(more) - mid(title))), row2: Math.abs(mid(save) - mid(start)), widths: [Math.round(save.width), Math.round(start.width)], below: save.top >= title.bottom, bar: Math.round(document.querySelector('.bar').getBoundingClientRect().height) };
+	});
+	ok(head.row1 <= 2 && head.row2 <= 2 && head.below && Math.abs(head.widths[0] - head.widths[1]) <= 2, `telefon: nagłówek w dwóch rzędach ${JSON.stringify(head)}`);
+	ok(head.bar <= 140, `telefon: nagłówek edytora niski (${head.bar} px)`);
+	ok(/Zapisano/.test(await m.textContent('.bar .save')), 'telefon: przycisk zapisu pokazuje „Zapisano”, gdy nie ma zmian');
+	ok(!(await m.isVisible('.bar-actions .wide')), 'telefon: ustawienia/udostępnianie/raporty nie w pasku, tylko w menu ⋯');
+	await m.click('.more-narrow .trigger');
+	const menuItems = await m.locator('.pop:not([hidden])').innerText();
+	ok(/Ustawienia/.test(menuItems) && /Raporty/.test(menuItems), `telefon: menu ⋯ ma ustawienia i raporty (${menuItems.replace(/\s+/g, ' ')})`);
+	await m.click('.pop:not([hidden]) button:has-text("Ustawienia")');
+	ok(await m.isVisible('fieldset.settings'), 'telefon: „Ustawienia” z menu otwierają ustawienia quizu');
+	// Obrót tabletu / szersze okno przy otwartym menu: przycisk ⋯ znika, więc menu też (nie zostaje na wierzchu).
+	await m.click('.more-narrow .trigger');
+	await m.setViewportSize({ width: 1024, height: 768 });
+	await m.waitForTimeout(150);
+	ok((await m.locator('.pop:not([hidden])').count()) === 0, 'po poszerzeniu ekranu ponad breakpoint otwarte menu ⋯ się zamyka');
+	await m.setViewportSize({ width: 390, height: 844 });
+	// Stan hover (na iOS zostaje po dotknięciu): „Zapisano” i „Uruchom grę” dalej czytelne.
+	for (const sel of ['.bar .save', '.bar .start']) {
+		await m.hover(sel);
+		const c = await m.locator(sel).evaluate((b) => {
+			const lum = (c) => { const [r, g, bl] = c.match(/\d+(\.\d+)?/g).slice(0, 3).map(Number).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * bl; };
+			const st = getComputedStyle(b), [a, d] = [lum(st.color), lum(st.backgroundColor)].sort((x, y) => y - x);
+			return (a + 0.05) / (d + 0.05) * Number(st.opacity);
+		});
+		ok(c >= 4.5, `telefon, hover ${sel}: tekst czytelny (kontrast ${c.toFixed(1)}:1)`);
+	}
 
 	// Kolory motywu: pole HEX obok próbnika (wpisanie, skrót #rgb, błędna wartość, zapis)
 	await p.goto(`${srv.base}/panel/themes/theme_proem`);
