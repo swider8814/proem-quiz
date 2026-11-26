@@ -74,6 +74,21 @@ try {
 		});
 		ok(c >= 3, `lista, telefon, hover ${sel.match(/list-\w+/)[0]}: ikona widoczna (kontrast ${c.toFixed(1)}:1)`);
 	}
+	// Nowy folder na telefonie: pole pod rzędem filtrów (nie w przewijanym rzędzie), w całości na ekranie, z kursorem.
+	await p.goto(`${srv.base}/panel`);
+	const folderFocus = await p.evaluate(() => { document.querySelector('.chip.add').click(); return document.activeElement?.getAttribute('name'); });
+	ok(folderFocus === 'name', `nowy folder, telefon: kursor w polu od razu po dotknięciu (${folderFocus})`);
+	const nf = await p.evaluate(() => {
+		const f = document.querySelector('form.new-folder');
+		const inFolders = !!f.closest('.folders');
+		const boxes = [...f.querySelectorAll('input, button')].map((e) => e.getBoundingClientRect());
+		return { inFolders, inside: boxes.every((b) => b.left >= 0 && b.right <= innerWidth && b.width > 0), inputW: Math.round(boxes[0].width), overflow: document.documentElement.scrollWidth - innerWidth };
+	});
+	ok(!nf.inFolders && nf.inside && nf.inputW >= 150 && nf.overflow <= 1, `nowy folder, telefon: pole i przyciski pod filtrami, w całości na ekranie ${JSON.stringify(nf)}`);
+	await snap(p, 'm-00b-nowy-folder');
+	await p.fill('form.new-folder input[name="name"]', 'Z telefonu');
+	await Promise.all([p.waitForURL(/f=fld_/), p.click('form.new-folder button:has-text("Dodaj")')]);
+	ok(/Z telefonu/.test(await p.textContent('.folders')), 'nowy folder, telefon: folder utworzony');
 	await snap(p, 'm-00-lista');
 
 	// ── Ekran prowadzącego na telefonie ──

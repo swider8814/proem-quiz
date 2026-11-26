@@ -26,6 +26,12 @@
 		return s ? `?${s}&/${name}` : `?/${name}`;
 	};
 	let newFolderOpen = $state(false);
+	let folderInput: HTMLInputElement | undefined = $state();
+	/** Pole nazwy folderu z kursorem od razu – synchronicznie, żeby iOS otworzył klawiaturę. */
+	function openNewFolder() {
+		flushSync(() => (newFolderOpen = !newFolderOpen));
+		if (newFolderOpen) folderInput?.focus();
+	}
 	// Telefon: pole nowego quizu i wyszukiwarka chowają się pod ikonami przy nagłówku „Quizy”.
 	let createOpen = $state(false);
 	// svelte-ignore state_referenced_locally
@@ -84,17 +90,16 @@
 			{#each data.folders as f (f.id)}
 				<a class="chip folder" class:on={data.folder === f.id} href={href({ f: f.id, p: 1 })}>{f.name} <span>{f.count}</span></a>
 			{/each}
-			{#if newFolderOpen}
-				<form method="POST" action="?/folderCreate" class="inline" use:enhance={send()}>
-					<!-- svelte-ignore a11y_autofocus -->
-					<input name="name" type="text" placeholder={t.list.folderNamePh} aria-label={t.list.folderNamePh} required maxlength="60" autofocus />
-					<button>{t.list.addFolder}</button>
-					<button type="button" class="secondary" aria-label={t.common.cancel ?? 'OK'} onclick={() => (newFolderOpen = false)}><Icon name="close" /></button>
-				</form>
-			{:else}
-				<button type="button" class="chip add" title={t.list.newFolder} onclick={() => (newFolderOpen = true)}><Icon name="folderPlus" weight={2} /><span class="add-lbl">{t.list.newFolder}</span></button>
-			{/if}
+			<button type="button" class="chip add" class:on={newFolderOpen} title={t.list.newFolder} aria-expanded={newFolderOpen} aria-controls="new-folder" onclick={openNewFolder}><Icon name="folderPlus" weight={2} /><span class="add-lbl">{t.list.newFolder}</span></button>
 		</nav>
+		<!-- Pod rzędem filtrów, nie w nim: na telefonie rząd przewija się w bok i pole wypadałoby poza ekran. -->
+		{#if newFolderOpen}
+			<form method="POST" action="?/folderCreate" class="inline new-folder" id="new-folder" use:enhance={send()}>
+				<input bind:this={folderInput} name="name" type="text" placeholder={t.list.folderNamePh} aria-label={t.list.folderNamePh} required maxlength="60" />
+				<button>{t.list.addFolder}</button>
+				<button type="button" class="secondary" aria-label={t.common.cancel ?? 'OK'} onclick={() => (newFolderOpen = false)}><Icon name="close" /></button>
+			</form>
+		{/if}
 
 		<form method="GET" action="/panel" class="search" class:open={searchOpen} id="list-search">
 			{#if data.folder !== 'all'}<input type="hidden" name="f" value={data.folder} />{/if}
@@ -200,6 +205,8 @@
 	.chip.folder { max-width: 16rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.inline { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
 	.inline input { width: 14rem; max-width: 60vw; }
+	.new-folder { flex: 1 1 100%; }
+	.chip.add.on { border-style: solid; background: var(--soft); }
 	.folder-bar { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
 	.search { display: flex; gap: 0.5rem; flex: 0 1 24rem; flex-wrap: wrap; }
 	.search input { flex: 1; min-width: 10rem; }
@@ -239,6 +246,8 @@
 		.filters { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.75rem; }
 		.search { order: -1; flex-wrap: nowrap; }
 		.search input { min-width: 0; }
+		.new-folder { flex-wrap: nowrap; }
+		.new-folder input { flex: 1; width: auto; min-width: 0; max-width: none; }
 		.search > .secondary { width: 44px; padding: 0; flex: none; justify-content: center; }
 		.search .lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 		.folders { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-inline: -1rem; padding-inline: 1rem; flex: none; }
