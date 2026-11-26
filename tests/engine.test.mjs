@@ -378,12 +378,13 @@ for (const cd of [0, 3]) {
 		settings: { ...quiz.settings, shuffleQuestions: true, shuffleAnswers: true },
 		questions: [
 			{ id: 'sl', type: 'slide', prompt: 'Start', timeLimit: 20, multiplier: 1, data: { type: 'slide', text: '' } },
-			...Array.from({ length: 6 }, (_, i) => ({ id: `q${i}`, type: 'choice', prompt: `P${i}`, timeLimit: 20, multiplier: 1, data: { answers: ['a', 'b', 'c', 'd'], correct: [i % 4], images: ['m0', null, 'm2', null] } }))
+			...Array.from({ length: 6 }, (_, i) => ({ id: `q${i}`, type: 'choice', prompt: `P${i}`, timeLimit: 20, multiplier: 1, data: { answers: ['a', 'b', 'c', 'd'], correct: [i % 4], images: ['m0', null, 'm2', null], alts: ['opis a', null, 'opis c', null] } }))
 		]
 	};
 	let orderChanged = false;
 	let answersChanged = false;
 	let consistent = true;
+	let altsFollow = true;
 	for (let n = 0; n < 50; n++) {
 		const s = shuffled(base);
 		if (s.questions[0].id !== 'sl') consistent = false;
@@ -394,10 +395,12 @@ for (const cd of [0, 3]) {
 			if ([...q.data.answers].sort().join() !== 'a,b,c,d') consistent = false;
 			if (q.data.answers[q.data.correct[0]] !== orig.data.answers[orig.data.correct[0]]) consistent = false;
 			q.data.answers.forEach((a, i) => { if (q.data.images[i] !== orig.data.images[orig.data.answers.indexOf(a)]) consistent = false; });
+			q.data.answers.forEach((a, i) => { if (q.data.alts[i] !== orig.data.alts[orig.data.answers.indexOf(a)]) altsFollow = false; });
 		}
 	}
 	ok(orderChanged && answersChanged, 'tasowanie zmienia kolejność pytań i odpowiedzi');
 	ok(consistent, 'tasowanie: slajd na miejscu, poprawna odpowiedź i obrazki idą za odpowiedzią');
+	ok(altsFollow, 'tasowanie: opisy obrazków (czytnik ekranu) idą za obrazkami (review Codexa)');
 	ok(shuffled(quiz) === quiz, 'bez ustawień – bez zmian');
 }
 
@@ -456,10 +459,16 @@ for (const cd of [0, 3]) {
 // Wymagamy jawnej odpowiedzi „rate-limited” – sam brak odpowiedzi nie jest dowodem działania limitu.
 {
 	const live = registry().create({ ...quiz, quizId: 'brute' }, 'user1').pin;
+	// Tylko PIN-y, pod którymi na pewno nie ma gry (rejestr losuje z tego samego zakresu) – review Codexa.
+	let nextPin = 100000;
+	const freePin = () => {
+		while (registry().get(String(nextPin))) nextPin++;
+		return String(nextPin++);
+	};
 	const guess = async (ev, n) => {
 		for (let i = 0; i < n; i++) {
 			await sleep(80); // poniżej ogranicznika 15 zdarzeń/s na gniazdo (floodGuard) – inaczej zdarzenia byłyby gubione
-			const res = await emit(brute, ev, { pin: String(100000 + i) });
+			const res = await emit(brute, ev, { pin: freePin() });
 			if (res.error === 'rate-limited') return i;
 			if (res.error !== 'no-game') return `nieoczekiwane: ${JSON.stringify(res)}`;
 		}
