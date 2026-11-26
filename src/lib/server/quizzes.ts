@@ -155,7 +155,8 @@ const questionSchema = z
 				type: z.literal('choice'),
 				answers: z.array(str(80)).min(2).max(4),
 				correct: correctList,
-				images: z.array(mediaId.nullable()).max(4).optional()
+				images: z.array(mediaId.nullable()).max(4).optional(),
+				alts: z.array(str(150).nullable()).max(4).optional()
 			}),
 			z.object({ type: z.literal('truefalse'), correct: z.boolean(), thumbs: z.boolean().optional() }),
 			z.object({
@@ -173,7 +174,8 @@ const questionSchema = z
 			z.object({
 				type: z.literal('poll'),
 				answers: z.array(str(80)).min(2).max(4),
-				images: z.array(mediaId.nullable()).max(4).optional()
+				images: z.array(mediaId.nullable()).max(4).optional(),
+				alts: z.array(str(150).nullable()).max(4).optional()
 			}),
 			z.object({
 				type: z.literal('slider'),
@@ -201,6 +203,7 @@ const questionSchema = z
 		}
 		if (d.type === 'choice' || d.type === 'poll') {
 			if (d.images && d.images.length !== d.answers.length) ctx.addIssue({ code: 'custom', message: 'emptyAnswer' });
+			if (d.alts && d.alts.length !== d.answers.length) ctx.addIssue({ code: 'custom', message: 'emptyAnswer' });
 			// Odpowiedź = podpis albo obrazek (albo oba).
 			if (d.answers.some((a, i) => !a.trim() && !d.images?.[i])) ctx.addIssue({ code: 'custom', message: 'emptyAnswer' });
 		}

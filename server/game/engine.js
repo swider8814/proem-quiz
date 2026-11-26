@@ -531,13 +531,17 @@ export class Game {
 		// Obrazki odpowiedzi: zawsze (to one są odpowiedzią), przez trasę gry dostępną z PIN-em.
 		if (q.type === 'choice' && Array.isArray(d.images) && d.images.some(Boolean)) {
 			base.answerImages = d.images.map((id) => (id ? `/game-media/${this.pin}/${id}` : null));
+			if (Array.isArray(d.alts) && d.alts.some(Boolean)) base.answerAlts = d.alts.map((a) => a || null); // opis obrazka dla czytnika ekranu
 		}
 		if (q.type === 'order') base.items = this.orderMaps.get(this.index).shuffled;
 		if (q.type === 'truefalse' && d.thumbs) base.thumbs = true;
 		if (q.type === 'poll') {
 			if (forHost || this.quiz.settings.phoneAnswerText) base.answers = d.answers;
 			else base.answerCount = d.answers.length;
-			if (Array.isArray(d.images) && d.images.some(Boolean)) base.answerImages = d.images.map((id) => (id ? `/game-media/${this.pin}/${id}` : null));
+			if (Array.isArray(d.images) && d.images.some(Boolean)) {
+				base.answerImages = d.images.map((id) => (id ? `/game-media/${this.pin}/${id}` : null));
+				if (Array.isArray(d.alts) && d.alts.some(Boolean)) base.answerAlts = d.alts.map((a) => a || null);
+			}
 		}
 		if (q.type === 'slider') base.slider = { min: d.min, max: d.max, step: d.step, unit: d.unit ?? '' };
 		if (q.type === 'slide') base.text = d.text ?? '';

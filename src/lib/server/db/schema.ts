@@ -196,7 +196,7 @@ export type QuestionType = 'choice' | 'truefalse' | 'audio' | 'text' | 'order' |
 // Pytanie "z obrazkiem" to dowolny typ z ustawionym imageMediaId.
 
 export type QuestionData =
-	| { type: 'choice'; answers: string[]; correct: number[]; images?: (string | null)[] } // images: obrazek odpowiedzi (podpis może być pusty)
+	| { type: 'choice'; answers: string[]; correct: number[]; images?: (string | null)[]; alts?: (string | null)[] } // images: obrazek odpowiedzi (podpis może być pusty); alts: opis obrazka dla czytnika ekranu
 	| { type: 'truefalse'; correct: boolean; thumbs?: boolean } // thumbs: kciuk w górę/w dół zamiast słów
 	| {
 			type: 'audio';
@@ -211,7 +211,7 @@ export type QuestionData =
 	  }
 	| { type: 'text'; accepted: string[]; typoTolerance: 0 | 1 | 2 }
 	| { type: 'order'; items: string[]; partialCredit: boolean }
-	| { type: 'poll'; answers: string[]; images?: (string | null)[] } // ankieta: bez poprawnej odpowiedzi i punktów
+	| { type: 'poll'; answers: string[]; images?: (string | null)[]; alts?: (string | null)[] } // ankieta: bez poprawnej odpowiedzi i punktów
 	| { type: 'slider'; min: number; max: number; step: number; correct: number; margin: 'none' | 'low' | 'medium' | 'high'; unit?: string }
 	| { type: 'slide'; text: string }; // slajd: tytuł (prompt) + tekst + obrazek, bez odpowiedzi
 

@@ -42,7 +42,7 @@
 		index: number; total: number; type: string; timeLimit: number; multiplier: number;
 		prompt: string; promptTranslation: string | null; answers?: string[]; items?: { id: string; label: string }[];
 		slider?: { min: number; max: number; step: number; unit: string }; text?: string;
-		thumbs?: boolean; answerImages?: (string | null)[]; imageUrl?: string | null; audio?: { url: string; loop: boolean; revealUrl: string | null };
+		thumbs?: boolean; answerImages?: (string | null)[]; answerAlts?: (string | null)[]; imageUrl?: string | null; audio?: { url: string; loop: boolean; revealUrl: string | null };
 	};
 	type HS = {
 		pin: string; state: 'lobby' | 'intro' | 'question' | 'reveal' | 'leaderboard' | 'ended';
@@ -545,7 +545,7 @@
 					<div class="answers talk">
 						{#each q.answers ?? q.items?.map((x) => x.label) ?? [] as a, i}
 							<div class="g-tile a{i % 4}" in:scale={{ start: 0.85, delay: 200 + i * 90, duration: 350, easing: backOut }}>
-								{#if q.answerImages?.[i]}<img class="ans-img" src={q.answerImages[i]} alt={a || String.fromCharCode(65 + i)} />{/if}
+								{#if q.answerImages?.[i]}<img class="ans-img" src={q.answerImages[i]} alt={q.answerAlts?.[i] || a || String.fromCharCode(65 + i)} />{/if}
 								{a}
 							</div>
 						{/each}
@@ -610,7 +610,7 @@
 								<div class="g-tile a{i}" class:dim={hs.state === 'reveal' && q.type !== 'poll' && !isCorrect(i)} in:scale={{ start: 0.85, delay: 120 + i * 90, duration: 350, easing: backOut }}>
 									{#if style === 'calm'}<span class="badge">{String.fromCharCode(65 + i)}</span>
 									{:else}<Shape {i} size={40} color={shapeColor(style)} />{/if}
-									{#if q.answerImages?.[i]}<img class="ans-img" src={q.answerImages[i]} alt={a || String.fromCharCode(65 + i)} />{/if}
+									{#if q.answerImages?.[i]}<img class="ans-img" src={q.answerImages[i]} alt={q.answerAlts?.[i] || a || String.fromCharCode(65 + i)} />{/if}
 									{#if a}<span>{a}</span>{/if}
 									{#if hs.state === 'reveal' && isCorrect(i)}<span class="tick"><Icon name="check" /></span>{/if}
 								</div>

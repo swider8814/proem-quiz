@@ -19,7 +19,7 @@
 
 	type Item = { id: string; label: string };
 	type Q = {
-		index: number; total: number; type: 'choice' | 'truefalse' | 'audio' | 'text' | 'order' | 'poll' | 'slider' | 'slide'; thumbs?: boolean; slider?: { min: number; max: number; step: number; unit: string }; answerImages?: (string | null)[];
+		index: number; total: number; type: 'choice' | 'truefalse' | 'audio' | 'text' | 'order' | 'poll' | 'slider' | 'slide'; thumbs?: boolean; slider?: { min: number; max: number; step: number; unit: string }; answerImages?: (string | null)[]; answerAlts?: (string | null)[];
 		timeLimit: number; prompt: string; promptTranslation: string | null;
 		answers?: string[]; answerCount?: number; items?: Item[];
 	};
@@ -408,7 +408,7 @@
 					<ul class="talk-list">
 						{#each q.answers ?? q.items?.map((x) => x.label) ?? q.answerImages?.map(() => '') ?? [] as a, i}
 							<li class="g-tile a{i % 4}">
-								{#if q.answerImages?.[i]}<img class="talk-img" src={q.answerImages[i]} alt="" />{/if}
+								{#if q.answerImages?.[i]}<img class="talk-img" src={q.answerImages[i]} alt={a ? '' : (q.answerAlts?.[i] ?? '')} />{/if}
 								{a}
 							</li>
 						{/each}
@@ -446,9 +446,9 @@
 			{:else if q.type === 'choice' || q.type === 'audio' || q.type === 'poll'}
 				<main class="tiles" class:two={answerCount <= 2} class:text={!!q.answers && !q.answerImages} class:pics={!!q.answerImages}>
 					{#each Array(answerCount) as _, i}
-						<button class="g-tile a{i}" in:scale={{ start: 0.8, delay: i * 70, duration: 320, easing: backOut }} onclick={() => answer({ choice: i })} aria-label={q.answers?.[i] || String.fromCharCode(65 + i)}>
+						<button class="g-tile a{i}" in:scale={{ start: 0.8, delay: i * 70, duration: 320, easing: backOut }} onclick={() => answer({ choice: i })} aria-label={q.answers?.[i] || q.answerAlts?.[i] || String.fromCharCode(65 + i)}>
 							{#if q.answerImages?.[i]}
-								<img class="pic" src={q.answerImages[i]} alt="" />
+								<img class="pic" src={q.answerImages[i]} alt="" /><!-- nazwa przycisku (aria-label) zawiera już opis obrazka -->
 								{#if q.answers?.[i]}<span class="tile-text">{q.answers[i]}</span>{/if}
 							{:else}
 								{#if style === 'calm'}<span class="badge">{String.fromCharCode(65 + i)}</span>

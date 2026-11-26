@@ -226,7 +226,18 @@
 	function removeAnswerImage(i: number) {
 		if ((current.data.type !== 'choice' && current.data.type !== 'poll') || !current.data.images) return;
 		current.data.images[i] = null;
-		if (!current.data.images.some(Boolean)) delete current.data.images;
+		if (current.data.alts) current.data.alts[i] = null;
+		if (!current.data.images.some(Boolean)) {
+			delete current.data.images;
+			delete current.data.alts;
+		}
+	}
+
+	function setAnswerAlt(i: number, v: string) {
+		if (current.data.type !== 'choice' && current.data.type !== 'poll') return;
+		const alts = current.data.alts ?? current.data.answers.map(() => null);
+		alts[i] = v;
+		current.data.alts = alts;
 	}
 
 	const shapes = ['M20 4 L37 34 L3 34 Z', 'M20 2 L38 20 L20 38 L2 20 Z', 'circle', 'square'];
@@ -548,8 +559,11 @@
 								{#if d.type === 'choice' || d.type === 'poll'}
 									<div class="ans-img">
 										{#if d.images?.[i]}
-											<img src="/media/{d.images[i]}" alt={E.answerImage(String.fromCharCode(65 + i))} />
+											<img src="/media/{d.images[i]}" alt={d.alts?.[i] || E.answerImage(String.fromCharCode(65 + i))} />
 											<button type="button" class="link" onclick={() => removeAnswerImage(i)} disabled={ro}>{E.removeImage}</button>
+											<!-- Opis obrazka dla czytnika ekranu (VoiceOver/TalkBack) – bez niego, gdy nie ma podpisu, słychać tylko literę. -->
+											<input type="text" class="img-alt" maxlength="150" value={d.alts?.[i] ?? ''} oninput={(e) => setAnswerAlt(i, (e.currentTarget as HTMLInputElement).value)} placeholder={E.answerAltPh} aria-label={E.imageAltFor(String.fromCharCode(65 + i))} disabled={ro} />
+											{#if !d.answers[i]?.trim() && !d.alts?.[i]?.trim()}<span class="img-alt-hint">{E.imageAltMissing}</span>{/if}
 										{:else if !ro}
 											<label class="link file-link">{E.addAnswerImage}<input type="file" accept="image/*" onchange={(e) => pickAnswerImage(e, i)} /></label>
 										{/if}
@@ -765,7 +779,12 @@
 	.shape { display: flex; flex: none; color: #0b0d1a; }
 	.check.small { flex: none; margin: 0; padding: 0.3rem 0.6rem; border-radius: 0.5rem; background: #fff; color: var(--text); font-size: 0.8rem; font-weight: 700; white-space: nowrap; cursor: pointer; }
 	.check.small input { width: 1.1rem; height: 1.1rem; margin: 0; }
-	.ans-img { flex-basis: 100%; display: flex; align-items: center; gap: 0.6rem; }
+	.ans-img { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; }
+	/* Opis obrazka: osobny, mały biały wiersz – czytelny na każdym kolorze odpowiedzi (nie dziedziczy dużego pola podpisu). */
+	.answer .ans-img input.img-alt[type='text'] { flex: 1 1 100%; min-width: 0; margin: 0; padding: 0.4rem 0.6rem; border: 0; border-radius: 0.5rem; background: rgba(255, 255, 255, 0.92); color: #0b0d1a; font-size: 0.85rem; font-weight: 500; }
+	.answer .ans-img input.img-alt[type='text']::placeholder { color: rgba(11, 13, 26, 0.6); }
+	.answer .ans-img input.img-alt[type='text']:focus { box-shadow: 0 0 0 2px #0b0d1a; border-radius: 0.5rem; }
+	.img-alt-hint { flex-basis: 100%; font-size: 0.78rem; font-weight: 600; color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45); }
 	.ans-img img { height: 64px; max-width: 120px; object-fit: contain; border-radius: 0.4rem; background: #fff; border: 2px solid var(--accent); }
 	.ans-img :global(button.link), .file-link { position: relative; cursor: pointer; display: inline-flex; align-items: center; min-height: 1.75rem; padding: 0 0.6rem; border-radius: 0.5rem; background: #fff; color: var(--text); text-decoration: none; font-size: 0.8rem; font-weight: 600; margin: 0; }
 	.file-link input { position: absolute; width: 1px; height: 1px; opacity: 0; }
