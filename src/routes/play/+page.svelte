@@ -13,7 +13,7 @@
 	import { pushState } from '$app/navigation';
 	import { fly, scale } from 'svelte/transition';
 	import { backOut } from 'svelte/easing';
-	import { ask, deviceId, gameSocket, keepAwake, remaining, store } from '#lib/game/client.js';
+	import { ask, deviceId, gameSocket, keepAwake, remaining, resumePlayer, store } from '#lib/game/client.js';
 	import { errText, t } from '#lib/game/i18n.js';
 	import { logoFor, shapeColor, themeVars, type GameTheme } from '#lib/game/theme.js';
 
@@ -175,11 +175,16 @@
 		const last = store.get('pq:last');
 		const tryPin = qsPin || last || '';
 		const token = tryPin ? store.get(sessionKey(tryPin)) : null;
+		let destroyed = false;
 		(async () => {
 			if (tryPin && token) {
-				const r = await ask(socket!, 'rejoin', { pin: tryPin, token });
-				if (r.ok) return;
-				store.del(sessionKey(tryPin));
+				const res = await resumePlayer(
+					() => ask(socket!, 'rejoin', { pin: tryPin, token }),
+					() => store.del(sessionKey(tryPin)),
+					// Gracz sam zaczął dołączać (zatwierdził PIN) albo już jest w grze – nie ponawiamy i nie nadpisujemy ekranu.
+					{ shouldStop: () => destroyed || manualPin || phase !== 'pin' || gs !== null }
+				);
+				if (res === 'ok' || res === 'cancelled' || destroyed || phase !== 'pin') return;
 			}
 			if (qsPin.length === 6) {
 				pin = qsPin;
@@ -187,20 +192,27 @@
 			}
 		})();
 		return () => {
+			destroyed = true;
 			clearInterval(tick);
 			unlock();
 			socket?.disconnect();
 		};
 	});
 
+	/** Gracz zatwierdził PIN – automatyczny powrót do poprzedniej gry przestaje być ponawiany. */
+	let manualPin = false;
+
 	async function checkPin(e?: Event) {
 		e?.preventDefault();
+		manualPin = true;
 		error = '';
 		const p = pin.replace(/\D/g, '');
 		if (p.length !== 6) return;
 		busy = true;
 		const r = await ask<{ ok?: boolean; error?: string; title: string; locale: string; theme: GameTheme; nicknameMode: string; teamMode: boolean; avatars?: boolean; suggestion: string }>(socket!, 'check', { pin: p });
 		busy = false;
+		// Wysłana wcześniej próba powrotu (token) zdążyła wygrać – gracz jest już w swojej grze, nie zmieniamy ekranu.
+		if (gs) return;
 		if (!r.ok) {
 			error = errText(locale, r.error ?? 'default');
 			return;

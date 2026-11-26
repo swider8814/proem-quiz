@@ -23,6 +23,41 @@ export function ask<T = Record<string, unknown>>(socket: Socket, event: string, 
 	});
 }
 
+/**
+ * Powrót gracza do gry po odświeżeniu strony (zmiana Wi-Fi, powrót z blokady ekranu).
+ * Token kasujemy TYLKO, gdy serwer jednoznacznie odpowie, że sesji już nie ma (`no-session`).
+ * Przy przejściowych problemach – brak odpowiedzi (`timeout`), chwilowy limit (`rate-limited`) –
+ * token zostaje, a próba jest ponawiana z rosnącą przerwą. Bez tego gracz tracił dostęp do wyniku.
+ * Domyślne próby trwają łącznie ~80 s, czyli dłużej niż okno limitów serwera (60 s, `LIMITS` w
+ * server/realtime.js) – po wyczerpanym limicie ostatnie próby trafiają już w nowe okno.
+ * `shouldStop` przerywa ponawianie (wynik 'cancelled'), np. gdy gracz w międzyczasie sam wpisał PIN.
+ */
+export async function resumePlayer(
+	rejoin: () => Promise<{ ok?: boolean; error?: string }>,
+	forget: () => void,
+	{
+		attempts = 8,
+		delayMs = 1500,
+		maxDelayMs = 20_000,
+		shouldStop = () => false,
+		sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
+	}: { attempts?: number; delayMs?: number; maxDelayMs?: number; shouldStop?: () => boolean; sleep?: (ms: number) => Promise<void> } = {}
+): Promise<'ok' | 'gone' | 'failed' | 'cancelled'> {
+	for (let i = 0; i < attempts; i++) {
+		if (shouldStop()) return 'cancelled';
+		const r = await rejoin();
+		if (shouldStop()) return r.ok ? 'ok' : 'cancelled';
+		if (r.ok) return 'ok';
+		if (r.error === 'no-session') {
+			forget();
+			return 'gone';
+		}
+		if (r.error === 'already-joined') return 'failed'; // to połączenie gra już kimś innym – nie ponawiamy
+		if (i < attempts - 1) await sleep(Math.min(delayMs * 2 ** i, maxDelayMs));
+	}
+	return 'failed';
+}
+
 const store = {
 	get(k: string) {
 		try {
