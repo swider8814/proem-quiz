@@ -61,25 +61,37 @@ function cell(v: string | number | null | undefined): string {
 	return `"${s.replace(/"/g, '""')}"`;
 }
 
+/**
+ * Starsze raporty zawierały przebieg odpowiedzi każdego gracza (poprawność, punkty i czas na pytanie).
+ * Przycina je do nicku, miejsca i punktów. Idempotentne – wywoływane przy starcie serwera.
+ */
+export function stripLegacyReportDetails(): number {
+	let changed = 0;
+	const rows = db.select({ id: schema.gameReports.id, data: schema.gameReports.data }).from(schema.gameReports).all();
+	db.transaction((tx) => {
+		for (const r of rows) {
+			const players = r.data?.players ?? [];
+			if (!players.some((p) => Object.keys(p).some((k) => k !== 'nick' && k !== 'score' && k !== 'rank'))) continue;
+			const data = { ...r.data, players: players.map((p) => ({ nick: p.nick, score: p.score, rank: p.rank })) };
+			tx.update(schema.gameReports).set({ data }).where(eq(schema.gameReports.id, r.id)).run();
+			changed++;
+		}
+	});
+	return changed;
+}
+
 export type CsvLabels = {
-	place: string; player: string; score: string; correct: string; answered: string;
+	place: string; player: string; score: string;
 	question: string; type: string; answeredCount: string; correctCount: string; wrongCount: string; avgTime: string;
 	types: Record<string, string>;
 };
 
-/** CSV dla Excela (średniki, BOM UTF-8): wyniki graczy z punktami za każde pytanie, potem statystyki pytań. */
+/** CSV dla Excela (średniki, BOM UTF-8): miejsce, nick i punkty graczy, potem zbiorcze statystyki pytań. */
 export function reportCsv(r: NonNullable<ReturnType<typeof getReport>>, L: CsvLabels): string {
 	const d = r.data;
-	const qn = d.questions.map((_, i) => `${L.question} ${i + 1}`);
 	const rows: string[] = [];
-	rows.push([L.place, L.player, L.score, L.correct, L.answered, ...qn].map(cell).join(';'));
-	for (const p of d.players) {
-		rows.push(
-			[p.rank, p.nick, p.score, p.correct, p.answered, ...p.perQuestion.map((a) => (a ? a.p : ''))]
-				.map(cell)
-				.join(';')
-		);
-	}
+	rows.push([L.place, L.player, L.score].map(cell).join(';'));
+	for (const p of d.players) rows.push([p.rank, p.nick, p.score].map(cell).join(';'));
 	rows.push('');
 	rows.push([L.question, L.type, L.answeredCount, L.correctCount, L.wrongCount, L.avgTime].map(cell).join(';'));
 	d.questions.forEach((q, i) => {

@@ -171,6 +171,12 @@ await emit(host, 'host:next', {}); // leaderboard
 await emit(host, 'host:next', {}); // ended (ostatnie pytanie)
 const fin = await endState;
 ok(fin.rank === 1, `koniec gry: Kasia na miejscu ${fin.rank} z ${fin.me.score} pkt`);
+{
+	// Raport (zapisywany w bazie): na graczu tylko nick, miejsce i punkty – bez przebiegu odpowiedzi.
+	const rep = registry().get(pin).report().data;
+	ok(rep.players.length > 0 && rep.players.every((p) => Object.keys(p).sort().join() === 'nick,rank,score'), 'raport: gracz = tylko nick, miejsce, punkty');
+	ok(rep.questions.length > 0 && rep.questions.every((q) => typeof q.answered === 'number'), 'raport: statystyki pytań zbiorcze zostają');
+}
 // Koniec gry na telefonie: pierwsza trójka i okolice gracza, bez identyfikatorów innych graczy
 ok(Array.isArray(fin.top) && fin.top.length >= 1 && fin.top.length <= 3 && fin.top[0].rank === 1, 'koniec gry: telefon dostaje pierwszą trójkę');
 ok(Array.isArray(fin.around) && fin.around.some((r) => r.me && r.rank === fin.rank), 'koniec gry: „Twoje okolice” zawierają gracza (me)');

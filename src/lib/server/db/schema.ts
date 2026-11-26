@@ -249,19 +249,11 @@ export const appSettings = sqliteTable('app_settings', {
 	value: text('value').notNull()
 });
 
-/** Raport z rozegranej gry (wyniki i trudność pytań). Tylko nicki – bez danych osobowych dzieci; usuwany po 90 dniach. */
+/** Raport z rozegranej gry: nick, miejsce i punkty graczy + zbiorcze statystyki pytań. Bez przebiegu odpowiedzi graczy; usuwany po 90 dniach. */
 export type GameReportData = {
 	teamMode: boolean;
 	questions: { prompt: string; type: string; answered: number; correct: number; wrong: number; avgMs: number | null }[];
-	players: {
-		nick: string;
-		score: number;
-		rank: number;
-		correct: number;
-		answered: number;
-		/** Na pytanie: null = brak odpowiedzi; c = poprawna (null w ankiecie/slajdzie), p = punkty, ms = czas. */
-		perQuestion: ({ c: boolean | null; p: number; ms: number } | null)[];
-	}[];
+	players: { nick: string; score: number; rank: number }[];
 };
 
 export const gameReports = sqliteTable(
