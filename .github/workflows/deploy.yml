@@ -32,9 +32,13 @@ jobs:
       - run: npm run check
       - run: npm run build
       # Wyjście testów trafia też do /tmp/ci.log – przy błędzie linie „✘” idą jako adnotacje w PR.
+      # `shell: bash` = `bash -eo pipefail`: bez tego kod wyjścia `tee` (0) maskował nieudane testy.
       - run: npm test 2>&1 | tee -a /tmp/ci.log
+        shell: bash
       - run: npm run test:e2e 2>&1 | tee -a /tmp/ci.log
+        shell: bash
       - run: CHROME_PATH="$(which google-chrome)" npm run test:ui 2>&1 | tee -a /tmp/ci.log
+        shell: bash
       - name: Nieudane testy (adnotacje)
         if: failure()
         run: grep -h '^✘' /tmp/ci.log 2>/dev/null | head -20 | sed -e 's/\x1b\[[0-9;]*m//g' -e 's/^/::error title=Test::/' || true
