@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
+	import { send } from '#lib/forms.js';
 	import { uploadFile } from '#lib/editor/model.js';
 	import { panelDict } from '#lib/i18n/panel.js';
 	let { data, form } = $props();
@@ -35,7 +37,7 @@
 {#if form?.error}<p class="error">{form.error}</p>{/if}
 {#if form?.saved}<p class="success">{S.savedLogo}</p>{/if}
 
-<form method="POST" class="card">
+<form method="POST" class="card" use:enhance={send()}>
 	<h2>{S.org}</h2>
 	<label for="orgName">{S.orgName}</label>
 	<input id="orgName" name="orgName" type="text" maxlength="60" bind:value={orgName} required />

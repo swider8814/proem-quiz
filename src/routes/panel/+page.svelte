@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { send } from '#lib/forms.js';
 	import Icon from '#lib/Icon.svelte';
 	import { panelDict } from '#lib/i18n/panel.js';
 	let { data, form } = $props();
@@ -38,7 +39,7 @@
 
 <div class="head">
 	<h1>{t.list.title}</h1>
-	<form method="POST" action="?/create" class="new">
+	<form method="POST" action="?/create" class="new" use:enhance={send()}>
 		{#if current}<input type="hidden" name="folder" value={current.id} />{/if}
 		<input name="title" type="text" placeholder={t.list.newTitle} aria-label={t.list.newTitle} required maxlength="120" />
 		<button>{t.list.create}</button>
@@ -64,7 +65,7 @@
 				<a class="chip folder" class:on={data.folder === f.id} href={href({ f: f.id, p: 1 })}>{f.name} <span>{f.count}</span></a>
 			{/each}
 			{#if newFolderOpen}
-				<form method="POST" action="?/folderCreate" class="inline">
+				<form method="POST" action="?/folderCreate" class="inline" use:enhance={send()}>
 					<!-- svelte-ignore a11y_autofocus -->
 					<input name="name" type="text" placeholder={t.list.folderNamePh} aria-label={t.list.folderNamePh} required maxlength="60" autofocus />
 					<button>{t.list.addFolder}</button>
@@ -86,7 +87,7 @@
 	{#if current}
 		<div class="folder-bar">
 			{#if renaming}
-				<form method="POST" action={act('folderRename')} class="inline" use:enhance={() => async ({ update }) => { await update(); renaming = false; }}>
+				<form method="POST" action={act('folderRename')} class="inline" use:enhance={send({ after: () => (renaming = false) })}>
 					<input type="hidden" name="id" value={current.id} />
 					<input name="name" type="text" value={current.name} aria-label={t.list.folderNamePh} required maxlength="60" />
 					<button>{t.common.save ?? 'OK'}</button>
@@ -95,7 +96,7 @@
 			{:else}
 				<strong>{current.name}</strong>
 				<button type="button" class="link" onclick={() => (renaming = true)}>{t.list.renameFolder}</button>
-				<form method="POST" action="?/folderDelete" onsubmit={(e) => { if (!confirm(t.list.confirmDeleteFolder(current.name))) e.preventDefault(); }}>
+				<form method="POST" action="?/folderDelete" use:enhance={send({ confirm: () => t.list.confirmDeleteFolder(current.name) })}>
 					<input type="hidden" name="id" value={current.id} /><button class="link danger-link">{t.list.deleteFolder}</button>
 				</form>
 			{/if}
@@ -132,9 +133,9 @@
 							<summary aria-label="{t.list.more}: {q.title}"><span aria-hidden="true">⋯</span></summary>
 							<div class="pop">
 								<a class="btn secondary" href="/panel/quizzes/{q.id}/reports">{t.list.reports}</a>
-								{#if q.canEdit}<form method="POST" action="?/duplicate"><input type="hidden" name="id" value={q.id} /><button class="secondary">{t.list.duplicate}</button></form>{/if}
+								{#if q.canEdit}<form method="POST" action="?/duplicate" use:enhance={send()}><input type="hidden" name="id" value={q.id} /><button class="secondary">{t.list.duplicate}</button></form>{/if}
 								{#if data.folders.length}
-									<form method="POST" action={act('move')} use:enhance class="move">
+									<form method="POST" action={act('move')} use:enhance={send()} class="move">
 										<input type="hidden" name="id" value={q.id} />
 										<label>{t.list.moveTo}
 											<select name="folder" aria-label="{t.list.moveTo}: {q.title}" value={q.folderId ?? ''} onchange={(e) => e.currentTarget.form?.requestSubmit()}>
@@ -145,7 +146,7 @@
 									</form>
 								{/if}
 								{#if q.mine || data.user.role === 'admin'}
-									<form method="POST" action="?/delete" onsubmit={(e) => { if (!confirm(t.list.confirmDelete(q.title))) e.preventDefault(); }}>
+									<form method="POST" action="?/delete" use:enhance={send({ confirm: () => t.list.confirmDelete(q.title) })}>
 										<input type="hidden" name="id" value={q.id} /><button class="danger">{t.common.remove}</button>
 									</form>
 								{/if}

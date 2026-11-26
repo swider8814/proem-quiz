@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
+	import { send } from '#lib/forms.js';
 	import BackLink from '#lib/BackLink.svelte';
 	import '#lib/styles/panel.css';
 	import { page } from '$app/state';
@@ -19,7 +21,7 @@
 		{:else}
 			<p class="muted">{t.auth.forgotIntro}</p>
 			{#if form?.error}<p class="error" role="alert">{form.error}</p>{/if}
-			<form method="POST">
+			<form method="POST" use:enhance={send()}>
 				<label for="email">{t.common.email}</label>
 				<input id="email" name="email" type="email" autocomplete="username" required />
 				<button class="block">{t.auth.sendLink}</button>

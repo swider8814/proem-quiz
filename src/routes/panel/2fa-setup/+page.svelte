@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
+	import { send } from '#lib/forms.js';
 	import { page } from '$app/state';
 	import { panelDict } from '#lib/i18n/panel.js';
 	let { data, form } = $props();
@@ -49,7 +51,7 @@
 				<li>
 					{t.twofa.step3}
 					{#if form?.error}<p class="error" role="alert">{form.error}</p>{/if}
-					<form method="POST">
+					<form method="POST" use:enhance={send({ invalidateAll: false })}>
 						{#if data.reconfigure}
 							<label for="password">{t.twofa.currentPassword}</label>
 							<input id="password" name="password" type="password" autocomplete="current-password" required />

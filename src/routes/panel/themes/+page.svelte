@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
+	import { send } from '#lib/forms.js';
 	import { panelDict } from '#lib/i18n/panel.js';
 	import { logoFor } from '#lib/game/theme.js';
 	let { data, form } = $props();
@@ -17,7 +19,7 @@
 <div class="card new-box" id="new-box" class:open={newOpen}>
 	<h2>{T.new}</h2>
 	{#if form?.error}<p class="error">{form.error}</p>{/if}
-	<form method="POST" action="?/create" class="new">
+	<form method="POST" action="?/create" class="new" use:enhance={send()}>
 		<div><label for="name">{T.name}</label><input id="name" name="name" type="text" maxlength="60" placeholder={T.namePlaceholder} required /></div>
 		<div>
 			<label for="style">{T.style}</label>

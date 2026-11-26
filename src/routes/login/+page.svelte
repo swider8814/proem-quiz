@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
+	import { send } from '#lib/forms.js';
 	import '#lib/styles/panel.css';
 	import { page } from '$app/state';
 	import { panelDict } from '#lib/i18n/panel.js';
@@ -13,7 +15,7 @@
 	<div class="card">
 		<h1>{t.auth.signIn}</h1>
 		{#if form?.error}<p class="error" role="alert">{form.error}</p>{/if}
-		<form method="POST">
+		<form method="POST" use:enhance={send()}>
 			<label for="email">{t.common.email}</label>
 			<input id="email" name="email" type="email" autocomplete="username" required value={form?.email ?? ''} />
 			<label for="password">{t.auth.password}</label>

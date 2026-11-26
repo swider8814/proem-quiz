@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
+	import { send } from '#lib/forms.js';
 	import BackLink from '#lib/BackLink.svelte';
 	import '#lib/game/game.css';
 	import Shape from '#lib/game/Shape.svelte';
@@ -52,7 +54,7 @@
 {#if form?.saved}<p class="success">{D.common.saved}</p>{/if}
 
 <div class="layout">
-	<form method="POST" action="?/save" class="card fields">
+	<form method="POST" action="?/save" class="card fields" use:enhance={send()}>
 		<input type="hidden" name="theme" value={payload} />
 		<label for="name">{T.name}</label>
 		<input id="name" type="text" bind:value={t.name} maxlength="60" />
@@ -131,8 +133,8 @@
 
 <div class="card danger-zone">
 	{#if !data.theme.isDefault}
-		<form method="POST" action="?/makeDefault"><button class="secondary">{T.makeDefault}</button></form>
-		<form method="POST" action="?/delete" onsubmit={(e) => { if (!confirm(T.deleteConfirm(data.quizzes))) e.preventDefault(); }}>
+		<form method="POST" action="?/makeDefault" use:enhance={send()}><button class="secondary">{T.makeDefault}</button></form>
+		<form method="POST" action="?/delete" use:enhance={send({ confirm: () => T.deleteConfirm(data.quizzes) })}>
 			<button class="danger">{T.delete}</button>
 		</form>
 	{:else}

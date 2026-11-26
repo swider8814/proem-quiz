@@ -1,6 +1,7 @@
 <script lang="ts">
-	import BackLink from '#lib/BackLink.svelte';
 	import { enhance } from '$app/forms';
+	import { send } from '#lib/forms.js';
+	import BackLink from '#lib/BackLink.svelte';
 	import { panelDict } from '#lib/i18n/panel.js';
 	let { data } = $props();
 	const t = $derived(panelDict(data.lang));
@@ -29,7 +30,7 @@
 <div class="actions">
 	<a class="btn" href="/panel/quizzes/{data.quizId}/reports/{data.report.id}/csv" download>{R.download}</a>
 	{#if data.canDelete}
-		<form method="POST" action="?/delete" use:enhance={({ cancel }) => { if (!confirm(R.removeConfirm)) cancel(); }}>
+		<form method="POST" action="?/delete" use:enhance={send({ confirm: () => R.removeConfirm })}>
 			<button class="secondary">{R.remove}</button>
 		</form>
 	{/if}

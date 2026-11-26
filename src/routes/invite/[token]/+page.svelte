@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
+	import { send } from '#lib/forms.js';
 	import '#lib/styles/panel.css';
 	import { page } from '$app/state';
 	import { panelDict } from '#lib/i18n/panel.js';
@@ -16,7 +18,7 @@
 			<p class="notice">{t.auth.adminNotice}</p>
 		{/if}
 		{#if form?.error}<p class="error" role="alert">{form.error}</p>{/if}
-		<form method="POST">
+		<form method="POST" use:enhance={send()}>
 			<input type="hidden" name="username" autocomplete="username" value={data.email} />
 			<label for="password">{t.auth.passwordMin}</label>
 			<input id="password" name="password" type="password" autocomplete="new-password" minlength="10" required />
