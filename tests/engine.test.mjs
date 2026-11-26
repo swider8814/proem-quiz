@@ -412,6 +412,22 @@ for (const cd of [0, 3]) {
 	ok(ro.addPlayer({ nick: 'Marta', deviceId: 'ro1' }).player?.nick !== 'Marta', 'tylko losowe: wpisany nick ignorowany (bez zmian)');
 }
 
+// Rotacja składu: definitywne wyjście usuwa rekord i historię odpowiedzi z pamięci (limit 300 dotyczy aktywnych).
+{
+	const g = registry().get(registry().create({ ...quiz, quizId: 'rot' }, 'user1').pin);
+	let joined = 0;
+	for (let i = 0; i < 1000; i++) {
+		const r = g.addPlayer({ random: true, deviceId: `rot${i}` });
+		if (!r.player) break;
+		joined++;
+		if (i % 2) g.kick(r.player.id);
+		else g.removePlayer(r.player); // „Opuść grę”
+	}
+	ok(joined === 1000 && g.players.size === 0, `rotacja 1000 graczy: dołączyło ${joined}, w pamięci ${g.players.size} rekordów`);
+	ok(g.bannedDevices.size === 500 && g.addPlayer({ random: true, deviceId: 'rot1' }).error === 'removed', 'wyrzucone urządzenie nadal zablokowane');
+	ok(g.addPlayer({ random: true, deviceId: 'rot0' }).player !== undefined, 'gracz, który sam wyszedł, może dołączyć ponownie');
+}
+
 // PIN brute force
 const brute = mk();
 let limitedHit = false;
