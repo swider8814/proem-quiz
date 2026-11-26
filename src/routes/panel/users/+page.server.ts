@@ -112,6 +112,7 @@ export const actions: Actions = {
 		const name = cleanName(f.get('name'));
 		if (!name) return fail(400, { actionError: t.err.giveName, renameId: target.id });
 		renameUser(target.id, name);
+		if (target.id === locals.user!.id) locals.user!.name = name;
 		return { message: t.users.renamed(target.name, name) };
 	},
 

@@ -404,6 +404,7 @@ try {
 		ok((await ren(ewa, 'Przejęte konto')).status === 403, 'autor nie zmienia nazw w zakładce Użytkownicy');
 		const self = await ewa.req('/panel/security?/name', { method: 'POST', form: { name: 'Ewa Nowak', id: 'usr_cudze' } });
 		ok(self.status === 200 && (await ewa.req('/panel/security')).text.includes('value="Ewa Nowak"'), 'autor zmienia własne imię i nazwisko');
+		ok(self.text.includes('value="Ewa Nowak"') && self.text.includes('>EN</span>'), 'odpowiedź po zapisie od razu pokazuje nowe imię i inicjały (review Codexa)');
 		ok((await ewa.req('/panel/security?/name', { method: 'POST', form: { name: ' ' } })).status === 400, 'puste imię odrzucone');
 		ok((await adm2.req('/panel/users')).text.includes('Ewa Nowak'), 'zmiana widoczna dla admina');
 	}

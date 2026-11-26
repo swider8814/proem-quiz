@@ -18,6 +18,8 @@ export const actions: Actions = {
 		const name = cleanName((await request.formData()).get('name'));
 		if (!name) return fail(400, { nameError: t.err.giveName });
 		renameUser(locals.user!.id, name);
+		// Layout renderuje się w tym samym żądaniu – bez tego pokazałby starą nazwę i inicjały.
+		locals.user!.name = name;
 		return { nameSaved: true };
 	}
 };
