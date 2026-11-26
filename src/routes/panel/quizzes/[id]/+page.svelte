@@ -63,10 +63,8 @@
 	// svelte-ignore state_referenced_locally
 	let version = data.version;
 
-	async function save(force = false) {
-		if (ro || saving) return;
-		saving = true;
-		saveError = '';
+	/** Jeden PUT. Zwraca komunikat konfliktu (409), gdy ktoś inny zapisał quiz w międzyczasie. */
+	async function putOnce(force: boolean): Promise<string | null> {
 		// Zapamiętujemy DOKŁADNIE to, co wysyłamy – zmiany zrobione w trakcie zapisu zostają niezapisane.
 		const sentQuiz = $state.snapshot(quiz);
 		// Własny dźwięk bez wybranego pliku → serwer zwróci czytelny błąd („wybierz plik”).
@@ -74,29 +72,40 @@
 		const body = { ...sentQuiz, settings: { ...s, podiumAudio: s.podiumAudio?.mediaId ? s.podiumAudio : null, musicAudio: s.musicAudio?.mediaId ? s.musicAudio : null } };
 		const sentQuestions = $state.snapshot(questions);
 		const sentPayload = sentQuestions.map(toPayload);
+		const res = await fetch(`/panel/api/quizzes/${data.quiz.id}`, {
+			method: 'PUT',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ ...body, questions: sentPayload, ...(force ? {} : { expectedVersion: version }) })
+		});
+		const out = await res.json().catch(() => ({}));
+		if (res.status === 409 && out.conflict) return out.error ?? E.saveFailed;
+		if (!res.ok) throw new Error(out.error ?? out.message ?? E.saveFailed);
+		version = out.version;
+		// ID z serwera przypisujemy po stabilnych kluczach (kolejność mogła się zmienić w trakcie).
+		const idByKey = new Map<string, string>(sentQuestions.map((q, i) => [q.key, out.questionIds[i] as string]));
+		for (const q of questions) {
+			const id = idByKey.get(q.key);
+			if (id) q.id = id;
+		}
+		savedSnapshot = JSON.stringify({ quiz: sentQuiz, questions: sentQuestions.map((q) => toPayload({ ...q, id: idByKey.get(q.key) ?? q.id })) });
+		return null;
+	}
+
+	async function save() {
+		if (ro || saving) return;
+		// Blokada trwa przez CAŁY zapis – także podczas pytania o konflikt i zapisu wymuszonego, żeby drugi
+		// zapis (przycisk, Ctrl+S) nie wszedł pomiędzy i nie został potem nadpisany starszą migawką.
+		saving = true;
+		saveError = '';
 		try {
-			const res = await fetch(`/panel/api/quizzes/${data.quiz.id}`, {
-				method: 'PUT',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ ...body, questions: sentPayload, ...(force ? {} : { expectedVersion: version }) })
-			});
-			const out = await res.json().catch(() => ({}));
-			if (res.status === 409 && out.conflict) {
+			const conflict = await putOnce(false);
+			if (conflict) {
 				// Ktoś zapisał quiz w międzyczasie: zmiany w edytorze zostają; nadpisanie tylko po potwierdzeniu.
-				saving = false;
-				if (confirm(E.saveConflictAsk)) return save(true);
-				saveError = out.error;
-				return;
+				if (confirm(E.saveConflictAsk)) {
+					const again = await putOnce(true);
+					if (again) saveError = again;
+				} else saveError = conflict;
 			}
-			if (!res.ok) throw new Error(out.error ?? out.message ?? E.saveFailed);
-			version = out.version;
-			// ID z serwera przypisujemy po stabilnych kluczach (kolejność mogła się zmienić w trakcie).
-			const idByKey = new Map<string, string>(sentQuestions.map((q, i) => [q.key, out.questionIds[i] as string]));
-			for (const q of questions) {
-				const id = idByKey.get(q.key);
-				if (id) q.id = id;
-			}
-			savedSnapshot = JSON.stringify({ quiz: sentQuiz, questions: sentQuestions.map((q) => toPayload({ ...q, id: idByKey.get(q.key) ?? q.id })) });
 		} catch (e) {
 			saveError = (e as Error).message;
 		} finally {

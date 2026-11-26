@@ -38,7 +38,18 @@ try {
 	ok(await p.isVisible('text=Ktoś inny zapisał ten quiz'), 'komunikat o konflikcie widoczny');
 
 	answer = true;
-	await Promise.all([p.waitForResponse((r) => r.request().method() === 'PUT' && r.status() === 200), p.click('button.save')]);
+	// Wymuszony zapis spowolniony o 1,5 s: przez cały ten czas przycisk zapisu ma być zablokowany (review Codexa –
+	// inaczej drugi zapis mógłby wejść pomiędzy i zostać nadpisany starszą migawką).
+	await p.route(`**/panel/api/quizzes/${id}`, async (route) => {
+		if (route.request().method() === 'PUT' && !('expectedVersion' in JSON.parse(route.request().postData() ?? '{}'))) await new Promise((r) => setTimeout(r, 1500));
+		await route.continue();
+	});
+	const forced = p.waitForResponse((r) => r.request().method() === 'PUT' && r.status() === 200);
+	await p.click('button.save');
+	await p.waitForTimeout(700);
+	ok(await p.isDisabled('button.save'), 'w trakcie wymuszonego zapisu przycisk „Zapisz” zablokowany');
+	await forced;
+	await p.unroute(`**/panel/api/quizzes/${id}`);
 	await p.waitForTimeout(300);
 	const server2 = await admin.req(`/panel/quizzes/${id}`);
 	ok(server2.text.includes('Moja wersja'), 'po potwierdzeniu zapisano wersję z edytora');

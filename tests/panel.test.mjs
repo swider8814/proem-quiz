@@ -248,6 +248,14 @@ try {
 	const clip = pdb.prepare('SELECT * FROM media WHERE id = ?').get(pset.podiumAudio?.clipMediaId ?? '');
 	pdb.close();
 	ok(pset.podiumSound === 'custom' && clip && clip.duration_ms >= 3500 && clip.duration_ms <= 4500, `wycięty fragment na podium: ${clip?.duration_ms} ms`);
+	// Nieaktualna karta zmienia zakres dźwięku: 409 BEZ wycinania nowego fragmentu (review Codexa).
+	{
+		const mediaCount = () => { const d = new Database(path.join(srv.dataDir, 'quiz.db'), { readonly: true }); const n = d.prepare('SELECT count(*) n FROM media').get().n; d.close(); return n; };
+		const before = mediaCount();
+		const b = JSON.parse(withPodium({ podiumSound: 'custom', podiumAudio: { mediaId: memMp3.id, startMs: 1000, endMs: 5000 } }));
+		const stale = await author.req(`/panel/api/quizzes/${sq}`, { method: 'PUT', body: JSON.stringify({ ...b, expectedVersion: 1 }), headers: json });
+		ok(stale.status === 409 && mediaCount() === before, `nieaktualny zapis z nowym zakresem audio → 409 bez wycinania (pliki: ${before} → ${mediaCount()})`);
+	}
 	ok((await kasia.req(`/media/${clip.id}`)).status === 200, 'osoba prowadząca quiz może pobrać dźwięk na podium');
 	const editorPage = await author.req(`/panel/quizzes/${sq}`);
 	ok(!editorPage.text.includes(clip.id), 'edytor nie dostaje identyfikatora wyciętego fragmentu');

@@ -283,6 +283,12 @@ export type QuizSave = z.infer<typeof quizSaveSchema>;
 
 /** Zapis całego quizu. Wycina fragmenty audio, gdy zmienił się zakres. */
 export async function saveQuiz(user: User, quizId: string, input: QuizSave): Promise<{ error: ErrKey; detail?: string } | { ok: true; questionIds: string[]; version: number }> {
+	// Wstępna kontrola wersji PRZED kosztownym wycinaniem audio – nieaktualna karta nie uruchamia ffmpeg
+	// ani nie zostawia plików, które i tak nie zostaną użyte. Ostateczna kontrola jest w transakcji zapisu.
+	if (input.expectedVersion !== undefined) {
+		const cur = db.select({ updatedAt: schema.quizzes.updatedAt }).from(schema.quizzes).where(eq(schema.quizzes.id, quizId)).get();
+		if (cur && cur.updatedAt.getTime() !== input.expectedVersion) return { error: 'quizConflict' as ErrKey };
+	}
 	if (input.themeId && !db.select().from(schema.themes).where(eq(schema.themes.id, input.themeId)).get()) {
 		return { error: 'themeNotFound' as ErrKey };
 	}
