@@ -1,11 +1,16 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { replaceState } from '$app/navigation';
+	import { enhance } from '$app/forms';
+	import Icon from '#lib/Icon.svelte';
 	import { panelDict } from '#lib/i18n/panel.js';
 	let { data, form } = $props();
 	const t = $derived(panelDict(data.lang));
 	const U = $derived(t.users);
 	let copied = $state(false);
+	// Wiersz, w którym edytujemy imię i nazwisko (formularz w miejscu nazwy).
+	let renaming = $state<string | null>(null);
+	$effect(() => { if (form && 'renameId' in form && form.renameId) renaming = String(form.renameId); });
 	// Telefon: formularz zaproszenia chowa się pod przyciskiem (otwarty od razu, gdy wrócił z błędem).
 	let inviteOpen = $state(false);
 	$effect(() => { if (form?.inviteError) inviteOpen = true; });
@@ -180,7 +185,20 @@
 		<tbody>
 			{#each shown as u (u.id)}
 				<tr class:off={u.disabled}>
-					<td class="person"><strong>{u.name}</strong><br /><span class="muted">{u.email}</span></td>
+					<td class="person">
+						{#if renaming === u.id}
+							<form method="POST" action="?/rename" class="rename" use:enhance={() => async ({ update, result }) => { await update(); if (result.type === 'success') renaming = null; }}>
+								<input type="hidden" name="id" value={u.id} />
+								<input name="name" type="text" value={u.name} aria-label={U.name} required minlength="2" maxlength="80" autocomplete="off" autofocus />
+								<button>{t.common.save}</button>
+								<button type="button" class="secondary" onclick={() => (renaming = null)}>{t.common.cancel}</button>
+							</form>
+						{:else}
+							<strong>{u.name}</strong>
+							<button type="button" class="link edit-name" aria-label="{U.rename}: {u.name}" title={U.rename} onclick={() => (renaming = u.id)}><Icon name="edit" size="0.95em" /></button><br />
+						{/if}
+						<span class="muted">{u.email}</span>
+					</td>
 					<td data-label={U.role}>
 						{#if u.id === data.user.id}
 							{u.role === 'admin' ? U.admin : U.author} <span class="muted">{U.you}</span>
@@ -283,6 +301,10 @@
 	.c-person { width: auto; } .c-role { width: 10rem; } .c-lang { width: 5.5rem; } .c-status { width: 11rem; } .c-2fa { width: 7rem; } .c-actions { width: 17rem; }
 	td.person { overflow-wrap: anywhere; }
 	tr.off td { opacity: 0.55; }
+	.edit-name { margin-left: 0.35rem; padding: 0.2rem; min-height: 0; vertical-align: middle; color: var(--muted); }
+	.rename { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
+	.rename input[name='name'] { flex: 1 1 12rem; min-width: 0; min-height: 2.5rem; }
+	.rename button { min-height: 2.5rem; padding: 0.3rem 0.8rem; font-size: 0.9rem; }
 	td.actions { text-align: right; white-space: nowrap; }
 	td.actions :global(form) { display: inline-block; margin-left: 0.4rem; }
 	.actions button { min-height: 2.5rem; padding: 0.3rem 0.8rem; font-size: 0.9rem; }
@@ -315,5 +337,7 @@
 		.chips { flex-wrap: nowrap; overflow-x: auto; margin: 0 -1rem; padding: 0 1rem 0.25rem; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
 		.chips::-webkit-scrollbar { display: none; }
 		.chip { flex: none; }
+		.rename input[name='name'] { flex-basis: 100%; min-height: 2.75rem; }
+		.rename button { flex: 1; min-height: 2.75rem; }
 	}
 </style>

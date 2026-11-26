@@ -415,6 +415,27 @@ try {
 		void inFolder; void ids;
 	}
 
+	// ── Imię i nazwisko: zmiana przez admina i przez samą osobę ──
+	{
+		const ewa = await makeAuthor(srv, adm2, 'zmiana-nazwy@proem.pl');
+		const users = (await adm2.req('/panel/users')).text;
+		const ewaId = [...users.matchAll(/<tr[\s\S]*?<\/tr>/g)].map((m) => m[0]).find((r) => r.includes('zmiana-nazwy@proem.pl'))?.match(/value="(usr_[A-Za-z0-9_-]+)"/)?.[1];
+		ok(!!ewaId, 'ID konta Ewy na liście użytkowników');
+		const ren = (b, name, id = ewaId) => b.req('/panel/users?/rename', { method: 'POST', form: { id, name } });
+		ok((await ren(adm2, '  Ewa   Kowalska ')).status === 200, 'admin zmienia imię i nazwisko');
+		ok((await ewa.req('/panel/security')).text.includes('value="Ewa Kowalska"'), 'nowe imię i nazwisko (spacje znormalizowane)');
+		ok((await ewa.req('/panel')).text.includes('>EK</span>'), 'awatar pokazuje inicjały');
+		ok((await ren(adm2, 'E')).status === 400, 'za krótkie imię odrzucone');
+		ok((await ren(adm2, 'x'.repeat(81))).status === 400, 'za długie imię odrzucone');
+		ok((await ren(adm2, 'Ktoś', 'usr_nieistnieje123')).status === 404, 'nieistniejące konto → 404');
+		ok((await ren(ewa, 'Przejęte konto')).status === 403, 'autor nie zmienia nazw w zakładce Użytkownicy');
+		const self = await ewa.req('/panel/security?/name', { method: 'POST', form: { name: 'Ewa Nowak', id: 'usr_cudze' } });
+		ok(self.status === 200 && (await ewa.req('/panel/security')).text.includes('value="Ewa Nowak"'), 'autor zmienia własne imię i nazwisko');
+		ok(self.text.includes('value="Ewa Nowak"') && self.text.includes('>EN</span>'), 'odpowiedź po zapisie od razu pokazuje nowe imię i inicjały (review Codexa)');
+		ok((await ewa.req('/panel/security?/name', { method: 'POST', form: { name: ' ' } })).status === 400, 'puste imię odrzucone');
+		ok((await adm2.req('/panel/users')).text.includes('Ewa Nowak'), 'zmiana widoczna dla admina');
+	}
+
 	ok(srv.alive(), 'serwer działa do końca testu');
 } catch (e) {
 	ok(false, `wyjątek: ${e.stack}`);

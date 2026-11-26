@@ -13,6 +13,13 @@ Model zagrożeń: `docs/threat-model.md`.
 - `npm run test:load` – 300 graczy przez Socket.IO, serwer na jednym rdzeniu (progi opóźnień i RAM)
 - `npm run test:load:media` – pełny serwer na jednym rdzeniu, 300 telefonów naraz pobiera obrazki odpowiedzi
 
+## Ikony
+- Wszystkie ikony pochodzą z zestawu **Lucide** (https://lucide.dev, licencja ISC – `static/licenses/lucide.txt`),
+  wklejone jako ścieżki SVG w `src/lib/Icon.svelte` (bez zależności w czasie działania).
+- Nie rysuj ikon samodzielnie i nie przepisuj ich z pamięci. Skopiuj ścieżki z oficjalnego pliku,
+  np. `npm pack lucide-static` → `package/icons/<nazwa>.svg`, i dopisz nazwę ikony Lucide w komentarzu.
+- Bez emoji i znaków Unicode jako ikon w interfejsie.
+
 ## Code Review Rules
 - Pisz review **po polsku**.
 - Priorytety: (1) bezpieczeństwo kont i 2FA, (2) stabilność procesu podczas gry na żywo,

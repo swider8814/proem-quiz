@@ -3,7 +3,7 @@ import { and, asc, eq, isNull } from 'drizzle-orm';
 import type { Actions, PageServerLoad } from './$types';
 import { db, schema } from '#lib/server/db/index.js';
 import { deleteUserSessions, resetTotp } from '#lib/server/auth/index.js';
-import { createInvite, inviteUrl, inviteUser, isValidEmail } from '#lib/server/users.js';
+import { cleanName, createInvite, inviteUrl, inviteUser, isValidEmail, renameUser } from '#lib/server/users.js';
 import { inviteMail, mailConfigured, sendMail } from '#lib/server/mail.js';
 import { isPanelLang, panelDict } from '#lib/i18n/panel.js';
 
@@ -40,12 +40,13 @@ export const actions: Actions = {
 		requireAdmin(locals);
 		const f = await request.formData();
 		const email = String(f.get('email') ?? '').trim();
-		const name = String(f.get('name') ?? '').trim();
+		const rawName = String(f.get('name') ?? '').trim();
+		const name = cleanName(rawName) ?? rawName;
 		const role = f.get('role') === 'admin' ? 'admin' : 'author';
 		const locale = f.get('locale') === 'en' ? 'en' : 'pl';
 		const t = panelDict(locals.lang).err;
 		if (!isValidEmail(email)) return fail(400, { inviteError: t.badEmail, email, name, role, locale });
-		if (name.length < 2) return fail(400, { inviteError: t.giveName, email, name, role, locale });
+		if (!cleanName(name)) return fail(400, { inviteError: t.giveName, email, name, role, locale });
 		const res = inviteUser({ email, name, role, locale });
 		if ('error' in res) return fail(400, { inviteError: t.accountExists, email, name, role, locale });
 		const link = inviteUrl(url.origin, res.token);
@@ -124,6 +125,20 @@ export const actions: Actions = {
 		if (target.id === me.id) return fail(400, { actionError: t.err.own2fa });
 		resetTotp(target.id);
 		return { message: t.users.reset2faDone(target.name) };
+	},
+
+	// Zmiana imienia i nazwiska (np. po ślubie, literówka) – także własnego.
+	rename: async ({ request, locals }) => {
+		requireAdmin(locals);
+		const f = await request.formData();
+		const target = getTarget(String(f.get('id')));
+		const t = panelDict(locals.lang);
+		if (!target) return fail(404, { actionError: t.err.accountNotFound });
+		const name = cleanName(f.get('name'));
+		if (!name) return fail(400, { actionError: t.err.giveName, renameId: target.id });
+		renameUser(target.id, name);
+		if (target.id === locals.user!.id) locals.user!.name = name;
+		return { message: t.users.renamed(target.name, name) };
 	},
 
 	locale: async ({ request, locals }) => {

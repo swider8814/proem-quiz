@@ -15,7 +15,7 @@ export const HELP: HelpSection[] = [
 			steps: [
 				'Konto zakłada administrator – dostajesz e-mail z zaproszeniem. Kliknij link i ustaw hasło.',
 				'Logujesz się adresem e-mail i hasłem na **quiz.proem.pl/login**.',
-				'**Administratorzy** muszą mieć weryfikację dwuetapową (kod z aplikacji na telefonie, np. Google Authenticator). Pozostali mogą ją włączyć dobrowolnie: **Bezpieczeństwo → Włącz weryfikację dwuetapową**. Od tej chwili przy logowaniu podajesz też kod z aplikacji.',
+				'**Administratorzy** muszą mieć weryfikację dwuetapową (kod z aplikacji na telefonie, np. Google Authenticator). Pozostali mogą ją włączyć dobrowolnie: **Moje konto → Włącz weryfikację dwuetapową**. Od tej chwili przy logowaniu podajesz też kod z aplikacji.',
 				'Kody zapasowe zapisz w bezpiecznym miejscu – pozwolą wejść, gdy zgubisz telefon.',
 				'Język panelu zmienisz przyciskiem **English** / **Polski** w menu (na telefonie: **EN** / **PL**).'
 			],
@@ -27,7 +27,7 @@ export const HELP: HelpSection[] = [
 			steps: [
 				'An administrator creates your account – you get an invitation e-mail. Click the link and set a password.',
 				'Sign in with your e-mail and password at **quiz.proem.pl/login**.',
-				'**Administrators** must use two-step verification (a code from a phone app, e.g. Google Authenticator). Everyone else can turn it on if they want: **Security → Turn on two-step verification**. From then on you also enter the code from the app when signing in.',
+				'**Administrators** must use two-step verification (a code from a phone app, e.g. Google Authenticator). Everyone else can turn it on if they want: **My account → Turn on two-step verification**. From then on you also enter the code from the app when signing in.',
 				'Keep the backup codes somewhere safe – they let you in if you lose your phone.',
 				'Switch the panel language with **Polski** / **English** in the menu (on a phone: **PL** / **EN**).'
 			],

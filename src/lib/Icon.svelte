@@ -9,7 +9,7 @@
 	 * przy każdej gałęzi – nową ikonę bierz z tego samego zestawu, żeby styl był spójny.
 	 * weight – grubość kreski: gra ma grube, „plakatowe” przyciski (2.5), panel cieńsze (2).
 	 */
-	type Name = 'replay' | 'close' | 'check' | 'fullscreen' | 'next' | 'back' | 'up' | 'down' | 'screen' | 'sound' | 'dice' | 'thumbUp' | 'thumbDown' | 'music' | 'edit' | 'quizzes' | 'palette' | 'users' | 'settings' | 'shield' | 'help';
+	type Name = 'replay' | 'close' | 'check' | 'fullscreen' | 'next' | 'back' | 'up' | 'down' | 'screen' | 'sound' | 'dice' | 'thumbUp' | 'thumbDown' | 'music' | 'edit' | 'quizzes' | 'palette' | 'users' | 'settings' | 'shield' | 'help' | 'user';
 	let { name, size = '1em', weight = 2.5 }: { name: Name; size?: string; weight?: number } = $props();
 </script>
 
@@ -44,6 +44,8 @@
 		<path d="M21 16V3a1 1 0 0 0-1.28-.96l-10 2.917a1 1 0 0 0-.72.96V19" /> <circle cx="18" cy="16" r="3" /> <circle cx="6" cy="19" r="3" />  <!-- music -->
 	{:else if name === 'edit'}
 		<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" /> <path d="m15 5 4 4" />  <!-- pencil -->
+	{:else if name === 'user'}
+		<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /> <circle cx="12" cy="7" r="4" />  <!-- user -->
 	{:else if name === 'quizzes'}
 		<rect width="7" height="7" x="3" y="3" rx="1" /> <rect width="7" height="7" x="14" y="3" rx="1" /> <rect width="7" height="7" x="14" y="14" rx="1" /> <rect width="7" height="7" x="3" y="14" rx="1" />  <!-- layout-grid -->
 	{:else if name === 'palette'}
