@@ -839,7 +839,7 @@
 		.props { position: static; }
 	}
 	@media (max-width: 860px) {
-		.bar { position: static; padding: 0.6rem 1rem; }
+		.bar { position: static; padding: 0.6rem max(1rem, env(safe-area-inset-right)) 0.6rem max(1rem, env(safe-area-inset-left)); }
 		.back span { display: none; }
 		.back { border: 1px solid var(--line-strong); width: 2.75rem; padding: 0; justify-content: center; }
 		/* Telefon/tablet: rząd 1 – wróć, tytuł, ⋯; rząd 2 – Zapisz i Uruchom grę po połowie. */
@@ -852,7 +852,7 @@
 		.bar-actions .status:not(.sr) { grid-column: 1 / -1; }
 		.bar-actions .save, .bar-actions .start { width: 100%; min-height: 2.75rem; justify-content: center; }
 		.settings, .below > .notice { margin-inline: 1rem; }
-		.qnav { display: flex; gap: 0.5rem; padding: 0.6rem 1rem; background: var(--surface); border-bottom: 1px solid var(--line); }
+		.qnav { display: flex; gap: 0.5rem; padding: 0.6rem max(1rem, env(safe-area-inset-right)) 0.6rem max(1rem, env(safe-area-inset-left)); background: var(--surface); border-bottom: 1px solid var(--line); }
 		.qnav button:not(.grow) { width: 2.75rem; padding: 0; flex: none; }
 		.qnav .qnav-add { font-size: 1.5rem; font-weight: 700; line-height: 1; }
 		.add.add-mobile { display: flex; flex: 1 1 100%; margin: 0; padding: 1rem; border-top: 1px dashed var(--line-strong); background: var(--surface); }
