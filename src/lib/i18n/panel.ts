@@ -137,6 +137,7 @@ const pl = {
 		deleted: 'Quiz usunięty.',
 		moved: 'Quiz przeniesiony.',
 		allQuizzes: 'Wszystkie',
+		mineQuizzes: 'Moje',
 		noFolder: 'Bez folderu',
 		folders: 'Foldery',
 		newFolder: 'Nowy folder',
@@ -175,6 +176,7 @@ const pl = {
 		readOnly: 'Masz dostęp tylko do prowadzenia tego quizu – edycja jest wyłączona.',
 		leaveConfirm: 'Masz niezapisane zmiany. Wyjść bez zapisywania?',
 		saveFailed: 'Nie udało się zapisać.',
+		saveConflictAsk: 'Ktoś inny zapisał ten quiz, gdy go edytowałeś. Zapisać Twoją wersję i zastąpić jego zmiany?\n\nAnuluj – nic nie zapisujemy; możesz skopiować swoje zmiany i odświeżyć stronę.',
 		settingsLegend: 'Ustawienia quizu',
 		set: {
 			look: 'Wygląd i język',
@@ -468,7 +470,10 @@ const pl = {
 		noMatch: 'Brak osób dla tych filtrów.',
 		clearFilters: 'Wyczyść filtry',
 		rename: 'Zmień imię i nazwisko',
-		renamed: (old: string, n: string) => `${old} → ${n}: imię i nazwisko zmienione.`
+		renamed: (old: string, n: string) => `${old} → ${n}: imię i nazwisko zmienione.`,
+		delete: 'Usuń',
+		deleteConfirm: (n: string, e: string) => `Usunąć konto ${n} (${e})? Link z zaproszenia przestanie działać. Tej operacji nie da się cofnąć.`,
+		deleted: (n: string) => `${n}: konto usunięte.`
 	},
 	themes: {
 		title: 'Motywy',
@@ -578,6 +583,7 @@ const pl = {
 		adminsOnly: 'Tylko dla administratorów',
 		quizNotFound: 'Nie znaleziono quizu.',
 		noEditRights: 'Brak uprawnień do edycji.',
+		quizConflict: 'Ktoś inny zapisał ten quiz, gdy go edytowałeś.',
 		onlyOwnQuizzes: 'Możesz usuwać tylko własne quizy.',
 		giveTitle: 'Podaj tytuł quizu.',
 		noQuestions: 'Quiz nie ma pytań.',
@@ -589,6 +595,8 @@ const pl = {
 		accountExists: 'Konto z tym adresem już istnieje.',
 		giveName: 'Podaj imię i nazwisko.',
 		alreadyActive: 'To konto jest już aktywne.',
+		ownDelete: 'Nie możesz usunąć własnego konta.',
+		onlyPendingDelete: 'Usunąć można tylko konto, które nie zostało aktywowane. Aktywne konto zablokuj.',
 		ownRole: 'Nie możesz zmienić własnej roli.',
 		ownBlock: 'Nie możesz zablokować własnego konta.',
 		own2fa: 'Własnej weryfikacji nie resetujesz tutaj – użyj „Moje konto”.',
@@ -769,6 +777,7 @@ const en: PanelDict = {
 		deleted: 'Quiz deleted.',
 		moved: 'Quiz moved.',
 		allQuizzes: 'All',
+		mineQuizzes: 'Mine',
 		noFolder: 'No folder',
 		folders: 'Folders',
 		newFolder: 'New folder',
@@ -807,6 +816,7 @@ const en: PanelDict = {
 		readOnly: 'You can only host this quiz – editing is disabled.',
 		leaveConfirm: 'You have unsaved changes. Leave without saving?',
 		saveFailed: 'Could not save.',
+		saveConflictAsk: 'Someone else saved this quiz while you were editing it. Save your version and replace their changes?\n\nCancel – nothing is saved; you can copy your changes and reload the page.',
 		settingsLegend: 'Quiz settings',
 		set: {
 			look: 'Look and language',
@@ -1100,7 +1110,10 @@ const en: PanelDict = {
 		noMatch: 'No people match these filters.',
 		clearFilters: 'Clear filters',
 		rename: 'Change name',
-		renamed: (old: string, n: string) => `${old} → ${n}: name changed.`
+		renamed: (old: string, n: string) => `${old} → ${n}: name changed.`,
+		delete: 'Delete',
+		deleteConfirm: (n: string, e: string) => `Delete the account of ${n} (${e})? The invitation link will stop working. This can’t be undone.`,
+		deleted: (n: string) => `${n}: account deleted.`
 	},
 	themes: {
 		title: 'Themes',
@@ -1209,6 +1222,7 @@ const en: PanelDict = {
 		adminsOnly: 'Administrators only',
 		quizNotFound: 'Quiz not found.',
 		noEditRights: 'You don’t have permission to edit.',
+		quizConflict: 'Someone else saved this quiz while you were editing it.',
 		onlyOwnQuizzes: 'You can only delete your own quizzes.',
 		giveTitle: 'Enter a quiz title.',
 		noQuestions: 'The quiz has no questions.',
@@ -1220,6 +1234,8 @@ const en: PanelDict = {
 		accountExists: 'An account with this address already exists.',
 		giveName: 'Enter a full name.',
 		alreadyActive: 'This account is already active.',
+		ownDelete: 'You can’t delete your own account.',
+		onlyPendingDelete: 'Only an account that was never activated can be deleted. Block an active account instead.',
 		ownRole: 'You can’t change your own role.',
 		ownBlock: 'You can’t block your own account.',
 		own2fa: 'Reset your own verification in “My account”, not here.',

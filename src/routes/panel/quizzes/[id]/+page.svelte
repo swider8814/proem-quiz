@@ -59,7 +59,11 @@
 		}
 	}
 
-	async function save() {
+	// Wersja startowa edycji; po każdym zapisie aktualizowana z odpowiedzi serwera (nie z `data`).
+	// svelte-ignore state_referenced_locally
+	let version = data.version;
+
+	async function save(force = false) {
 		if (ro || saving) return;
 		saving = true;
 		saveError = '';
@@ -74,10 +78,18 @@
 			const res = await fetch(`/panel/api/quizzes/${data.quiz.id}`, {
 				method: 'PUT',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ ...body, questions: sentPayload })
+				body: JSON.stringify({ ...body, questions: sentPayload, ...(force ? {} : { expectedVersion: version }) })
 			});
 			const out = await res.json().catch(() => ({}));
+			if (res.status === 409 && out.conflict) {
+				// Ktoś zapisał quiz w międzyczasie: zmiany w edytorze zostają; nadpisanie tylko po potwierdzeniu.
+				saving = false;
+				if (confirm(E.saveConflictAsk)) return save(true);
+				saveError = out.error;
+				return;
+			}
 			if (!res.ok) throw new Error(out.error ?? out.message ?? E.saveFailed);
+			version = out.version;
 			// ID z serwera przypisujemy po stabilnych kluczach (kolejność mogła się zmienić w trakcie).
 			const idByKey = new Map<string, string>(sentQuestions.map((q, i) => [q.key, out.questionIds[i] as string]));
 			for (const q of questions) {
@@ -237,7 +249,7 @@
 		<button class="secondary" type="button" onclick={() => (showSettings = !showSettings)} aria-expanded={showSettings}>{E.settings}</button>
 		{#if data.canShare}<a class="btn secondary" href="/panel/quizzes/{data.quiz.id}/share">{E.share}</a>{/if}
 		<a class="btn secondary" href="/panel/quizzes/{data.quiz.id}/reports">{E.reports}</a>
-		{#if !ro}<button type="button" class="save" onclick={save} disabled={saving || !dirty}>{E.save}</button>{/if}
+		{#if !ro}<button type="button" class="save" onclick={() => save()} disabled={saving || !dirty}>{E.save}</button>{/if}
 		<a class="btn start" href="/panel/quizzes/{data.quiz.id}/host" class:disabled={dirty || questions.length === 0} aria-disabled={dirty || questions.length === 0}>
 			<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4l13 8-13 8z" /></svg>{E.start}
 		</a>

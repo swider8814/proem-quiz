@@ -212,6 +212,7 @@ export const HELP: HelpSection[] = [
 			summary: 'Użytkownicy, motywy, logo i ustawienia.',
 			steps: [
 				'**Użytkownicy → Zaproś osobę**: podaj e-mail, imię, rolę (**Autor** albo **Administrator**) i język konta. Lektorom anglojęzycznym ustaw **English**.',
+				'Link z zaproszenia działa 7 dni – potem kliknij **Nowy link**. Konto, które nie zostało aktywowane (np. z literówką w e-mailu), możesz **usunąć**. Aktywne konta tylko się **blokuje** – ich quizy zostają.',
 				'**Motywy**: styl ekranów, kolory, czcionka i logo. Autor wybiera motyw w ustawieniach quizu.',
 				'**Ustawienia**: logo w panelu, stan kopii zapasowych i sekcja **O aplikacji** (wersja, miejsce na serwerze).',
 				'Nowa wersja aplikacji trafia na serwer dopiero po ręcznym wdrożeniu w GitHub Actions – numer wersji widać w stopce panelu.'
@@ -222,6 +223,7 @@ export const HELP: HelpSection[] = [
 			summary: 'Users, themes, logo and settings.',
 			steps: [
 				'**Users → Invite a person**: enter the e-mail, name, role (**Author** or **Administrator**) and account language.',
+				'The invitation link works for 7 days – after that click **New link**. An account that was never activated (e.g. a typo in the e-mail) can be **deleted**. Active accounts can only be **blocked** – their quizzes stay.',
 				'**Themes**: screen style, colours, font and logo. Authors pick a theme in the quiz settings.',
 				'**Settings**: panel logo, backup status and the **About** section (version, server space).',
 				'A new app version reaches the server only after a manual deploy in GitHub Actions – the version number is in the panel footer.'

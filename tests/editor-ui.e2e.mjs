@@ -198,6 +198,9 @@ try {
 	await p.selectOption('.list li >> nth=0 >> select[name=folder]', fid);
 	await p.waitForFunction(() => document.querySelector('.chip.folder span')?.textContent === '1');
 	ok(/\/panel$/.test(p.url()), 'przeniesienie do folderu bez zmiany widoku listy');
+	// Menu „Więcej” otwiera się w górę i może przykryć zakładki (zwłaszcza gdy „Bez folderu” właśnie zniknęło) – Escape je zamyka.
+	await p.keyboard.press('Escape');
+	ok((await p.$$('details.more[open]')).length === 0, 'Escape zamyka menu „Więcej”');
 	await p.click('.chip.folder');
 	await p.waitForURL(/f=fld_/);
 	ok((await p.$$('.list li')).length === 1, 'quiz widoczny w folderze');

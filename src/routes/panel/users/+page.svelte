@@ -243,10 +243,18 @@
 									<input type="hidden" name="id" value={u.id} /><button class="secondary">{U.reset2fa}</button>
 								</form>
 							{/if}
-							<form method="POST" action={act('toggle')}>
-								<input type="hidden" name="id" value={u.id} />
-								<button class={u.disabled ? 'secondary' : 'danger'}>{u.disabled ? U.unblock : U.block}</button>
-							</form>
+							{#if u.activated || u.disabled}
+								<form method="POST" action={act('toggle')}>
+									<input type="hidden" name="id" value={u.id} />
+									<button class={u.disabled ? 'secondary' : 'danger'}>{u.disabled ? U.unblock : U.block}</button>
+								</form>
+							{/if}
+							{#if !u.activated}
+								<!-- Nieaktywowane konto nie ma quizów ani plików – można je usunąć (zamiast blokować). -->
+								<form method="POST" action={act('delete')} onsubmit={(e) => { if (!confirm(U.deleteConfirm(u.name, u.email))) e.preventDefault(); }}>
+									<input type="hidden" name="id" value={u.id} /><button class="danger">{U.delete}</button>
+								</form>
+							{/if}
 						{/if}
 					</td>
 				</tr>
