@@ -1,4 +1,5 @@
 <script lang="ts">
+	import BackLink from '#lib/BackLink.svelte';
 	import { enhance } from '$app/forms';
 	import { panelDict } from '#lib/i18n/panel.js';
 	import HelpTip from '#lib/help/HelpTip.svelte';
@@ -8,7 +9,7 @@
 
 <svelte:head><title>{S.title} – {data.quiz.title}</title></svelte:head>
 
-<p><a href="/panel/quizzes/{data.quiz.id}">{S.backToQuiz}</a></p>
+<BackLink href="/panel/quizzes/{data.quiz.id}" label={S.backToQuiz} />
 <h1>{S.heading(data.quiz.title)}</h1>
 <p class="muted">{S.intro(data.quiz.ownerName)}</p>
 

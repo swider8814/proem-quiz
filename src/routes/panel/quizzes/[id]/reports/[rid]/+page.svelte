@@ -1,4 +1,5 @@
 <script lang="ts">
+	import BackLink from '#lib/BackLink.svelte';
 	import { enhance } from '$app/forms';
 	import { panelDict } from '#lib/i18n/panel.js';
 	let { data } = $props();
@@ -21,7 +22,7 @@
 
 <svelte:head><title>{R.title} – {data.report.title}</title></svelte:head>
 
-<p><a href="/panel/quizzes/{data.quizId}/reports">{R.backToList}</a></p>
+<BackLink href="/panel/quizzes/{data.quizId}/reports" label={R.backToList} />
 <h1>{data.report.title}</h1>
 <p class="muted">{fmt(data.report.endedAt)} · {R.players(d.players.length)} · {R.duration}: {R.minutes(minutes)}</p>
 

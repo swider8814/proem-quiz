@@ -1,4 +1,5 @@
 <script lang="ts">
+	import BackLink from '#lib/BackLink.svelte';
 	import { onMount } from 'svelte';
 	import HelpTip from '#lib/help/HelpTip.svelte';
 	import { replaceState } from '$app/navigation';
@@ -53,22 +54,25 @@
 		<Host quizId={data.quiz.id} pin={game.pin} hostToken={game.hostToken} qr={game.qr} joinHost={game.joinHost} onClosed={closed} />
 	</div>
 {:else}
-	<div class="card start">
-		<h1>{data.quiz.title}</h1>
-		<p class="muted">{H.questions(data.quiz.questionCount)}</p>
-		<p class="muted tipline">{H.screenTip}<HelpTip id="screen" /></p>
-		{#if form?.error}<p class="error">{form.error}</p>{/if}
-		<form method="POST" action="?/start">
-			<button disabled={data.quiz.questionCount === 0}>{H.start}</button>
-		</form>
-		<p class="muted small">{H.keys}</p>
-		<p><a href="/panel/quizzes/{data.quiz.id}">{H.backToEdit}</a></p>
+	<div class="start">
+		<BackLink href="/panel/quizzes/{data.quiz.id}" label={H.backToEdit} />
+		<div class="card">
+			<h1>{data.quiz.title}</h1>
+			<p class="muted">{H.questions(data.quiz.questionCount)}</p>
+			<p class="muted tipline">{H.screenTip}<HelpTip id="screen" /></p>
+			{#if form?.error}<p class="error">{form.error}</p>{/if}
+			<form method="POST" action="?/start">
+				<button disabled={data.quiz.questionCount === 0}>{H.start}</button>
+			</form>
+			<p class="muted small">{H.keys}</p>
+		</div>
 	</div>
 {/if}
 
 <style>
 	.overlay { position: fixed; inset: 0; z-index: 50; overflow: hidden; }
-	.start { max-width: 34rem; margin: 3rem auto; text-align: center; }
+	.start { max-width: 34rem; margin: 1.5rem auto 3rem; }
+	.start .card { text-align: center; }
 	.start button { font-size: 1.2rem; padding: 0.9rem 2rem; background: #26890c; }
 	.small { font-size: 0.85rem; }
 </style>
