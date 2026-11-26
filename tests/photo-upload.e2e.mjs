@@ -43,7 +43,7 @@ try {
 	await p.click('button:has-text("Utwórz quiz")');
 	await p.waitForURL(/\/panel\/quizzes\/quiz_/);
 	await p.selectOption('select[aria-label="Typ nowego pytania"]', 'choice');
-	await p.click('button:has-text("+ Dodaj pytanie")');
+	await p.click('button:has-text("Dodaj pytanie")');
 	await p.setInputFiles('.image input[type="file"]', photo);
 	await p.waitForSelector('.image img', { timeout: 60000 });
 	ok(!(await p.isVisible('.image .error')), 'zdjęcie wgrane bez błędu');

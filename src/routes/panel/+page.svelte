@@ -2,6 +2,7 @@
 	import { enhance } from '$app/forms';
 	import { send } from '#lib/forms.js';
 	import Icon from '#lib/Icon.svelte';
+	import RowMenu from '#lib/RowMenu.svelte';
 	import { panelDict } from '#lib/i18n/panel.js';
 	let { data, form } = $props();
 	const t = $derived(panelDict(data.lang));
@@ -26,23 +27,16 @@
 	let newFolderOpen = $state(false);
 	let renaming = $state(false);
 
-	// Menu „Więcej” na karcie (<details>): kliknięcie poza nim lub Escape je zamyka.
-	function closeMenus(e: Event) {
-		for (const d of document.querySelectorAll<HTMLDetailsElement>('details.more[open]')) {
-			if (e.type === 'keydown' || !d.contains(e.target as Node)) d.open = false;
-		}
-	}
 </script>
 
 <svelte:head><title>{t.list.title} · Proem Quiz</title></svelte:head>
-<svelte:window onclick={closeMenus} onkeydown={(e) => e.key === 'Escape' && closeMenus(e)} />
 
 <div class="head">
 	<h1>{t.list.title}</h1>
 	<form method="POST" action="?/create" class="new" use:enhance={send()}>
 		{#if current}<input type="hidden" name="folder" value={current.id} />{/if}
 		<input name="title" type="text" placeholder={t.list.newTitle} aria-label={t.list.newTitle} required maxlength="120" />
-		<button>{t.list.create}</button>
+		<button><Icon name="plus" weight={2} />{t.list.create}</button>
 	</form>
 </div>
 
@@ -72,7 +66,7 @@
 					<button type="button" class="secondary" aria-label={t.common.cancel ?? 'OK'} onclick={() => (newFolderOpen = false)}><Icon name="close" /></button>
 				</form>
 			{:else}
-				<button type="button" class="chip add" onclick={() => (newFolderOpen = true)}>+ {t.list.newFolder}</button>
+				<button type="button" class="chip add" onclick={() => (newFolderOpen = true)}><Icon name="plus" weight={2} />{t.list.newFolder}</button>
 			{/if}
 		</nav>
 
@@ -95,9 +89,9 @@
 				</form>
 			{:else}
 				<strong>{current.name}</strong>
-				<button type="button" class="link" onclick={() => (renaming = true)}>{t.list.renameFolder}</button>
+				<button type="button" class="link" onclick={() => (renaming = true)}><Icon name="edit" weight={2} size="0.95em" />{t.list.renameFolder}</button>
 				<form method="POST" action="?/folderDelete" use:enhance={send({ confirm: () => t.list.confirmDeleteFolder(current.name) })}>
-					<input type="hidden" name="id" value={current.id} /><button class="link danger-link">{t.list.deleteFolder}</button>
+					<input type="hidden" name="id" value={current.id} /><button class="link danger-link"><Icon name="trash" weight={2} size="0.95em" />{t.list.deleteFolder}</button>
 				</form>
 			{/if}
 		</div>
@@ -126,32 +120,30 @@
 					</div>
 					<div class="actions">
 						<a class="btn run" href="/panel/quizzes/{q.id}/host" aria-disabled={q.questionCount === 0} class:disabled={q.questionCount === 0}>
-							<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4l13 8-13 8z" /></svg>{t.list.run}
+							<Icon name="play" weight={2} />{t.list.run}
 						</a>
-						<a class="btn secondary" href="/panel/quizzes/{q.id}">{t.list.edit}</a>
-						<details class="more">
-							<summary aria-label="{t.list.more}: {q.title}"><span aria-hidden="true">⋯</span></summary>
-							<div class="pop">
-								<a class="btn secondary" href="/panel/quizzes/{q.id}/reports">{t.list.reports}</a>
-								{#if q.canEdit}<form method="POST" action="?/duplicate" use:enhance={send()}><input type="hidden" name="id" value={q.id} /><button class="secondary">{t.list.duplicate}</button></form>{/if}
-								{#if data.folders.length}
-									<form method="POST" action={act('move')} use:enhance={send()} class="move">
-										<input type="hidden" name="id" value={q.id} />
-										<label>{t.list.moveTo}
-											<select name="folder" aria-label="{t.list.moveTo}: {q.title}" value={q.folderId ?? ''} onchange={(e) => e.currentTarget.form?.requestSubmit()}>
-												<option value="">{t.list.noFolder}</option>
-												{#each data.folders as f (f.id)}<option value={f.id}>{f.name}</option>{/each}
-											</select>
-										</label>
-									</form>
-								{/if}
-								{#if q.mine || data.user.role === 'admin'}
-									<form method="POST" action="?/delete" use:enhance={send({ confirm: () => t.list.confirmDelete(q.title) })}>
-										<input type="hidden" name="id" value={q.id} /><button class="danger">{t.common.remove}</button>
-									</form>
-								{/if}
-							</div>
-						</details>
+						<a class="btn secondary" href="/panel/quizzes/{q.id}"><Icon name="edit" weight={2} />{t.list.edit}</a>
+						<RowMenu label="{t.list.more}: {q.title}">
+							<a href="/panel/quizzes/{q.id}/reports"><Icon name="chart" weight={2} />{t.list.reports}</a>
+							{#if q.canEdit}<form method="POST" action="?/duplicate" use:enhance={send()}><input type="hidden" name="id" value={q.id} /><button><Icon name="copy" weight={2} />{t.list.duplicate}</button></form>{/if}
+							{#if data.folders.length}
+								<form method="POST" action={act('move')} use:enhance={send()} class="move">
+									<input type="hidden" name="id" value={q.id} />
+									<label><span class="move-lbl"><Icon name="folderInput" weight={2} />{t.list.moveTo}</span>
+										<select name="folder" aria-label="{t.list.moveTo}: {q.title}" value={q.folderId ?? ''} onchange={(e) => e.currentTarget.form?.requestSubmit()}>
+											<option value="">{t.list.noFolder}</option>
+											{#each data.folders as f (f.id)}<option value={f.id}>{f.name}</option>{/each}
+										</select>
+									</label>
+								</form>
+							{/if}
+							{#if q.mine || data.user.role === 'admin'}
+								<hr />
+								<form method="POST" action="?/delete" use:enhance={send({ confirm: () => t.list.confirmDelete(q.title) })}>
+									<input type="hidden" name="id" value={q.id} /><button class="danger"><Icon name="trash" weight={2} />{t.common.remove}</button>
+								</form>
+							{/if}
+						</RowMenu>
 					</div>
 				</li>
 			{/each}
@@ -201,16 +193,11 @@
 	.title:hover { text-decoration: underline; }
 	.actions { display: flex; gap: 0.5rem; align-items: stretch; padding: 0 1rem 1rem; }
 	.actions > .btn { flex: 1; padding-inline: 0.5rem; }
+	.actions > :global(.trigger) { width: 2.75rem; min-height: 2.75rem; }
 	.btn.disabled { opacity: 0.4; pointer-events: none; }
-	.more { position: relative; }
-	.more summary { list-style: none; display: flex; align-items: center; justify-content: center; width: 2.75rem; height: 100%; min-height: 2.75rem; box-sizing: border-box; border: 1px solid var(--line-strong); border-radius: var(--radius-s); background: #fff; font-weight: 700; font-size: 1.2rem; cursor: pointer; }
-	.more summary::-webkit-details-marker { display: none; }
-	.more summary:hover, .more[open] summary { background: var(--soft); }
-	.pop { position: absolute; right: 0; bottom: calc(100% + 0.4rem); z-index: 20; width: 14rem; box-sizing: border-box; display: flex; flex-direction: column; gap: 0.4rem; padding: 0.6rem; background: #fff; border: 1px solid var(--line-strong); border-radius: 0.75rem; box-shadow: 0 12px 32px rgba(27, 31, 59, 0.18); transform-origin: bottom right; animation: pop-in var(--dur-fast) var(--ease-out); }
-	.pop .btn, .pop button { width: 100%; }
-	.pop label { margin: 0.2rem 0 0; }
-	.pop select { margin-top: 0.3rem; }
 	.danger-link { color: var(--danger) !important; }
+	.folder-bar .link { display: inline-flex; align-items: center; gap: 0.35rem; }
+	.move-lbl { display: flex; align-items: center; gap: 0.65rem; font-weight: 500; }
 	.empty { text-align: center; padding: 2.5rem; }
 	.pager { display: flex; align-items: center; justify-content: center; gap: 1rem; margin-top: 1.5rem; flex-wrap: wrap; }
 </style>

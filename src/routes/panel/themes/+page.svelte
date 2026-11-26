@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { send } from '#lib/forms.js';
+	import Icon from '#lib/Icon.svelte';
 	import { panelDict } from '#lib/i18n/panel.js';
 	import { logoFor } from '#lib/game/theme.js';
 	let { data, form } = $props();
@@ -15,7 +16,7 @@
 <h1>{T.title}</h1>
 <p class="muted">{T.intro}</p>
 
-<button type="button" class="new-toggle" aria-expanded={newOpen} aria-controls="new-box" onclick={() => (newOpen = !newOpen)}>+ {T.new}</button>
+<button type="button" class="new-toggle" aria-expanded={newOpen} aria-controls="new-box" onclick={() => (newOpen = !newOpen)}><Icon name="plus" weight={2} />{T.new}</button>
 <div class="card new-box" id="new-box" class:open={newOpen}>
 	<h2>{T.new}</h2>
 	{#if form?.error}<p class="error">{form.error}</p>{/if}

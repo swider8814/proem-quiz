@@ -9,7 +9,7 @@
 	 * przy każdej gałęzi – nową ikonę bierz z tego samego zestawu, żeby styl był spójny.
 	 * weight – grubość kreski: gra ma grube, „plakatowe” przyciski (2.5), panel cieńsze (2).
 	 */
-	type Name = 'replay' | 'close' | 'check' | 'fullscreen' | 'next' | 'back' | 'up' | 'down' | 'screen' | 'sound' | 'dice' | 'thumbUp' | 'thumbDown' | 'music' | 'edit' | 'quizzes' | 'palette' | 'users' | 'settings' | 'shield' | 'help' | 'user';
+	type Name = 'replay' | 'close' | 'check' | 'fullscreen' | 'next' | 'back' | 'up' | 'down' | 'screen' | 'sound' | 'dice' | 'thumbUp' | 'thumbDown' | 'music' | 'edit' | 'quizzes' | 'palette' | 'users' | 'settings' | 'shield' | 'help' | 'user' | 'more' | 'send' | 'lock' | 'unlock' | 'trash' | 'key' | 'copy' | 'chart' | 'folderInput' | 'play' | 'download' | 'plus' | 'save' | 'share';
 	let { name, size = '1em', weight = 2.5 }: { name: Name; size?: string; weight?: number } = $props();
 </script>
 
@@ -58,6 +58,34 @@
 		<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" /> <path d="m9 12 2 2 4-4" />  <!-- shield-check -->
 	{:else if name === 'help'}
 		<circle cx="12" cy="12" r="10" /> <path d="M9 9.5a3 2.5 0 016 0c0 2-2 2-3 3.5" /> <path d="M12 17h.01" />  <!-- circle-help -->
+	{:else if name === 'more'}
+		<circle cx="12" cy="12" r="1" /> <circle cx="19" cy="12" r="1" /> <circle cx="5" cy="12" r="1" />  <!-- ellipsis -->
+	{:else if name === 'send'}
+		<path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z" /> <path d="m21.854 2.147-10.94 10.939" />  <!-- send -->
+	{:else if name === 'lock'}
+		<rect width="18" height="11" x="3" y="11" rx="2" ry="2" /> <path d="M7 11V7a5 5 0 0 1 10 0v4" />  <!-- lock -->
+	{:else if name === 'unlock'}
+		<rect width="18" height="11" x="3" y="11" rx="2" ry="2" /> <path d="M7 11V7a5 5 0 0 1 9.9-1" />  <!-- lock-open -->
+	{:else if name === 'trash'}
+		<path d="M10 11v6" /> <path d="M14 11v6" /> <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /> <path d="M3 6h18" /> <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />  <!-- trash-2 -->
+	{:else if name === 'key'}
+		<path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z" /> <circle cx="16.5" cy="7.5" r=".5" fill="currentColor" />  <!-- key-round -->
+	{:else if name === 'copy'}
+		<rect width="14" height="14" x="8" y="8" rx="2" ry="2" /> <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />  <!-- copy -->
+	{:else if name === 'chart'}
+		<path d="M3 3v16a2 2 0 0 0 2 2h16" /> <path d="M18 17V9" /> <path d="M13 17V5" /> <path d="M8 17v-3" />  <!-- chart-column -->
+	{:else if name === 'folderInput'}
+		<path d="M2 9V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-1" /> <path d="M2 13h10" /> <path d="m9 16 3-3-3-3" />  <!-- folder-input -->
+	{:else if name === 'play'}
+		<path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z" />  <!-- play -->
+	{:else if name === 'download'}
+		<path d="M12 15V3" /> <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /> <path d="m7 10 5 5 5-5" />  <!-- download -->
+	{:else if name === 'plus'}
+		<path d="M5 12h14" /> <path d="M12 5v14" />  <!-- plus -->
+	{:else if name === 'save'}
+		<path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" /> <path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7" /> <path d="M7 3v4a1 1 0 0 0 1 1h7" />  <!-- save -->
+	{:else if name === 'share'}
+		<circle cx="18" cy="5" r="3" /> <circle cx="6" cy="12" r="3" /> <circle cx="18" cy="19" r="3" /> <line x1="8.59" x2="15.42" y1="13.51" y2="17.49" /> <line x1="15.41" x2="8.59" y1="6.51" y2="10.49" />  <!-- share-2 -->
 	{/if}
 </svg>
 

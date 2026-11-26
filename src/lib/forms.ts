@@ -9,8 +9,10 @@
 import type { ActionResult, SubmitFunction } from '$app/forms';
 
 type SendOptions = {
-	/** Pytanie przed wysłaniem (usuwanie, reset 2FA); „Anuluj” = nic się nie dzieje. */
-	confirm?: () => string;
+	/** Pytanie przed wysłaniem (natywne okienko confirm()) – przy każdej akcji usuwającej, blokującej
+	 * lub odbierającej dostęp; „Anuluj” = nic się nie dzieje. Dostaje kliknięty przycisk: gdy formularz
+	 * ma kilka przycisków, pusty wynik = wyślij bez pytania. */
+	confirm?: (submitter: HTMLElement | null) => string | null | undefined;
 	/** Wyczyść pola po udanej akcji (formularze tworzące coś nowego). Domyślnie pola zostają. */
 	reset?: boolean;
 	/** Przeładuj dane strony po akcji. Wyłącz, gdy `load` po sukcesie przekierowałby gdzie indziej
@@ -25,7 +27,8 @@ const pending = new WeakSet<HTMLFormElement>();
 
 export function send(opts: SendOptions = {}): SubmitFunction {
 	return ({ formElement, submitter, cancel }) => {
-		if (pending.has(formElement) || (opts.confirm && !confirm(opts.confirm()))) {
+		const question = opts.confirm?.(submitter);
+		if (pending.has(formElement) || (question && !confirm(question))) {
 			cancel();
 			return;
 		}
