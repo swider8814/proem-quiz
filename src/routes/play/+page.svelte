@@ -175,13 +175,16 @@
 		const last = store.get('pq:last');
 		const tryPin = qsPin || last || '';
 		const token = tryPin ? store.get(sessionKey(tryPin)) : null;
+		let destroyed = false;
 		(async () => {
 			if (tryPin && token) {
 				const res = await resumePlayer(
 					() => ask(socket!, 'rejoin', { pin: tryPin, token }),
-					() => store.del(sessionKey(tryPin))
+					() => store.del(sessionKey(tryPin)),
+					// Gracz sam zaczął dołączać (wpisał PIN) albo już jest w grze – nie ponawiamy i nie nadpisujemy ekranu.
+					{ shouldStop: () => destroyed || phase !== 'pin' || gs !== null }
 				);
-				if (res === 'ok') return;
+				if (res === 'ok' || res === 'cancelled' || destroyed || phase !== 'pin') return;
 			}
 			if (qsPin.length === 6) {
 				pin = qsPin;
@@ -189,6 +192,7 @@
 			}
 		})();
 		return () => {
+			destroyed = true;
 			clearInterval(tick);
 			unlock();
 			socket?.disconnect();

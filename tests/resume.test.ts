@@ -41,4 +41,20 @@ ok(r.res === 'gone' && r.forgotten, 'timeout, potem no-session → token skasowa
 r = await run([{ error: 'already-joined' }]);
 ok(r.res === 'failed' && !r.forgotten && r.calls === 1, 'already-joined → bez kasowania i bez ponawiania');
 
+// Gracz w trakcie ponawiania sam wpisał PIN i dołącza – ponawianie się kończy, bez kasowania tokenu (review Codexa).
+{
+	let calls = 0;
+	let manual = false;
+	let forgotten = false;
+	const res = await resumePlayer(
+		async () => {
+			calls++;
+			return { error: 'rate-limited' };
+		},
+		() => (forgotten = true),
+		{ shouldStop: () => manual, sleep: async () => void (manual = calls >= 2) }
+	);
+	ok(res === 'cancelled' && calls === 2 && !forgotten, 'ręczne dołączenie w trakcie → „cancelled”, bez dalszych prób');
+}
+
 process.exit(finish() ? 1 : 0);
