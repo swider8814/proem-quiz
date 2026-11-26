@@ -27,13 +27,15 @@ export function guardRestoredDb(): { restored: boolean; sessions: number; links:
 		if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
 	}
 	if (raw !== null) {
-		if (!/^\d+$/.test(raw)) throw new Error(`Nieprawidłowa zawartość ${file} – nie da się sprawdzić, czy baza nie jest odtworzoną kopią`);
-		onDisk = Number(raw);
+		const n = /^\d{1,15}$/.test(raw) ? Number(raw) : NaN;
+		if (!Number.isSafeInteger(n)) throw new Error(`Nieprawidłowa zawartość ${file} – nie da się sprawdzić, czy baza nie jest odtworzoną kopią`);
+		onDisk = n;
 	}
 	// Najpierw baza (unieważnienie + nowy licznik) w jednej transakcji – jej błąd przerywa start aplikacji.
 	const result = db.transaction((tx) => {
 		const row = tx.select().from(schema.appSettings).where(eq(schema.appSettings.key, KEY)).get();
-		const inDb = row && /^\d+$/.test(row.value) ? Number(row.value) : 0;
+		const inDb = row ? Number(/^\d{1,15}$/.test(row.value) ? row.value : NaN) : 0;
+		if (!Number.isSafeInteger(inDb)) throw new Error('Nieprawidłowy licznik db_generation w bazie – nie da się sprawdzić, czy baza nie jest odtworzoną kopią');
 		const restored = onDisk !== null && inDb < onDisk;
 		let sessions = 0;
 		let links = 0;

@@ -71,6 +71,12 @@ fs.writeFileSync(counter, 'xyz');
 let bad = false;
 try { guardRestoredDb(); } catch { bad = true; }
 ok(bad && fs.readFileSync(counter, 'utf8') === 'xyz', 'uszkodzony plik licznika: start przerwany, plik nie nadpisany');
+fs.writeFileSync(counter, '9'.repeat(400)); // same cyfry, ale poza zakresem bezpiecznych liczb
+addLinks();
+const [p0, s0] = [pending(), sessions()];
+let huge = false;
+try { guardRestoredDb(); } catch { huge = true; }
+ok(huge && pending() === p0 && sessions() === s0 && fs.readFileSync(counter, 'utf8').length === 400, 'licznik spoza zakresu liczb: start przerwany, nic nie unieważniono ani nie nadpisano');
 fs.rmSync(counter);
 fs.mkdirSync(counter); // odczyt się nie uda (EISDIR), ale nie jest to brak pliku
 let unreadable = false;
