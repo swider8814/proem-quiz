@@ -3,11 +3,11 @@
 	// Dymek ma position: fixed i liczone położenie – zawsze mieści się w oknie (także na telefonie,
 	// gdy „?” jest przy prawej krawędzi), a gdy pod przyciskiem brakuje miejsca, otwiera się nad nim.
 	import { page } from '$app/state';
-	import { panelDict } from '#lib/i18n/panel.js';
-	import { HELP_TIPS, type HelpTipId } from './content.js';
+	import { isPanelLang, panelDict } from '#lib/i18n/panel.js';
+	import { HELP_TIPS, type HelpLang, type HelpTipId } from './content.js';
 
 	let { id }: { id: HelpTipId } = $props();
-	const lang = $derived(page.data.lang === 'pl' ? 'pl' : 'en'); // ukraiński – na razie pomoc po angielsku
+	const lang = $derived<HelpLang>(isPanelLang(page.data.lang) ? page.data.lang : 'pl');
 	const t = $derived(panelDict(page.data.lang));
 	const tip = $derived(HELP_TIPS[id]);
 	let open = $state(false);

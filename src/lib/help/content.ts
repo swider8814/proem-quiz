@@ -1,10 +1,10 @@
-// Treść zakładki Pomoc (PL i EN obok siebie – poprawka tekstu = zwykły PR).
+// Treść zakładki Pomoc (PL, EN i UK obok siebie – poprawka tekstu = zwykły PR).
 // Zasady: krótkie kroki, nazwy przycisków jak w panelu (pogrubione **…**), bez zrzutów ekranu
-// (nie starzeją się przy zmianach wyglądu). tests/help.test.mjs pilnuje, by obie wersje były kompletne.
+// (nie starzeją się przy zmianach wyglądu). tests/help.test.ts pilnuje, by wszystkie wersje były kompletne.
 
-export type HelpLang = 'pl' | 'en';
+export type HelpLang = 'pl' | 'en' | 'uk';
 export type HelpBlock = { title: string; summary: string; steps?: string[]; tips?: string[] };
-export type HelpSection = { id: string; adminOnly?: boolean; pl: HelpBlock; en: HelpBlock };
+export type HelpSection = { id: string; adminOnly?: boolean; pl: HelpBlock; en: HelpBlock; uk: HelpBlock };
 
 export const HELP: HelpSection[] = [
 	{
@@ -17,7 +17,7 @@ export const HELP: HelpSection[] = [
 				'Logujesz się adresem e-mail i hasłem na **quiz.proem.pl/login**.',
 				'**Administratorzy** muszą mieć weryfikację dwuetapową (kod z aplikacji na telefonie, np. Google Authenticator). Pozostali mogą ją włączyć dobrowolnie: **Moje konto → Włącz weryfikację dwuetapową**. Od tej chwili przy logowaniu podajesz też kod z aplikacji.',
 				'Kody zapasowe zapisz w bezpiecznym miejscu – pozwolą wejść, gdy zgubisz telefon.',
-				'Język panelu zmienisz przyciskiem **English** / **Polski** w menu (na telefonie: **EN** / **PL**).'
+				'Język panelu zmienisz w menu języka (przycisk z kodem języka, np. **PL**): Polski, English albo Українська.'
 			],
 			tips: ['Zapomniane hasło: na stronie logowania kliknij „Nie pamiętasz hasła?” – link przyjdzie e-mailem.']
 		},
@@ -29,9 +29,21 @@ export const HELP: HelpSection[] = [
 				'Sign in with your e-mail and password at **quiz.proem.pl/login**.',
 				'**Administrators** must use two-step verification (a code from a phone app, e.g. Google Authenticator). Everyone else can turn it on if they want: **My account → Turn on two-step verification**. From then on you also enter the code from the app when signing in.',
 				'Keep the backup codes somewhere safe – they let you in if you lose your phone.',
-				'Switch the panel language with **Polski** / **English** in the menu (on a phone: **PL** / **EN**).'
+				'Change the panel language in the language menu (the button with the language code, e.g. **EN**): Polski, English or Українська.'
 			],
 			tips: ['Forgot your password? On the sign-in page click “Forgot your password?” – the link arrives by e-mail.']
+		},
+		uk: {
+			title: 'Перші кроки',
+			summary: 'Вхід, двоетапна перевірка й мова панелі.',
+			steps: [
+				'Обліковий запис створює адміністратор – ви отримуєте лист із запрошенням. Натисніть посилання й встановіть пароль.',
+				'Входьте за адресою ел. пошти й паролем на **quiz.proem.pl/login**.',
+				'**Адміністратори** мусять мати двоетапну перевірку (код із застосунку на телефоні, напр. Google Authenticator). Інші можуть увімкнути її за бажанням: **Мій обліковий запис → Увімкнути двоетапну перевірку**. Відтоді під час входу ви вводите також код із застосунку.',
+				'Збережіть резервні коди в надійному місці – вони дадуть змогу увійти, якщо ви загубите телефон.',
+				'Мову панелі змінюйте в меню мови (кнопка з кодом мови, напр. **UK**): Polski, English або Українська.'
+			],
+			tips: ['Забули пароль? На сторінці входу натисніть «Забули пароль?» – посилання прийде ел. поштою.']
 		}
 	},
 	{
@@ -69,6 +81,23 @@ export const HELP: HelpSection[] = [
 				'The **Translation / second line** field appears under the question in a smaller font – e.g. a Polish version for a lesson.',
 				'File limits: audio up to 30 MB, images up to 20 MB.'
 			]
+		},
+		uk: {
+			title: 'Створення вікторини',
+			summary: 'Нова вікторина, питання, зображення й фрагменти пісень.',
+			steps: [
+				'У списку **Вікторини** введіть назву й натисніть **Створити вікторину**. На телефоні спершу торкніться **+** біля заголовка «Вікторини».',
+				'Виберіть тип питання й натисніть **Додати питання**. На телефоні скористайтеся **+** біля «Питання 1 з 1» або кнопкою внизу редактора.',
+				'Введіть питання й відповіді та позначте **правильна**. Зберігайте кнопкою **Зберегти** (або Ctrl+S). Коли все збережено, кнопка показує **Збережено**.',
+				'Зображення до питання: **Додати зображення**. Фото з телефона буде зменшено автоматично. Замість тексту відповіді можна дати зображення: **зображення замість тексту**.',
+				'Аудіопитання («вгадай пісню»): завантажте MP3, перетягніть синю область на хвилі, щоб вибрати фрагмент, і перевірте його кнопкою **Прослухати фрагмент**.',
+				'Порядок питань змінюйте стрілками або перетягуванням у списку. **Дублювати** копіює питання.'
+			],
+			tips: [
+				'Типи питань: **Вибір відповіді (ABCD)**, **Правда / неправда**, **Аудіо**, **Введи відповідь**, **Розстав по порядку**, **Опитування** (без балів), **Повзунок** (число) і **Слайд** (лише текст, без питання).',
+				'Поле **Переклад / другий рядок** з’являється під питанням меншим шрифтом – напр. український переклад для уроку англійської.',
+				'Обмеження файлів: аудіо до 30 МБ, зображення до 20 МБ.'
+			]
 		}
 	},
 	{
@@ -95,6 +124,18 @@ export const HELP: HelpSection[] = [
 				'**Player nicknames**: **Random or custom** (with a word filter), **Random only** (safest for younger children) or **Custom only** (everyone types a name or nickname).',
 				'**Team mode**: one phone per team. **Team discussion time** shows the question before answering so the team can discuss it.',
 				'**Background music** plays from the host computer. It stops during audio questions and on the podium.'
+			]
+		},
+		uk: {
+			title: 'Налаштування вікторини',
+			summary: 'Час, бали, нікнейми, команди й музика.',
+			steps: [
+				'У редакторі натисніть **Налаштування**. Тут ви вибираєте тему (кольори й логотип) і **Мову гри** – написи на екрані й телефонах.',
+				'Кожне нове питання отримує **Час на відповідь за замовчуванням**. У самому питанні його можна змінити (кнопки 10/20/30/60 або поле **інший**).',
+				'**Бали** за питання: **Звичайні**, **Подвійні** (напр. останнє питання) або **Без балів** (розминка).',
+				'**Нікнейми гравців**: **Випадкові або власні** (з фільтром слів), **Лише випадкові** (найбезпечніше для молодших дітей) або **Лише власні** (кожен вводить ім’я чи нікнейм).',
+				'**Командний режим**: один телефон на команду. **Час на обговорення в команді** показує питання до відповідей, щоб команда могла порадитися.',
+				'**Фонова музика** грає з комп’ютера ведучого. Вона затихає на аудіопитаннях і на п’єдесталі.'
 			]
 		}
 	},
@@ -129,6 +170,21 @@ export const HELP: HelpSection[] = [
 				'The game ends with a podium and the report is saved automatically.'
 			],
 			tips: ['Up to 300 players can join one game.']
+		},
+		uk: {
+			title: 'Проведення гри',
+			summary: 'Запуск, PIN, екран для глядачів і керування.',
+			steps: [
+				'Підключіть комп’ютер до проєктора чи телевізора та до колонок або передайте зображення з планшета на телевізор (AirPlay, Chromecast). Відкрийте вікторину й натисніть **Почати гру**.',
+				'На екрані з’являться **PIN** і QR-код. Гравці відкривають **quiz.proem.pl** на телефоні й вводять PIN (або сканують код).',
+				'Комп’ютер із другим екраном: **Відкрити екран для глядачів** – відкриває окреме вікно. Перетягніть його на проєктор і натисніть **F** (повний екран). На вашому екрані залишається вигляд ведучого.',
+				'Планшет або один екран, продубльований на телевізор: залишайтеся у вигляді ведучого й натисніть **Повний екран**. Глядачі бачать те саме, що й ви.',
+				'Натисніть **Тест звуку**, перш ніж приєднаються гравці. Якщо браузер заблокує звук, натисніть будь-яку кнопку на сторінці.',
+				'Біля гравця в лобі: стрілка в колі дає новий випадковий нікнейм, **×** видаляє гравця (з цього телефона він не повернеться).',
+				'Коли всі на місці, натисніть **Починаємо**. Далі **пробіл** або стрілка праворуч переходить до наступного кроку, **R** повторює фрагмент пісні.',
+				'Наприкінці – п’єдестал, а звіт зберігається автоматично.'
+			],
+			tips: ['В одній грі може бути до 300 гравців.']
 		}
 	},
 	{
@@ -153,6 +209,17 @@ export const HELP: HelpSection[] = [
 				'Make sure there is Wi-Fi or good mobile signal in the room – players use their own phones.',
 				'Run a trial game on 2–3 phones (ideally an iPhone and an Android).',
 				'Plug the computer or tablet in and turn off screen sleep.'
+			]
+		},
+		uk: {
+			title: 'Перед заходом – контрольний список',
+			summary: 'Що перевірити напередодні й на місці.',
+			steps: [
+				'Пройдіть усю вікторину самі: **Почати гру** й приєднайтеся з власного телефона.',
+				'Перевірте, чи зображення потрапляє на проєктор (вікно для глядачів на повний екран) і чи працюють колонки (**Тест звуку**).',
+				'Переконайтеся, що в залі є Wi-Fi або добрий мобільний зв’язок – гравці грають на своїх телефонах.',
+				'Проведіть пробну гру на 2–3 телефонах (найкраще iPhone і Android).',
+				'Підключіть комп’ютер чи планшет до живлення й вимкніть сплячий режим екрана.'
 			]
 		}
 	},
@@ -181,6 +248,18 @@ export const HELP: HelpSection[] = [
 				'**The file is too large** – audio up to 30 MB, images up to 20 MB. Shorten a long song or save it in lower quality.',
 				'Still not working? Contact the administrator and give the version from the panel footer.'
 			]
+		},
+		uk: {
+			title: 'Коли щось не працює',
+			summary: 'Найчастіші проблеми та швидкі рішення.',
+			steps: [
+				'**Гравець не може приєднатися** – перевірте PIN і чи вводить він адресу **quiz.proem.pl**. Якщо гра вже триває, у налаштуваннях має бути ввімкнено **Приєднання під час гри**.',
+				'**Телефон від’єднався** (блокування екрана, Wi-Fi) – достатньо повернутися до браузера. Гра продовжиться сама з тими самими балами.',
+				'**Немає звуку** – натисніть будь-яку кнопку на сторінці ведучого (браузер вимагає натискання), перевірте гучність пристрою та колонок, скористайтеся **Тест звуку**.',
+				'**Вікно для глядачів не відкривається** – дозвольте в браузері спливні вікна для quiz.proem.pl.',
+				'**Файл завеликий** – аудіо до 30 МБ, зображення до 20 МБ. Довгу пісню скоротіть або збережіть у нижчій якості.',
+				'Досі не працює? Напишіть адміністраторові й вкажіть версію з нижнього колонтитула панелі.'
+			]
 		}
 	},
 	{
@@ -204,6 +283,16 @@ export const HELP: HelpSection[] = [
 				'Reports contain only player nicknames and are deleted automatically after 90 days.',
 				'**Share** in the editor gives another person access to the quiz: **can host the game** (without changing questions) or **can edit and host**.'
 			]
+		},
+		uk: {
+			title: 'Звіти й спільний доступ',
+			summary: 'Результати після гри, таблиця CSV і вікторини, спільні з іншими.',
+			steps: [
+				'Після кожної гри звіт зберігається сам: **Звіти** біля вікторини. Ви побачите результати й те, які питання були найскладнішими.',
+				'**Завантажити таблицю (CSV для Excel)** – результати для подальшої роботи.',
+				'Звіти містять лише нікнейми гравців і автоматично зникають через 90 днів.',
+				'**Поділитися** в редакторі дає іншій людині доступ до вікторини: **може проводити гру** (без зміни питань) або **може редагувати й проводити**.'
+			]
 		}
 	},
 	{
@@ -213,7 +302,7 @@ export const HELP: HelpSection[] = [
 			title: 'Dla administratora',
 			summary: 'Użytkownicy, motywy, logo i ustawienia.',
 			steps: [
-				'**Użytkownicy → Zaproś osobę**: podaj e-mail, imię, rolę (**Autor** albo **Administrator**) i język konta. Lektorom anglojęzycznym ustaw **English**.',
+				'**Użytkownicy → Zaproś osobę**: podaj e-mail, imię, rolę (**Autor** albo **Administrator**) i język konta. Lektorom anglojęzycznym ustaw **English**, osobom z Ukrainy – **Українська**.',
 				'Link z zaproszenia działa 7 dni – potem kliknij **Nowy link**. Konto, które nie zostało aktywowane (np. z literówką w e-mailu), możesz **usunąć**. Aktywne konto można tylko **zablokować** – jego quizy zostają.',
 				'**Motywy**: styl ekranów, kolory, czcionka i logo. Autor wybiera motyw w ustawieniach quizu.',
 				'**Ustawienia**: logo w panelu, stan kopii zapasowych i sekcja **O aplikacji** (wersja, miejsce na serwerze).',
@@ -230,6 +319,17 @@ export const HELP: HelpSection[] = [
 				'**Settings**: panel logo, backup status and the **About** section (version, server space).',
 				'A new app version reaches the server only after a manual deploy in GitHub Actions – the version number is in the panel footer.'
 			]
+		},
+		uk: {
+			title: 'Для адміністратора',
+			summary: 'Користувачі, теми, логотип і налаштування.',
+			steps: [
+				'**Користувачі → Запросити людину**: вкажіть ел. пошту, ім’я, роль (**Автор** або **Адміністратор**) і мову облікового запису.',
+				'Посилання-запрошення діє 7 днів – потім натисніть **Нове посилання**. Обліковий запис, який не активували (напр. через помилку в адресі), можна **видалити**. Активний обліковий запис можна лише **заблокувати** – його вікторини залишаються.',
+				'**Теми**: стиль екранів, кольори, шрифт і логотип. Автор вибирає тему в налаштуваннях вікторини.',
+				'**Налаштування**: логотип у панелі, стан резервних копій і розділ **Про застосунок** (версія, місце на сервері).',
+				'Нова версія застосунку потрапляє на сервер лише після ручного розгортання в GitHub Actions – номер версії видно в нижньому колонтитулі панелі.'
+			]
 		}
 	}
 ];
@@ -239,34 +339,40 @@ export const HELP_TIPS = {
 	team: {
 		section: 'settings',
 		pl: 'Jeden telefon na drużynę. Przy dołączaniu wpisuje się nazwę drużyny i imiona. Czas na naradę pokazuje pytanie, zanim drużyny mogą odpowiadać.',
-		en: 'One phone per team. When joining, players enter a team name and members. Team discussion time shows the question before teams can answer.'
+		en: 'One phone per team. When joining, players enter a team name and members. Team discussion time shows the question before teams can answer.',
+		uk: 'Один телефон на команду. Під час приєднання вводять назву команди й імена. Час на обговорення показує питання, перш ніж команди можуть відповідати.'
 	},
 	nick: {
 		section: 'settings',
 		pl: 'Losowe lub własne – gracz może zmienić losowy nick na swój (filtr słów). Tylko losowe – nikt nie wpisze nic nieodpowiedniego. Tylko własne – każdy wpisuje imię lub nick.',
-		en: 'Random or custom – players may replace the random nickname with their own (word filter). Random only – nobody can type anything inappropriate. Custom only – everyone types a name or nickname.'
+		en: 'Random or custom – players may replace the random nickname with their own (word filter). Random only – nobody can type anything inappropriate. Custom only – everyone types a name or nickname.',
+		uk: 'Випадкові або власні – гравець може замінити випадковий нікнейм своїм (фільтр слів). Лише випадкові – ніхто не введе нічого неприйнятного. Лише власні – кожен вводить ім’я чи нікнейм.'
 	},
 	points: {
 		section: 'settings',
 		pl: 'Zwykłe – do 1000 punktów, szybciej znaczy więcej. Podwójne – dwa razy więcej (np. na finał). Bez – pytanie na rozgrzewkę, nie zmienia rankingu.',
-		en: 'Standard – up to 1000 points, faster means more. Double – twice as many (e.g. for the finale). None – a warm-up question that does not change the ranking.'
+		en: 'Standard – up to 1000 points, faster means more. Double – twice as many (e.g. for the finale). None – a warm-up question that does not change the ranking.',
+		uk: 'Звичайні – до 1000 балів, що швидше, то більше. Подвійні – удвічі більше (напр. на фінал). Без балів – розминкове питання, не змінює рейтинг.'
 	},
 	translation: {
 		section: 'create',
 		pl: 'Druga linia pod pytaniem, mniejszą czcionką – np. tłumaczenie na lekcję języka. Można zostawić puste.',
-		en: 'A second line under the question in a smaller font – e.g. a translation for a language lesson. Can be left empty.'
+		en: 'A second line under the question in a smaller font – e.g. a translation for a language lesson. Can be left empty.',
+		uk: 'Другий рядок під питанням меншим шрифтом – напр. переклад для уроку мови. Можна залишити порожнім.'
 	},
 	screen: {
 		section: 'host',
 		pl: 'Komputer z drugim ekranem: otwiera osobne okno dla projektora. Przeciągnij je na drugi ekran i naciśnij F. Na Twoim ekranie zostaje widok prowadzącego z graczami i przyciskami. Tablet z obrazem na telewizorze: wystarczy Pełny ekran.',
-		en: 'Computer with a second screen: opens a separate window for the projector. Drag it to the second screen and press F. Your screen keeps the host view with players and buttons. Tablet mirrored to a TV: just use Full screen.'
+		en: 'Computer with a second screen: opens a separate window for the projector. Drag it to the second screen and press F. Your screen keeps the host view with players and buttons. Tablet mirrored to a TV: just use Full screen.',
+		uk: 'Комп’ютер із другим екраном: відкриває окреме вікно для проєктора. Перетягніть його на другий екран і натисніть F. На вашому екрані залишається вигляд ведучого з гравцями й кнопками. Планшет із зображенням на телевізорі: достатньо «Повний екран».'
 	},
 	share: {
 		section: 'reports',
 		pl: '„Może prowadzić grę” – uruchamia quiz, ale nie zmienia pytań. „Może edytować i prowadzić” – zmienia pytania i prowadzi, ale nie usunie quizu ani nie udostępni go dalej.',
-		en: '“Can host the game” – runs the quiz but cannot change questions. “Can edit and host” – changes questions and hosts, but cannot delete the quiz or share it further.'
+		en: '“Can host the game” – runs the quiz but cannot change questions. “Can edit and host” – changes questions and hosts, but cannot delete the quiz or share it further.',
+		uk: '«Може проводити гру» – запускає вікторину, але не змінює питань. «Може редагувати й проводити» – змінює питання й проводить, але не видалить вікторину й не поділиться нею далі.'
 	}
-} satisfies Record<string, { section: string; pl: string; en: string }>;
+} satisfies Record<string, { section: string; pl: string; en: string; uk: string }>;
 
 export type HelpTipId = keyof typeof HELP_TIPS;
 

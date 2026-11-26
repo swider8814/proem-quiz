@@ -2,10 +2,10 @@
 	import { smoothDetails } from '#lib/motion.js';
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { panelDict } from '#lib/i18n/panel.js';
+	import { isPanelLang, panelDict } from '#lib/i18n/panel.js';
 	import { HELP, helpHtml, type HelpLang } from '#lib/help/content.js';
 
-	const lang = $derived<HelpLang>(page.data.lang === 'pl' ? 'pl' : 'en'); // ukraiński – na razie pomoc po angielsku
+	const lang = $derived<HelpLang>(isPanelLang(page.data.lang) ? page.data.lang : 'pl');
 	const t = $derived(panelDict(page.data.lang));
 	const isAdmin = $derived(page.data.user?.role === 'admin');
 	let query = $state('');
