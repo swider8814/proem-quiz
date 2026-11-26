@@ -170,6 +170,21 @@ try {
 		questions: [{ type: 'choice', prompt: '2+2?', promptTranslation: null, imageMediaId: null, timeLimit: 20, pointsMultiplier: 1, data: { type: 'choice', answers: ['3', '4'], correct: [1] } }]
 	});
 	ok((await author.req(`/panel/api/quizzes/${sq}`, { method: 'PUT', body: quizBody('Quiz autora'), headers: json })).status === 200, 'autor zapisuje swój quiz');
+	// Kontrola wersji: zapis od nieaktualnej wersji → 409 (konflikt), zapis wymuszony → OK.
+	{
+		const put = async (title, expectedVersion) => {
+			const r = await author.req(`/panel/api/quizzes/${sq}`, { method: 'PUT', body: JSON.stringify({ ...JSON.parse(quizBody(title)), ...(expectedVersion === undefined ? {} : { expectedVersion }) }), headers: json });
+			return { status: r.status, body: JSON.parse(r.text || '{}') };
+		};
+		const a = await put('Wersja A');
+		const b = await put('Wersja B', a.body.version);
+		ok(a.status === 200 && b.status === 200 && b.body.version > a.body.version, 'zapis od aktualnej wersji przechodzi, wersja rośnie');
+		const stale = await put('Spóźniony zapis', a.body.version);
+		ok(stale.status === 409 && stale.body.conflict === true, 'zapis od nieaktualnej wersji → 409 (nie nadpisuje po cichu)');
+		const page = await author.req(`/panel/quizzes/${sq}`);
+		ok(page.text.includes('Wersja B') && !page.text.includes('Spóźniony zapis'), 'po konflikcie w bazie zostaje wcześniejszy zapis');
+		ok((await put('Quiz autora')).status === 200, 'zapis wymuszony (bez wersji) nadpisuje');
+	}
 	ok((await kasia.req(`/panel/quizzes/${sq}`)).status === 404, 'przed udostępnieniem inny autor nie widzi quizu');
 	ok((await kasia.req(`/panel/quizzes/${sq}/share`)).status === 404, 'obcy nie otworzy strony udostępniania');
 
