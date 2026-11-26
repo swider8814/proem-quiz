@@ -451,7 +451,19 @@ const pl = {
 		block: 'Zablokuj',
 		roleChanged: (n: string, admin: boolean) => `${n}: rola zmieniona na ${admin ? 'administrator' : 'autor'}.`,
 		toggled: (n: string, blocked: boolean) => `${n}: konto ${blocked ? 'zablokowane' : 'odblokowane'}.`,
-		reset2faDone: (n: string) => `${n}: weryfikacja dwuetapowa zresetowana, sesje wylogowane.`
+		reset2faDone: (n: string) => `${n}: weryfikacja dwuetapowa zresetowana, sesje wylogowane.`,
+		search: 'Szukaj po imieniu lub e-mailu',
+		filterStatus: 'Filtr statusu',
+		allRoles: 'Wszystkie role',
+		allLangs: 'Wszystkie języki',
+		fAll: 'Wszystkie',
+		fActive: 'Aktywne',
+		fPending: 'Czekają na aktywację',
+		fBlocked: 'Zablokowane',
+		fNo2fa: 'Administratorzy bez 2FA',
+		shown: (n: number, total: number) => `Pokazano ${n} z ${total}`,
+		noMatch: 'Brak osób dla tych filtrów.',
+		clearFilters: 'Wyczyść filtry'
 	},
 	themes: {
 		title: 'Motywy',
@@ -1065,7 +1077,19 @@ const en: PanelDict = {
 		block: 'Block',
 		roleChanged: (n: string, admin: boolean) => `${n}: role changed to ${admin ? 'administrator' : 'author'}.`,
 		toggled: (n: string, blocked: boolean) => `${n}: account ${blocked ? 'blocked' : 'unblocked'}.`,
-		reset2faDone: (n: string) => `${n}: two-step verification reset, sessions signed out.`
+		reset2faDone: (n: string) => `${n}: two-step verification reset, sessions signed out.`,
+		search: 'Search by name or email',
+		filterStatus: 'Status filter',
+		allRoles: 'All roles',
+		allLangs: 'All languages',
+		fAll: 'All',
+		fActive: 'Active',
+		fPending: 'Awaiting activation',
+		fBlocked: 'Blocked',
+		fNo2fa: 'Admins without 2FA',
+		shown: (n: number, total: number) => `Showing ${n} of ${total}`,
+		noMatch: 'No people match these filters.',
+		clearFilters: 'Clear filters'
 	},
 	themes: {
 		title: 'Themes',
