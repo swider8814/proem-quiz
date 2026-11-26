@@ -786,7 +786,7 @@
 	.add { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px dashed var(--line-strong); }
 	/* Po regule .add (ta sama waga selektora) – inaczej blok z telefonu pokazywał się na komputerze jako czwarta kolumna. */
 	.add.add-mobile { display: none; }
-	.editor { flex: 999 1 26rem; min-width: 0; box-sizing: border-box; padding: 1.5rem clamp(1rem, 3vw, 2.5rem) max(2rem, calc(env(safe-area-inset-bottom) + 1rem)); }
+	.editor { flex: 999 1 26rem; min-width: 0; box-sizing: border-box; padding: 1.5rem clamp(1rem, 3vw, 2.5rem) 2rem; }
 	.q { max-width: 52rem; margin: 0 auto; border: 1px solid var(--line); background: var(--surface); border-radius: 1.25rem; box-shadow: var(--shadow); padding: clamp(1rem, 3vw, 2rem); display: flex; flex-direction: column; gap: 0.75rem; min-width: 0; }
 	.q > label, .q :global(label) { margin-top: 0; }
 	.prompt input { min-height: 4rem; font-family: var(--display); font-size: clamp(1.25rem, 2.2vw, 1.75rem); font-weight: 700; text-align: center; border-radius: 0.75rem; }
@@ -859,7 +859,7 @@
 		.list { display: none; flex: 1 1 100%; border-right: 0; border-bottom: 1px solid var(--line); }
 		.list-in { position: static; max-height: none; }
 		.list.open { display: block; }
-		.editor { padding: 1rem 1rem max(1.5rem, calc(env(safe-area-inset-bottom) + 1rem)); }
+		.editor { padding: 1rem; }
 		.q { padding: 1rem; border-radius: 1rem; }
 		.answer { min-height: 4rem; }
 		.answer:not(.correct) .ck-t { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
