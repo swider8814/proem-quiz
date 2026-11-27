@@ -94,7 +94,8 @@
 	.ver a { color: inherit; }
 	.shell { display: flex; align-items: flex-start; min-height: 100vh; }
 	.sidebar {
-		flex: none; width: 15rem; box-sizing: border-box; position: sticky; top: 0; height: 100vh; overflow-y: auto;
+		/* Szerokość rośnie o wcięcie „notcha” (iPhone w poziomie, ~59 px) – inaczej zjada miejsce na treść i przyciski wychodzą poza kolumnę. */
+		flex: none; width: calc(15rem + max(0px, env(safe-area-inset-left) - 1rem)); box-sizing: border-box; position: sticky; top: 0; height: 100vh; overflow-y: auto;
 		display: flex; flex-direction: column; gap: 1.5rem; padding: 1.5rem 1rem max(1.5rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
 		background: var(--surface); border-right: 1px solid var(--line);
 	}
@@ -120,9 +121,11 @@
 	.id { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 	.id strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.role { color: var(--muted); font-size: 0.85rem; }
-	.acts { flex-basis: 100%; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+	.acts { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; }
 	/* Ta sama wysokość co przycisk języka (RowMenu: 2.5rem). */
 	.acts button { min-height: 2.5rem; padding: 0.3rem 0.8rem; font-size: 0.87rem; }
+	/* Dotyk (telefon w poziomie, tablet): 44 px jak przycisk języka. */
+	@media (pointer: coarse) { .acts button { min-height: 44px; } }
 	main { flex: 1; min-width: 0; box-sizing: border-box; padding: 2rem max(clamp(1rem, 4vw, 3rem), env(safe-area-inset-right)) max(3rem, calc(env(safe-area-inset-bottom) + 1.5rem)) clamp(1rem, 4vw, 3rem); }
 	.inner { max-width: 65rem; margin: 0 auto; }
 	/* Edytor (cała szerokość): wcięcia ekranu (boki – iPhone w poziomie, dół – pasek „home”) na wspólnym kontenerze –
@@ -136,7 +139,7 @@
 		.brand.has-logo { flex: none; padding: 0.4rem 0.6rem; }
 		.burger {
 			display: inline-flex; flex-direction: column; justify-content: center; align-items: stretch; gap: 4px;
-			margin-left: auto; width: 2.75rem; height: 2.75rem; padding: 0.75rem; background: #fff; border: 1px solid var(--line-strong);
+			margin-left: auto; width: 44px; height: 44px; padding: 0.75rem; background: #fff; border: 1px solid var(--line-strong);
 		}
 		.burger:hover:not(:disabled) { filter: none; }
 		.burger span { display: block; width: 100%; height: 2px; border-radius: 2px; background: var(--text); transition: transform 0.2s, opacity 0.2s; }
@@ -155,7 +158,8 @@
 		/* Profil, język i wylogowanie w jednej linii: [D] Imię Nazwisko · EN · Wyloguj */
 		.who { flex-wrap: nowrap; border: 0; border-top: 1px solid var(--line); border-radius: 0; padding: 1rem 0 0; }
 		.acts { flex: none; flex-basis: auto; justify-content: flex-end; gap: 0.25rem; }
-		.acts button { min-height: 2.75rem; }
+		/* 44 px jak przycisk języka (RowMenu) – nie 2.75rem, bo root ma 15px (= 41,25 px). */
+		.acts button { min-height: 44px; }
 		main { padding: 1rem max(1rem, env(safe-area-inset-right)) max(2rem, calc(env(safe-area-inset-bottom) + 1rem)) max(1rem, env(safe-area-inset-left)); }
 		/* Na telefonie jedna kolumna – stopka z wersją na środku; na komputerze w linii z treścią (do lewej). */
 		.ver { text-align: center; }
