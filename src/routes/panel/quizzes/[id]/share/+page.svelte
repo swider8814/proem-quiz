@@ -70,6 +70,7 @@
 	.rows li:last-child { border-bottom: 0; padding-bottom: 0; }
 	.who { min-width: 0; overflow-wrap: anywhere; }
 	.row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: end; }
-	.add label { flex: 1 1 14rem; }
-	.add select { width: 100%; }
+	/* Etykieta z „?” jest wyższa – wspólna wysokość linii wyrównuje podpisy i listy; bez dolnego marginesu przycisk stoi równo z listami. */
+	.add label { flex: 1 1 14rem; margin: 0; line-height: 1.75rem; }
+	.add select { width: 100%; margin-top: 0.15rem; line-height: normal; }
 </style>

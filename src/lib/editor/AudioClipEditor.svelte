@@ -5,6 +5,7 @@
 	import { page } from '$app/state';
 	import { fmtTime, parseTime, uploadFile } from './model';
 	import { panelDict } from '#lib/i18n/panel.js';
+	import Icon from '#lib/Icon.svelte';
 	const A = $derived(panelDict(page.data.lang).audio);
 	const uploadFailed = $derived(panelDict(page.data.lang).editor.uploadFailed);
 
@@ -187,11 +188,7 @@
 	{#if mediaId}
 		<div class="row controls">
 			<button type="button" class="play" onclick={play} aria-label={playing ? A.stop : A.listen}>
-				{#if playing}
-					<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" /><rect x="14" y="5" width="4" height="14" /></svg>
-				{:else}
-					<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4l13 8-13 8z" /></svg>
-				{/if}
+				<Icon name={playing ? 'pause' : 'play'} size="1.15em" weight={2.5} />
 			</button>
 			<label>{A.start}
 				<input type="text" inputmode="decimal" bind:value={startText} onchange={() => applyText('start')} {disabled} />
@@ -225,14 +222,15 @@
 	.audio { padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem; }
 	.row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
 	.top { justify-content: space-between; }
-	.file { position: relative; overflow: hidden; padding: 0.45rem 0.8rem; font-size: 0.85rem; background: #e7e8ee; color: var(--text); }
+	.file { position: relative; overflow: hidden; flex: none; margin: 0; padding: 0.45rem 0.9rem; font-size: 0.93rem; }
+	.file:focus-within { box-shadow: var(--focus); }
 	.file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 	.wave { min-height: 96px; background: #fafafb; border-radius: 0.5rem; position: relative; }
 	.wave.hidden { display: none; }
 	.loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
 	.controls label { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.8rem; margin: 0; }
 	.controls input { width: 6rem; padding: 0.45rem; }
-	.play { width: 44px; height: 44px; border-radius: 50%; padding: 0; display: flex; align-items: center; justify-content: center; background: #1368ce; align-self: flex-end; }
+	.play { width: 44px; height: 44px; border-radius: 50%; padding: 0; display: flex; align-items: center; justify-content: center; background: var(--accent); align-self: flex-end; }
 	.len { align-self: flex-end; padding-bottom: 0.5rem; }
-	.check { display: flex; align-items: center; gap: 0.4rem; font-weight: 400; margin: 0; }
+	.opts { gap: 0 1.5rem; }
 </style>

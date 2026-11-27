@@ -296,8 +296,9 @@
 {#if ro}<p class="notice">{E.readOnly}</p>{/if}
 
 {#if showSettings}
-	<fieldset class="card settings" disabled={ro}>
+	<fieldset class="settings" disabled={ro}>
 		<legend class="sr">{E.settingsLegend}</legend>
+		<div class="sgrid">
 
 		<section class="sgroup">
 			<h3>{S.look}</h3>
@@ -466,6 +467,7 @@
 			</div>
 		{/if}
 		</section>
+		</div>
 	</fieldset>
 {/if}
 
@@ -526,7 +528,7 @@
 			<fieldset class="q" disabled={ro}>
 				<legend class="sr">{E.question(selected + 1)}</legend>
 				<label class="prompt">{current.type === 'slide' ? E.slideTitle : E.prompt}
-					<input type="text" bind:value={current.prompt} maxlength="200" placeholder={E.promptPlaceholder} />
+					<input type="text" bind:value={current.prompt} maxlength="200" placeholder={current.type === 'slide' ? E.slidePlaceholder : E.promptPlaceholder} />
 				</label>
 				{#if current.data.type === 'poll'}<p class="muted">{E.pollHint}</p>{/if}
 				{#if current.data.type === 'slide'}
@@ -582,11 +584,12 @@
 									</svg>
 								</span>
 								<input type="text" bind:value={d.answers[i]} maxlength="80" placeholder={(d.type !== 'audio' && d.images?.[i] ? E.caption : E.answer(String.fromCharCode(65 + i))) + (i >= 2 || (d.type !== 'audio' && d.images?.[i]) ? E.optional : '')} aria-label={E.answer(String.fromCharCode(65 + i))} />
-								{#if d.type !== 'poll'}
-									<label class="check small"><input type="checkbox" checked={d.correct.includes(i)} onchange={() => toggleCorrect(i)} /> <span class="ck-t">{E.correct}</span></label>
-								{/if}
-								{#if d.type === 'choice' || d.type === 'poll'}
-									<div class="ans-img">
+								<!-- Drugi wiersz: „poprawna” i obrazek – pole odpowiedzi ma całą szerokość (podpowiedź nie jest ucięta). -->
+								<div class="ans-img">
+									{#if d.type !== 'poll'}
+										<label class="check small"><input type="checkbox" checked={d.correct.includes(i)} onchange={() => toggleCorrect(i)} /> {E.correct}</label>
+									{/if}
+									{#if d.type === 'choice' || d.type === 'poll'}
 										{#if d.images?.[i]}
 											<img src="/media/{d.images[i]}" alt={d.alts?.[i] || E.answerImage(String.fromCharCode(65 + i))} />
 											<button type="button" class="link" onclick={() => removeAnswerImage(i)} disabled={ro}>{E.removeImage}</button>
@@ -596,8 +599,8 @@
 										{:else if !ro}
 											<label class="link file-link"><Icon name="plus" weight={2} size="0.95em" />{E.addAnswerImage}<input type="file" accept="image/*" onchange={(e) => pickAnswerImage(e, i)} /></label>
 										{/if}
-									</div>
-								{/if}
+									{/if}
+								</div>
 							</div>
 						{/each}
 					</div>
@@ -690,6 +693,7 @@
 						<label class="btn secondary file">{E.addImage}
 							<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onchange={pickImage} />
 						</label>
+						<span class="muted formats">{E.imageFormats}</span>
 					{/if}
 					{#if imageError}<p class="error">{imageError}</p>{/if}
 				</div>
@@ -738,19 +742,25 @@
 	.below { flex: 1; display: flex; flex-direction: column; }
 	.below > .notice { margin: 1rem 1.25rem; }
 	/* Ustawienia: grupy (karty) z wierszami „opis po lewej, kontrolka po prawej”; na telefonie jedno pod drugim. */
-	.settings { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr)); gap: 1rem; margin: 1rem 1.25rem; border: 1px solid var(--line); min-width: 0; }
-	.sgroup { border: 1px solid var(--line); border-radius: 0.75rem; padding: 0.25rem 1rem 0.5rem; background: #fbfbfd; min-width: 0; }
-	.sgroup h3 { margin: 0.75rem 0 0.25rem; font-size: 1rem; font-family: var(--display); }
+	.settings { margin: 1rem 1.25rem; padding: 0; border: 0; min-width: 0; }
+	/* Grupy jako osobne karty (bez drugiej ramki dookoła): 1 kolumna na telefonie, 2 na laptopie, więcej na dużym ekranie. */
+	.sgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 30rem), 1fr)); align-items: start; gap: 1rem; max-width: 70rem; margin: 0 auto; }
+	.sgroup { border: 1px solid var(--line); border-radius: var(--radius); padding: 0.25rem 1.25rem 0.75rem; background: var(--surface); box-shadow: var(--shadow); min-width: 0; }
+	.sgroup h3 { margin: 1rem 0 0.25rem; font-size: 1rem; font-family: var(--display); }
 	.srow { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.7rem 0; border-top: 1px solid #ecedf2; margin: 0; font-weight: 400; font-size: 1rem; }
 	.sgroup h3 + .srow { border-top: 0; }
 	.srow.sub { padding-left: 1rem; border-top-style: dashed; }
 	.stext { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.15rem; }
 	.stext label, .stext .lbl { font-weight: 600; margin: 0; font-size: 1rem; }
 	.hint { margin: 0; color: var(--muted); font-size: 0.85rem; line-height: 1.35; }
-	.sctl { flex: 0 0 13rem; min-width: 0; }
+	/* Wiersz z listą lub polem: opis nad kontrolką, kontrolka na całą szerokość – nazwy opcji nie są ucinane,
+	   a opis nie ściska się w wąskiej kolumnie. Przełączniki zostają po prawej (są małe). */
+	.srow:not(.toggle) { flex-direction: column; align-items: stretch; gap: 0.5rem; }
+	.sctl { min-width: 0; }
 	.sctl select, .sctl input[type='number'] { width: 100%; }
-	.sctl.with-btn { display: flex; gap: 0.5rem; flex-basis: 18rem; }
+	.sctl.with-btn { display: flex; gap: 0.5rem; }
 	.sctl.with-btn select { flex: 1; min-width: 0; }
+	.sctl.with-btn button { flex: none; }
 	.toggle { cursor: pointer; }
 	.switch { appearance: none; -webkit-appearance: none; flex: none; width: 2.75rem; height: 1.6rem; border-radius: 999px; background: #c9ccd8; position: relative; cursor: pointer; transition: background 0.15s; margin: 0; padding: 0; border: 0; }
 	.switch::after { content: ''; position: absolute; top: 0.2rem; left: 0.2rem; width: 1.2rem; height: 1.2rem; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); transition: transform 0.15s; }
@@ -758,17 +768,12 @@
 	.switch:checked::after { transform: translateX(1.15rem); }
 	.switch:focus-visible { box-shadow: var(--focus); }
 	.switch:disabled { opacity: 0.5; }
-	@media (max-width: 560px) {
-		.srow:not(.toggle) { flex-direction: column; align-items: stretch; gap: 0.5rem; }
-		.sctl, .sctl.with-btn { flex-basis: auto; }
-	}
 	.podium-clip { padding: 0 0 0.75rem; }
 	.podium-clip p { margin: 0.5rem 0; }
-	.check { display: flex; align-items: center; gap: 0.5rem; font-weight: 400; font-size: 1rem; }
-	.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+		.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 
 	/* Trzy panele: lista pytań | pytanie | właściwości. */
-	.layout { flex: 1; display: flex; align-items: stretch; flex-wrap: wrap; }
+	.layout { flex: 1; display: flex; align-items: stretch; align-content: flex-start; flex-wrap: wrap; }
 	.qnav { display: none; }
 	.grow { flex: 1; min-width: 0; }
 	.list { flex: 0 0 17rem; box-sizing: border-box; background: var(--surface); border-right: 1px solid var(--line); min-width: 0; }
@@ -794,29 +799,37 @@
 	.q { max-width: 52rem; margin: 0 auto; border: 1px solid var(--line); background: var(--surface); border-radius: 1.25rem; box-shadow: var(--shadow); padding: clamp(1rem, 3vw, 2rem); display: flex; flex-direction: column; gap: 0.75rem; min-width: 0; }
 	.q > label, .q :global(label) { margin-top: 0; }
 	.prompt input { min-height: 4rem; font-family: var(--display); font-size: clamp(1.25rem, 2.2vw, 1.75rem); font-weight: 700; text-align: center; border-radius: 0.75rem; }
-	.slider-set { display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: 0.4rem 0.8rem; }
+	.slider-set { display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: 0.75rem 0.8rem; align-items: end; }
+	.slider-set label { display: flex; flex-direction: column; gap: 0.35rem; margin: 0; }
+	.slider-set label > :global(input), .slider-set label > select { margin: 0; }
+	/* Lista tolerancji ma długie opcje („Mała (±5% zakresu)”) – osobny wiersz na całą szerokość, żeby nie były ucięte.
+	   Nie „span 2”: przy jednej kolumnie (telefon) tworzyło niejawną drugą kolumnę i siatka wychodziła poza kartę. */
+	.slider-set label:has(select) { grid-column: 1 / -1; }
+	/* Akcje tekstowe pod polami („+ dodaj wariant”) przy lewej krawędzi, a nie na środku. */
+	.q > :global(button.link) { align-self: flex-start; margin-left: -0.65rem; }
 	textarea { width: 100%; }
 
 	/* Odpowiedzi: duże kolorowe pola jak na ekranie gry; poprawna ma twardy cień. */
 	.answers { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(17rem, 100%), 1fr)); gap: 0.9rem; margin-top: 0.5rem; }
-	.answer { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; min-height: 4.5rem; box-sizing: border-box; border: 3px solid var(--accent); border-radius: 0.9rem; padding: 0.5rem 0.9rem; color: #0b0d1a; min-width: 0; }
+	.answer { display: flex; flex-wrap: wrap; align-items: center; align-content: flex-start; gap: 0.5rem 0.75rem; min-height: 4.5rem; box-sizing: border-box; border: 3px solid var(--accent); border-radius: 0.9rem; padding: 0.5rem 0.9rem; color: #0b0d1a; min-width: 0; }
 	.answer.correct { box-shadow: 5px 5px 0 var(--accent); }
-	.answer input[type='text'] { flex: 1 1 8rem; min-width: 0; border: 0; padding: 0.3rem 0; background: transparent; font-size: 1.15rem; font-weight: 700; color: #0b0d1a; box-shadow: none; }
+	.answer input[type='text'] { flex: 1 1 calc(100% - 3rem); min-width: 0; border: 0; padding: 0.3rem 0; background: transparent; font-size: 1.15rem; font-weight: 700; color: #0b0d1a; box-shadow: none; }
 	.answer input[type='text']::placeholder { color: rgba(11, 13, 26, 0.72); font-weight: 500; }
 	.answer input[type='text']:focus { box-shadow: 0 2px 0 #0b0d1a; border-radius: 0; }
 	.shape { display: flex; flex: none; color: #0b0d1a; }
-	.check.small { flex: none; margin: 0; padding: 0.3rem 0.6rem; border-radius: 0.5rem; background: #fff; color: var(--text); font-size: 0.8rem; font-weight: 700; white-space: nowrap; cursor: pointer; }
-	.check.small input { width: 1.1rem; height: 1.1rem; margin: 0; }
-	.ans-img { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; }
+	.check.small { flex: none; gap: 0.45rem; min-height: 2rem; margin: 0; padding: 0 0.65rem 0 0.45rem; border-radius: 0.5rem; background: #fff; color: var(--text); font-size: 0.85rem; font-weight: 700; white-space: nowrap; }
+	.ans-img { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
 	/* Opis obrazka: osobny, mały biały wiersz – czytelny na każdym kolorze odpowiedzi (nie dziedziczy dużego pola podpisu). */
 	.answer .ans-img input.img-alt[type='text'] { flex: 1 1 100%; min-width: 0; margin: 0; padding: 0.4rem 0.6rem; border: 0; border-radius: 0.5rem; background: rgba(255, 255, 255, 0.92); color: #0b0d1a; font-size: 0.85rem; font-weight: 500; }
 	.answer .ans-img input.img-alt[type='text']::placeholder { color: rgba(11, 13, 26, 0.6); }
 	.answer .ans-img input.img-alt[type='text']:focus { box-shadow: 0 0 0 2px #0b0d1a; border-radius: 0.5rem; }
 	.img-alt-hint { flex-basis: 100%; font-size: 0.78rem; font-weight: 600; color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45); }
 	.ans-img img { height: 64px; max-width: 120px; object-fit: contain; border-radius: 0.4rem; background: #fff; border: 2px solid var(--accent); }
-	.ans-img :global(button.link), .file-link { position: relative; cursor: pointer; display: inline-flex; align-items: center; gap: 0.3rem; min-height: 1.75rem; padding: 0 0.6rem; border-radius: 0.5rem; background: #fff; color: var(--text); text-decoration: none; font-size: 0.8rem; font-weight: 600; margin: 0; }
+	.ans-img :global(button.link), .file-link { position: relative; cursor: pointer; display: inline-flex; align-items: center; gap: 0.3rem; min-height: 2rem; padding: 0 0.65rem; border-radius: 0.5rem; background: #fff; color: var(--text); text-decoration: none; font-size: 0.85rem; font-weight: 600; margin: 0; }
+	.ans-img :global(button.link:hover:not(:disabled)), .file-link:hover { background: var(--soft); }
+	.file-link:focus-within { box-shadow: 0 0 0 2px #0b0d1a; }
 	.file-link input { position: absolute; width: 1px; height: 1px; opacity: 0; }
-	.tf { display: flex; flex-wrap: wrap; gap: 0.5rem 2rem; padding: 0.5rem 0; }
+	.tf { display: flex; flex-wrap: wrap; gap: 0 2rem; }
 	.row { display: flex; gap: 0.5rem; align-items: center; }
 
 	.props-wrap { flex: 1 1 19rem; max-width: 100%; box-sizing: border-box; background: var(--surface); border-left: 1px solid var(--line); }
@@ -827,12 +840,15 @@
 	.time { display: flex; gap: 0.4rem; }
 	.time input { width: 4.75rem; flex: none; }
 	.seg { flex: 1; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0.35rem; }
-	.seg button { padding: 0 0.2rem; font-weight: 500; font-size: 0.93rem; }
+	.seg button { padding: 0 0.4rem; font-weight: 500; font-size: 0.9rem; }
 	.seg button[aria-pressed='true'] { border: 2px solid var(--accent); background: var(--soft); font-weight: 700; }
 	.image { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
 	.image img { max-height: 120px; max-width: 100%; border-radius: 0.5rem; border: 1px solid var(--line); }
-	.file { position: relative; overflow: hidden; flex: 1; border-style: dashed !important; border-color: #9ea3b5 !important; }
+	/* display: flex – inaczej reguła „.props label { display: block }” zdejmuje wyśrodkowanie tekstu w przycisku. */
+	.props label.file { display: flex; position: relative; overflow: hidden; flex: 1; font-size: 0.93rem; border-style: dashed; border-color: #9ea3b5; }
 	.file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+	.props label.file:focus-within { box-shadow: var(--focus); }
+	.formats { flex-basis: 100%; margin-top: -0.35rem; font-size: 0.8rem; }
 	.q-tools { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: auto; padding-top: 1rem; border-top: 1px solid var(--line); }
 	.q-tools button { padding-inline: 0.7rem; }
 	.q-tools .grow { flex: 1 1 5.5rem; }
@@ -868,6 +884,5 @@
 		.editor { padding: 1rem; }
 		.q { padding: 1rem; border-radius: 1rem; }
 		.answer { min-height: 4rem; }
-		.answer:not(.correct) .ck-t { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 	}
 </style>
