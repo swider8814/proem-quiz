@@ -863,7 +863,7 @@
 		   przyklejonym nagłówkiem – bez niego pod paskiem statusu widać szare rozmycie. Przy okazji Zapisz / Uruchom grę zawsze pod ręką. */
 		.bar { padding: 0.6rem 1rem; }
 		.back span { display: none; }
-		.back { border: 1px solid var(--line-strong); width: 2.75rem; padding: 0; justify-content: center; }
+		.back { border: 1px solid var(--line-strong); width: 44px; min-height: 44px; padding: 0; justify-content: center; }
 		/* Telefon/tablet: rząd 1 – wróć, tytuł, ⋯; rząd 2 – Zapisz i Uruchom grę po połowie. */
 		.bar { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; }
 		.title-wrap { flex-basis: auto; }
@@ -872,10 +872,10 @@
 		.bar-actions.ro { grid-template-columns: minmax(0, 1fr); }
 		.bar-actions .wide { display: none; }
 		.bar-actions .status:not(.sr) { grid-column: 1 / -1; }
-		.bar-actions .save, .bar-actions .start { width: 100%; min-height: 2.75rem; justify-content: center; }
+		.bar-actions .save, .bar-actions .start { width: 100%; min-height: 44px; justify-content: center; }
 		.settings, .below > .notice { margin-inline: 1rem; }
 		.qnav { display: flex; gap: 0.5rem; padding: 0.6rem 1rem; background: var(--surface); border-bottom: 1px solid var(--line); }
-		.qnav button:not(.grow) { width: 2.75rem; padding: 0; flex: none; }
+		.qnav button:not(.grow) { width: 44px; padding: 0; flex: none; }
 		.qnav .qnav-add { font-size: 1.5rem; font-weight: 700; line-height: 1; }
 		.add.add-mobile { display: flex; flex: 1 1 100%; margin: 0; padding: 1rem; border-top: 1px dashed var(--line-strong); background: var(--surface); }
 		.list { display: none; flex: 1 1 100%; border-right: 0; border-bottom: 1px solid var(--line); }

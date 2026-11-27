@@ -239,6 +239,7 @@
 		.head { flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1rem; }
 		.head h1 { flex: 1; margin: 0; }
 		.head-tools { display: flex; gap: 0.5rem; }
+		.actions > :global(.trigger) { width: 44px; min-height: 44px; }
 		.head-tools button { width: 44px; min-height: 44px; padding: 0; flex: none; }
 		.head-tools button.secondary.on, .head-tools button.secondary.on:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); color: #fff; }
 		.new:not(.open), .search:not(.open) { display: none; }

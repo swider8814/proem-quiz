@@ -139,7 +139,8 @@
 	.pop :global(hr) { width: 100%; margin: 0.3rem 0; border: 0; border-top: 1px solid var(--line); }
 	.pop :global(label) { margin: 0.2rem 0.7rem 0.4rem; font-size: 0.85rem; }
 	.pop :global(select) { margin-top: 0.3rem; }
-	@media (max-width: 720px) {
+	/* Telefon i każdy ekran dotykowy (także iPhone w poziomie i tablet). */
+	@media (max-width: 720px), (pointer: coarse) {
 		.trigger { width: 44px; min-height: 44px; }
 		.trigger.custom { width: auto; }
 		.pop :global(a), .pop :global(button) { min-height: 44px; }

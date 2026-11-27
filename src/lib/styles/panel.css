@@ -140,6 +140,10 @@ label.check { display: flex; align-items: center; gap: 0.6rem; min-height: 2.75r
 .muted { color: var(--muted); font-size: 0.9rem; }
 table { width: 100%; border-collapse: collapse; }
 /* Wąskie ekrany: szerokie tabele przewijają się w poziomie zamiast wychodzić poza kartę. */
+/* Cele dotyku na telefonie i ekranach dotykowych: równe 44 px (Apple HIG). Nie 2.75rem – root ma 15px, więc 2.75rem = 41,25 px. */
+@media (max-width: 720px), (pointer: coarse) {
+	button, .btn, input[type='text'], input[type='email'], input[type='password'], input[type='number'], input[type='search'], select, label.check { min-height: 44px; }
+}
 @media (max-width: 720px) {
 	table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 }

@@ -345,8 +345,8 @@
 		.acts :global(.trigger) { position: absolute; top: 0.75rem; right: 0.75rem; }
 		.list td.actions.solo, .list td.actions.solo .acts { display: contents; }
 		.acts > form { flex: 1; }
-		.acts > form > button { width: 100%; min-height: 2.75rem; }
-		td select { width: 100%; min-height: 2.75rem; }
+		.acts > form > button { width: 100%; min-height: 44px; }
+		td select { width: 100%; min-height: 44px; }
 		table { table-layout: auto; min-width: 0; }
 		.frow .q { flex-basis: 100%; }
 		.frow select { flex: 1 1 0; }
@@ -356,7 +356,7 @@
 		/* Zanikająca prawa krawędź – widać, że filtry da się przewinąć. */
 		.chips { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 1.75rem), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 1.75rem), transparent); }
 		.chip { flex: none; }
-		.rename input[name='name'] { flex-basis: 100%; min-height: 2.75rem; }
-		.rename button { flex: 1; min-height: 2.75rem; }
+		.rename input[name='name'] { flex-basis: 100%; min-height: 44px; }
+		.rename button { flex: 1; min-height: 44px; }
 	}
 </style>
