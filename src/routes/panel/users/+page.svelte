@@ -306,9 +306,7 @@
 	.chip.warn { border-color: #e7b84a; }
 	.chip.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
 	.count { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin: 0.75rem 0 0; }
-	.link { min-height: 0; padding: 0; background: none; border: 0; color: var(--accent); font-size: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; }
-	.link:hover { filter: none; background: none; }
-	.empty { padding: 2rem 1rem; text-align: center; }
+		.empty { padding: 2rem 1rem; text-align: center; }
 	.empty p { margin: 0 0 1rem; color: var(--muted); }
 	/* Stałe proporcje kolumn – tabela wygląda tak samo przy jednej i przy wielu osobach. */
 	table { table-layout: fixed; min-width: 50rem; }
@@ -355,6 +353,8 @@
 		/* Statusy w jednym rzędzie, przewijane w bok – nie zajmują pół ekranu. */
 		.chips { flex-wrap: nowrap; overflow-x: auto; margin: 0 -1rem; padding: 0 1rem 0.25rem; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
 		.chips::-webkit-scrollbar { display: none; }
+		/* Zanikająca prawa krawędź – widać, że filtry da się przewinąć. */
+		.chips { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 1.75rem), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 1.75rem), transparent); }
 		.chip { flex: none; }
 		.rename input[name='name'] { flex-basis: 100%; min-height: 2.75rem; }
 		.rename button { flex: 1; min-height: 2.75rem; }

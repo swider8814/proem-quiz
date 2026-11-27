@@ -106,7 +106,8 @@
 	.card { margin-bottom: 1.5rem; max-width: 40rem; }
 	.logo-row { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
 	.logo-row img { max-height: 3rem; max-width: 12rem; background: #1b1f3b; padding: 0.4rem; border-radius: 0.4rem; }
-	.file { position: relative; overflow: hidden; }
+	.file { position: relative; overflow: hidden; margin: 0; }
+	.file:focus-within { box-shadow: var(--focus); }
 	.file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 	.save { margin-top: 1.25rem; }
 </style>

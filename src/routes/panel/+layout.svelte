@@ -121,7 +121,8 @@
 	.id strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.role { color: var(--muted); font-size: 0.85rem; }
 	.acts { flex-basis: 100%; display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
-	.acts button { min-height: 2.25rem; padding: 0.3rem 0.8rem; font-size: 0.87rem; }
+	/* Ta sama wysokość co przycisk języka (RowMenu: 2.5rem). */
+	.acts button { min-height: 2.5rem; padding: 0.3rem 0.8rem; font-size: 0.87rem; }
 	main { flex: 1; min-width: 0; box-sizing: border-box; padding: 2rem max(clamp(1rem, 4vw, 3rem), env(safe-area-inset-right)) max(3rem, calc(env(safe-area-inset-bottom) + 1.5rem)) clamp(1rem, 4vw, 3rem); }
 	.inner { max-width: 65rem; margin: 0 auto; }
 	/* Edytor (cała szerokość): wcięcia ekranu (boki – iPhone w poziomie, dół – pasek „home”) na wspólnym kontenerze –
