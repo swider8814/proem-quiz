@@ -843,7 +843,9 @@
 		.props { position: static; }
 	}
 	@media (max-width: 860px) {
-		.bar { position: static; padding: 0.6rem 1rem; }
+		/* Pasek zostaje przyklejony także na telefonie: iOS 26 (aplikacja z ekranu głównego) barwi pasek statusu
+		   przyklejonym nagłówkiem – bez niego pod paskiem statusu widać szare rozmycie. Przy okazji Zapisz / Uruchom grę zawsze pod ręką. */
+		.bar { padding: 0.6rem 1rem; }
 		.back span { display: none; }
 		.back { border: 1px solid var(--line-strong); width: 2.75rem; padding: 0; justify-content: center; }
 		/* Telefon/tablet: rząd 1 – wróć, tytuł, ⋯; rząd 2 – Zapisz i Uruchom grę po połowie. */

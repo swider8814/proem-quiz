@@ -129,11 +129,6 @@
 	.bare main { padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
 	.bare .inner { max-width: none; }
 	@media (max-width: 860px) {
-		/* iOS 26 (aplikacja z ekranu głównego) barwi pasek statusu przyklejonym nagłówkiem, a gdy go nie ma – tłem strony,
-		   z rozmyciem. Pasek edytora na telefonie nie jest przyklejony, więc tło dokumentu w edytorze = kolor paska (białe),
-		   a szare tło edytora niesie sam <main>. */
-		:global(html:has(.shell.bare)) { background: var(--surface); }
-		.bare main { background: var(--bg); min-height: 100dvh; }
 		.shell { display: block; }
 		.sidebar { position: sticky; top: 0; z-index: 40; width: auto; height: auto; overflow: visible; flex-direction: row; align-items: center; gap: 0.75rem; padding: 0.6rem max(1rem, env(safe-area-inset-right)) 0.6rem max(1rem, env(safe-area-inset-left)); border-right: 0; border-bottom: 1px solid var(--line); }
 		.brand { flex: 1; padding: 0; }
