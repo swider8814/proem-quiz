@@ -802,8 +802,9 @@
 	.slider-set { display: grid; grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr)); gap: 0.75rem 0.8rem; align-items: end; }
 	.slider-set label { display: flex; flex-direction: column; gap: 0.35rem; margin: 0; }
 	.slider-set label > :global(input), .slider-set label > select { margin: 0; }
-	/* Lista tolerancji ma długie opcje („Mała (±5% zakresu)”) – dwie kolumny, żeby nie były ucięte. */
-	.slider-set label:has(select) { grid-column: span 2; }
+	/* Lista tolerancji ma długie opcje („Mała (±5% zakresu)”) – osobny wiersz na całą szerokość, żeby nie były ucięte.
+	   Nie „span 2”: przy jednej kolumnie (telefon) tworzyło niejawną drugą kolumnę i siatka wychodziła poza kartę. */
+	.slider-set label:has(select) { grid-column: 1 / -1; }
 	/* Akcje tekstowe pod polami („+ dodaj wariant”) przy lewej krawędzi, a nie na środku. */
 	.q > :global(button.link) { align-self: flex-start; margin-left: -0.65rem; }
 	textarea { width: 100%; }
