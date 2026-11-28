@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { ask } from '#lib/dialog.svelte.js';
 	import { enhance } from '$app/forms';
 	import { send } from '#lib/forms.js';
 	import BackLink from '#lib/BackLink.svelte';
@@ -20,9 +21,9 @@
 	const payload = $derived(JSON.stringify({ name: t.name, style: t.style, headingFont: t.headingFont, colors: t.colors, logoLight: t.logoLight, logoDark: t.logoDark, decor: t.decor }));
 	const colorFields = ['background', 'surface', 'text', 'accent'] as const;
 
-	function applyPreset() {
+	async function applyPreset() {
 		const p = data.presets[t.style];
-		if (!confirm(T.presetConfirm)) return;
+		if (!(await ask(T.presetConfirm))) return;
 		t.colors = structuredClone(p.colors);
 		t.headingFont = p.font;
 	}
@@ -134,7 +135,7 @@
 <div class="card danger-zone">
 	{#if !data.theme.isDefault}
 		<form method="POST" action="?/makeDefault" use:enhance={send()}><button class="secondary">{T.makeDefault}</button></form>
-		<form method="POST" action="?/delete" use:enhance={send({ confirm: () => T.deleteConfirm(data.quizzes) })}>
+		<form method="POST" action="?/delete" use:enhance={send({ confirm: () => ({ message: T.deleteConfirm(data.quizzes), confirmLabel: T.delete, icon: 'trash' }) })}>
 			<button class="danger">{T.delete}</button>
 		</form>
 	{:else}

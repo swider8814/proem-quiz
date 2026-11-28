@@ -167,3 +167,36 @@ export async function upload(browser, data, name = 'plik.mp3') {
 	fd.append('file', new Blob([data]), name);
 	return browser.req('/panel/api/media', { method: 'POST', body: fd, headers: { accept: 'application/json' } });
 }
+
+/**
+ * Okna z pytaniem w aplikacji (`ConfirmDialog.svelte`, zamiast natywnego confirm()) jako zdarzenia
+ * w teście – API jak `page.on('dialog')`: `const dlg = await appDialogs(page); dlg.on('dialog', (d) => d.accept())`.
+ * d.message(), d.actions() (id przycisków), d.accept(), d.dismiss(), d.choose(id). Bez nasłuchu okno zostaje otwarte.
+ */
+export async function appDialogs(page) {
+	const { EventEmitter } = await import('node:events');
+	const em = new EventEmitter();
+	await page.exposeFunction('__pqDialog', (msg, ids) => new Promise((res) => {
+		const d = { message: () => msg, actions: () => ids, accept: () => res('ok'), dismiss: () => res('cancel'), choose: (id) => res(id) };
+		if (!em.emit('dialog', d)) res(null);
+	}));
+	const watch = () => {
+		if (window.__pqDialogWatch) return;
+		window.__pqDialogWatch = true;
+		const seen = new WeakSet();
+		const check = () => {
+			const box = document.querySelector('dialog.pq-dialog[open] .box');
+			if (!box || seen.has(box)) return;
+			seen.add(box);
+			const msg = box.querySelector('p')?.textContent ?? '';
+			const ids = [...box.querySelectorAll('button[data-action]')].map((b) => b.dataset.action);
+			window.__pqDialog(msg, ids).then((id) => {
+				if (id) box.querySelector(`button[data-action="${id === 'cancel' && !ids.includes('cancel') ? ids[ids.length - 1] : id}"]`)?.click();
+			});
+		};
+		new MutationObserver(check).observe(document, { subtree: true, childList: true, attributes: true, attributeFilter: ['open'] });
+	};
+	await page.addInitScript(watch);
+	await page.evaluate(watch).catch(() => {});
+	return em;
+}

@@ -1,7 +1,7 @@
 // Konflikt zapisu w edytorze: ktoś zapisał quiz w drugiej karcie – edytor pyta, zanim nadpisze, i nie gubi zmian.
 //   node tests/quiz-conflict.e2e.mjs   (wymaga npm run build)
 import { chromium } from 'playwright-core';
-import { finish, makeAdmin, ok, startServer, waitForHydration } from './_helpers.mjs';
+import { finish, makeAdmin, ok, startServer, waitForHydration, appDialogs } from './_helpers.mjs';
 
 const srv = await startServer();
 const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH ?? '/usr/bin/google-chrome', args: ['--no-sandbox'] });
@@ -22,7 +22,7 @@ try {
 	const p = waitForHydration(await ctx.newPage());
 	const dialogs = [];
 	let answer = false;
-	p.on('dialog', (d) => { dialogs.push(d.message()); answer ? d.accept() : d.dismiss(); });
+	(await appDialogs(p)).on('dialog', (d) => { dialogs.push(d.message()); answer ? d.accept() : d.dismiss(); });
 	await p.goto(`${srv.base}/panel/quizzes/${id}`);
 	await p.fill('input.title', 'Moja wersja');
 

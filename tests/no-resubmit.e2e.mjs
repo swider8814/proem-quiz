@@ -4,7 +4,7 @@
 // a odświeżenie to zwykłe GET. Sprawdzamy na desktopie i na telefonie.
 //   node tests/no-resubmit.e2e.mjs   (wymaga npm run build)
 import { chromium } from 'playwright-core';
-import { finish, makeAdmin, ok, startServer, waitForHydration } from './_helpers.mjs';
+import { finish, makeAdmin, ok, startServer, waitForHydration, appDialogs } from './_helpers.mjs';
 
 const srv = await startServer();
 const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH ?? '/usr/bin/google-chrome', args: ['--no-sandbox'] });
@@ -29,7 +29,7 @@ try {
 		const p = waitForHydration(await ctx.newPage());
 		const dialogs = [];
 		let answer = true;
-		p.on('dialog', (d) => { dialogs.push(d.message()); return answer ? d.accept() : d.dismiss(); });
+		(await appDialogs(p)).on('dialog', (d) => { dialogs.push(d.message()); return answer ? d.accept() : d.dismiss(); });
 
 		// 1. Zaproszenie (dokładnie przypadek z iPhone'a): wynik bez przeładowania strony, adres bez „?/invite”.
 		const email = `osoba-${s.name}@proem.pl`;

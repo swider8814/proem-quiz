@@ -3,7 +3,7 @@
 //   node tests/users-filters-ui.e2e.mjs [katalog-na-zrzuty]   (wymaga npm run build)
 import fs from 'node:fs';
 import { chromium } from 'playwright-core';
-import { Browser, finish, makeAdmin, makeAuthor, ok, startServer, waitForHydration } from './_helpers.mjs';
+import { Browser, finish, makeAdmin, makeAuthor, ok, startServer, waitForHydration, appDialogs } from './_helpers.mjs';
 
 const shots = process.argv[2];
 if (shots) fs.mkdirSync(shots, { recursive: true });
@@ -26,14 +26,15 @@ try {
 	const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
 	await ctx.addCookies([{ name: 'pq_session', value: admin.jar.pq_session, url: srv.base }]);
 	const p = waitForHydration(await ctx.newPage());
+	const dlg = await appDialogs(p);
 	await p.goto(`${srv.base}/panel/users`);
 	// Blokada przez interfejs.
 	// Blokowanie jest w menu ⋯ wiersza (w wierszu zostaje najwyżej jedna akcja zależna od stanu).
 	await p.locator('tr', { hasText: 'blok@proem.pl' }).locator('button.trigger').click();
 	let blockMsg = '';
-	p.once('dialog', (dlg) => { blockMsg = dlg.message(); dlg.accept(); });
+	dlg.once('dialog', (dlg) => { blockMsg = dlg.message(); dlg.accept(); });
 	await Promise.all([p.waitForURL(/\/panel\/users/), p.locator('.pop:not([hidden]) button:has-text("Zablokuj")').click()]);
-	ok(/Zablokować konto/.test(blockMsg), 'blokada pyta o potwierdzenie (confirm)');
+	ok(/Zablokować konto/.test(blockMsg), 'blokada pyta o potwierdzenie (okno aplikacji)');
 	await p.waitForSelector('p.success');
 
 	const emails = () => p.locator('.list tbody tr td.person .muted').allTextContents();
@@ -107,14 +108,14 @@ try {
 	ok((await emails()).join() === 'blok@proem.pl', 'link z filtrami: tylko zablokowany autor');
 	// „Usuń” przy nieaktywowanym koncie: potwierdzenie, filtry zostają.
 	await p.goto(`${srv.base}/panel/users?status=pending`);
-	p.once('dialog', (dlg) => dlg.dismiss());
+	dlg.once('dialog', (dlg) => dlg.dismiss());
 	const nowak = p.locator('tr', { hasText: 'nowak@proem.pl' });
 	await nowak.locator('button.trigger').click();
 	await p.locator('.pop:not([hidden]) button:has-text("Usuń")').click();
 	await p.waitForTimeout(300);
 	ok((await emails()).includes('nowak@proem.pl'), 'usuń: anulowanie potwierdzenia nic nie zmienia');
 	let msg = '';
-	p.once('dialog', (dlg) => { msg = dlg.message(); dlg.accept(); });
+	dlg.once('dialog', (dlg) => { msg = dlg.message(); dlg.accept(); });
 	ok((await p.locator('.pop:not([hidden])').count()) === 0, 'menu zamyka się po wybraniu pozycji');
 	await nowak.locator('button.trigger').click();
 	await Promise.all([p.waitForSelector('p.success'), p.locator('.pop:not([hidden]) button:has-text("Usuń")').click()]);

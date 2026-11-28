@@ -20,6 +20,13 @@ Model zagrożeń: `docs/threat-model.md`.
   np. `npm pack lucide-static` → `package/icons/<nazwa>.svg`, i dopisz nazwę ikony Lucide w komentarzu.
 - Bez emoji i znaków Unicode jako ikon w interfejsie.
 
+## Okna z pytaniem
+- Nie używaj natywnych `confirm()`, `alert()` ani `prompt()`. Pytania i potwierdzenia: `ask()` / `choose()`
+  z `#lib/dialog.svelte.js` (jedno okno w stylu aplikacji, `ConfirmDialog.svelte` w głównym layoucie).
+- Formularze POST: `use:enhance={send({ confirm: () => ({ message, confirmLabel }) })}` – przycisk potwierdzenia
+  nazwany czynnością („Usuń”, „Zablokuj”), przy akcjach niszczących czerwony.
+- W testach przeglądarkowych odpowiadaj na okno przez `appDialogs(page)` z `tests/_helpers.mjs`.
+
 ## Code Review Rules
 - Pisz review **po polsku**.
 - Priorytety: (1) bezpieczeństwo kont i 2FA, (2) stabilność procesu podczas gry na żywo,

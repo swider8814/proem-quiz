@@ -3,7 +3,7 @@
 //   node tests/editor-leave-delete.e2e.mjs [katalog-na-zrzuty]   (wymaga npm run build)
 import fs from 'node:fs';
 import { chromium } from 'playwright-core';
-import { finish, makeAdmin, ok, startServer, waitForHydration } from './_helpers.mjs';
+import { appDialogs, finish, makeAdmin, ok, startServer, waitForHydration } from './_helpers.mjs';
 
 const shots = process.argv[2];
 if (shots) fs.mkdirSync(shots, { recursive: true });
@@ -20,9 +20,13 @@ async function run(name, device, email) {
 	const p = waitForHydration(await ctx.newPage());
 	const errors = [];
 	p.on('pageerror', (e) => errors.push(String(e)));
+	// Natywne okna przeglądarki nie powinny się pojawiać wcale.
+	const native = [];
+	p.on('dialog', (d) => { native.push(d.message()); d.dismiss(); });
 	const dialogs = [];
 	let answer = true;
-	p.on('dialog', (d) => { dialogs.push(d.message()); return answer ? d.accept() : d.dismiss(); });
+	const app = await appDialogs(p);
+	const onDelete = (d) => { dialogs.push(d.message()); return answer ? d.accept() : d.dismiss(); };
 	const tap = (sel) => (device.hasTouch ? p.tap(sel) : p.click(sel));
 
 	await p.goto(`${srv.base}/panel`);
@@ -57,12 +61,16 @@ async function run(name, device, email) {
 	await snap(p, `${name}-01-menu`);
 	ok(await p.isVisible('.pop:not([hidden]) button.danger:has-text("Usuń")'), `${name}: „Usuń” w menu pytania`);
 	answer = false;
+	app.once('dialog', onDelete);
 	await p.click('.pop:not([hidden]) button.danger');
-	ok(dialogs.length === 1 && /Usunąć pytanie 1 \(„Pierwsze”\)/.test(dialogs[0]), `${name}: potwierdzenie z numerem i treścią pytania (${dialogs[0]})`);
+	await p.waitForTimeout(300);
+	ok(dialogs.length === 1 && /Usunąć pytanie 1 \(„Pierwsze”\)\?$/.test(dialogs[0]), `${name}: potwierdzenie z numerem i treścią pytania (${dialogs[0]})`);
 	ok((await items.count()) === 3, `${name}: anulowanie nie usuwa pytania`);
 	answer = true;
+	app.once('dialog', onDelete);
 	await items.nth(0).locator('.item-menu .trigger').click();
 	await p.click('.pop:not([hidden]) button.danger');
+	await p.waitForTimeout(300);
 	ok((await items.count()) === 2, `${name}: potwierdzenie usuwa pytanie`);
 	if (device.isMobile && !(await p.isVisible('.list.open'))) await tap('.qnav .grow');
 	ok((await p.locator('.item.active .t').textContent()) === 'Trzecie', `${name}: zaznaczenie zostaje przy tym samym pytaniu`);
@@ -75,25 +83,24 @@ async function run(name, device, email) {
 		await p.click('.more-narrow .trigger');
 		await p.click('.pop:not([hidden]) a[href$="/reports"]');
 	};
-	dialogs.length = 0;
 	await goReports();
-	await p.waitForSelector('dialog.leave[open]');
-	ok(dialogs.length === 0, `${name}: zamiast systemowego confirm() – własne okno`);
+	await p.waitForSelector('dialog.pq-dialog[open]');
+	ok(native.length === 0, `${name}: bez natywnych okien przeglądarki (${native.join(' | ')})`);
 	await snap(p, `${name}-02-wyjscie`);
-	ok(await p.isVisible('dialog.leave button:has-text("Zapisz i wyjdź")'), `${name}: opcja „Zapisz i wyjdź”`);
+	ok(await p.isVisible('dialog.pq-dialog button:has-text("Zapisz i wyjdź")'), `${name}: opcja „Zapisz i wyjdź”`);
 	{
-		const box = await p.locator('dialog.leave').boundingBox();
+		const box = await p.locator('dialog.pq-dialog').boundingBox();
 		const vw = device.viewport.width;
 		ok(box && box.x >= 0 && box.x + box.width <= vw, `${name}: okno mieści się na ekranie`);
 	}
-	await p.click('dialog.leave button:has-text("Zostań w edytorze")');
-	ok(!(await p.isVisible('dialog.leave[open]')) && p.url() === editorUrl, `${name}: „Zostań” zamyka okno, zmiany zostają`);
+	await p.click('dialog.pq-dialog button:has-text("Zostań w edytorze")');
+	ok(!(await p.isVisible('dialog.pq-dialog[open]')) && p.url() === editorUrl, `${name}: „Zostań” zamyka okno, zmiany zostają`);
 	ok(await p.isVisible('button.save:not(.clean)'), `${name}: zmiany nadal niezapisane`);
 
 	// Zapisz i wyjdź
 	await goReports();
-	await p.waitForSelector('dialog.leave[open]');
-	await p.click('dialog.leave button:has-text("Zapisz i wyjdź")');
+	await p.waitForSelector('dialog.pq-dialog[open]');
+	await p.click('dialog.pq-dialog button:has-text("Zapisz i wyjdź")');
 	await p.waitForURL(/\/reports$/);
 	ok(true, `${name}: „Zapisz i wyjdź” przechodzi do raportów`);
 	await p.goto(editorUrl);
@@ -104,11 +111,27 @@ async function run(name, device, email) {
 	if (device.isMobile) await tap('.qnav .grow');
 	await prompt.fill('Zmienione');
 	await goReports();
-	await p.waitForSelector('dialog.leave[open]');
-	await p.click('dialog.leave button:has-text("Wyjdź bez zapisywania")');
+	await p.waitForSelector('dialog.pq-dialog[open]');
+	await p.click('dialog.pq-dialog button:has-text("Wyjdź bez zapisywania")');
 	await p.waitForURL(/\/reports$/);
 	await p.goto(editorUrl);
 	ok((await prompt.inputValue()) !== 'Zmienione', `${name}: „Wyjdź bez zapisywania” porzuca zmiany`);
+
+	// Wstecz z niezapisanymi zmianami: po decyzji przejście w historii, bez nowego wpisu (review Codexa).
+	// Do edytora przez link z listy (nawigacja w aplikacji, nie nowe załadowanie strony).
+	await p.goto(`${srv.base}/panel`);
+	await p.click(`a[href="${new URL(editorUrl).pathname}"]`);
+	await p.waitForURL(editorUrl);
+	const len = await p.evaluate(() => history.length);
+	await prompt.fill('Zmiana przed Wstecz');
+	await p.evaluate(() => history.back());
+	await p.waitForSelector('dialog.pq-dialog[open]');
+	await p.click('dialog.pq-dialog button:has-text("Wyjdź bez zapisywania")');
+	await p.waitForURL(/\/panel$/);
+	ok((await p.evaluate(() => history.length)) === len, `${name}: Wstecz nie dodaje wpisu do historii`);
+	await p.evaluate(() => history.forward());
+	await p.waitForURL(editorUrl);
+	ok(true, `${name}: Dalej wraca do edytora`);
 
 	ok(errors.length === 0, `${name}: brak błędów JS ${errors.join(' | ')}`);
 	await ctx.close();

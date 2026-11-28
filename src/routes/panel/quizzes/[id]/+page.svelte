@@ -10,6 +10,7 @@
 		type EditorQuestion, type QType
 	} from '#lib/editor/model.js';
 	import { panelDict } from '#lib/i18n/panel.js';
+	import { ask, choose } from '#lib/dialog.svelte.js';
 
 	let { data } = $props();
 	const t = $derived(panelDict(data.lang));
@@ -42,40 +43,37 @@
 	const dirty = $derived(snapshot !== savedSnapshot);
 	const ro = $derived(!data.canEdit);
 
-	// Wyjście z niezapisanymi zmianami: własne okno z trzema wyborami (zapisz i wyjdź / wyjdź bez zapisu /
+	// Wyjście z niezapisanymi zmianami: okno z trzema wyborami (zapisz i wyjdź / wyjdź bez zapisu /
 	// zostań). Nawigację wstrzymujemy i powtarzamy po decyzji. Zamknięcie karty ('leave') obsługuje
-	// przeglądarka (beforeunload), a wysłania formularza (np. „Wyloguj”) nie da się powtórzyć jako GET,
-	// więc tam zostaje zwykłe pytanie tak/nie.
-	let leaveDialog: HTMLDialogElement | undefined = $state();
-	let leaveTo: URL | null = null;
+	// przeglądarka (beforeunload) – tam własnego okna pokazać się nie da.
 	let leaving = false;
-	let leaveError = $state('');
-	beforeNavigate(({ cancel, type, to }) => {
-		if (leaving || !dirty || type === 'leave') return;
-		if (type === 'form' || !to) {
-			if (!confirm(E.leaveConfirm)) cancel();
-			return;
-		}
+	beforeNavigate((nav) => {
+		const { cancel, type, to } = nav;
+		if (leaving || !dirty || type === 'leave' || !to) return;
 		cancel();
-		leaveTo = to.url;
-		leaveError = '';
-		leaveDialog?.showModal();
+		// Wstecz/Dalej: po decyzji powtarzamy to samo przejście w historii (history.go), a nie goto() –
+		// inaczej powstałby nowy wpis „lista → edytor → lista” i kolejne Wstecz wracałoby do edytora.
+		void askLeave(to.url, type === 'popstate' ? (nav.delta ?? 0) : 0);
 	});
-	function leaveNow() {
-		const url = leaveTo;
-		leaveDialog?.close();
-		if (!url) return;
+	async function askLeave(url: URL, delta: number) {
+		const c = await choose({
+			title: E.leaveTitle,
+			message: E.leaveText,
+			actions: [
+				{ id: 'save', label: E.saveAndLeave, kind: 'primary', icon: 'save' },
+				{ id: 'discard', label: E.leaveDiscard, kind: 'danger' },
+				{ id: 'stay', label: E.leaveStay, kind: 'secondary' }
+			]
+		});
+		if (c === 'save') {
+			await save();
+			// Zapis się nie udał (np. niekompletne pytanie) – zostajemy, błąd widać przy przycisku „Zapisz”.
+			if (saveError || dirty) return;
+		} else if (c !== 'discard') return;
 		leaving = true;
-		if (url.origin !== location.origin) location.href = url.href;
+		if (delta) history.go(delta);
+		else if (url.origin !== location.origin) location.href = url.href;
 		else goto(url).finally(() => (leaving = false));
-	}
-	async function saveAndLeave() {
-		await save();
-		if (saveError || dirty) {
-			leaveError = saveError || E.saveFailed;
-			return;
-		}
-		leaveNow();
 	}
 	$effect(() => {
 		const handler = (e: BeforeUnloadEvent) => {
@@ -134,7 +132,7 @@
 			const conflict = await putOnce(false);
 			if (conflict) {
 				// Ktoś zapisał quiz w międzyczasie: zmiany w edytorze zostają; nadpisanie tylko po potwierdzeniu.
-				if (confirm(E.saveConflictAsk)) {
+				if (await ask({ message: E.saveConflictAsk, confirmLabel: E.save, danger: true })) {
 					const again = await putOnce(true);
 					if (again) saveError = again;
 				} else saveError = conflict;
@@ -190,8 +188,12 @@
 		selected = questions.length - 1;
 		listOpen = false;
 	}
-	function remove(i: number) {
-		if (!confirm(E.removeConfirmN(i + 1, questions[i].prompt.trim().slice(0, 60)))) return;
+	async function remove(i: number) {
+		const key = questions[i].key;
+		if (!(await ask({ message: E.removeConfirmN(i + 1, questions[i].prompt.trim().slice(0, 60)), confirmLabel: E.remove, danger: true, icon: 'trash' }))) return;
+		// Indeks mógł się zmienić, gdy okno było otwarte (np. przeciąganie) – szukamy po kluczu.
+		i = questions.findIndex((q) => q.key === key);
+		if (i < 0) return;
 		questions.splice(i, 1);
 		// Usunięcie pytania przed zaznaczonym przesuwa zaznaczenie, żeby edytor został przy tym samym pytaniu.
 		if (i < selected) selected--;
@@ -290,16 +292,6 @@
 <svelte:window onkeydown={onKey} />
 <svelte:head><title>{quiz.title} · {E.title} · Proem Quiz</title></svelte:head>
 
-<dialog class="leave" bind:this={leaveDialog} aria-labelledby="leave-title" aria-describedby="leave-text">
-	<h2 id="leave-title">{E.leaveTitle}</h2>
-	<p id="leave-text">{E.leaveText}</p>
-	{#if leaveError}<p class="error" role="alert">{leaveError}</p>{/if}
-	<div class="leave-actions">
-		<button type="button" onclick={saveAndLeave} disabled={saving}><Icon name="save" weight={2} />{saving ? E.saving : E.saveAndLeave}</button>
-		<button type="button" class="danger" onclick={leaveNow} disabled={saving}>{E.leaveDiscard}</button>
-		<button type="button" class="secondary" onclick={() => leaveDialog?.close()} disabled={saving}>{E.leaveStay}</button>
-	</div>
-</dialog>
 
 <div class="ed">
 <header class="bar">
@@ -851,14 +843,6 @@
 	.item-menu { flex: none; display: flex; }
 	.item-menu :global(.trigger:not(.on)) { background: transparent; border-color: transparent; color: var(--muted); }
 	.item-menu :global(.trigger:not(.on):hover:not(:disabled)) { background: var(--bg); color: var(--text); }
-	/* Okno „Niezapisane zmiany”. */
-	.leave { box-sizing: border-box; width: min(26rem, calc(100vw - 2rem)); padding: 1.4rem; border: 1px solid var(--line-strong); border-radius: var(--radius); background: #fff; color: var(--text); box-shadow: 0 24px 60px rgba(27, 31, 59, 0.25); }
-	.leave::backdrop { background: rgba(27, 31, 59, 0.45); }
-	.leave h2 { margin: 0 0 0.5rem; font-size: 1.2rem; }
-	.leave p { margin: 0 0 1rem; color: var(--muted); }
-	.leave .error { color: var(--danger); margin: 0 0 1rem; }
-	.leave-actions { display: flex; flex-direction: column; gap: 0.5rem; }
-	.leave-actions button { width: 100%; justify-content: center; min-height: 2.75rem; }
 	.n { width: 1.4rem; flex: none; font-weight: 700; }
 	.t { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 	.type { flex: none; font-size: 0.68rem; font-weight: 700; color: #4b5064; background: #fff; border: 1px solid var(--line-strong); padding: 0.1rem 0.35rem; border-radius: 0.3rem; }

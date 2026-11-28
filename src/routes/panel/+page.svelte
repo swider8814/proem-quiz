@@ -121,7 +121,7 @@
 			{:else}
 				<strong>{current.name}</strong>
 				<button type="button" class="link" onclick={() => (renaming = true)}><Icon name="edit" weight={2} size="0.95em" />{t.list.renameFolder}</button>
-				<form method="POST" action="?/folderDelete" use:enhance={send({ confirm: () => t.list.confirmDeleteFolder(current.name) })}>
+				<form method="POST" action="?/folderDelete" use:enhance={send({ confirm: () => ({ message: t.list.confirmDeleteFolder(current.name), confirmLabel: t.list.deleteFolder, icon: 'trash' }) })}>
 					<input type="hidden" name="id" value={current.id} /><button class="link danger-link"><Icon name="trash" weight={2} size="0.95em" />{t.list.deleteFolder}</button>
 				</form>
 			{/if}
@@ -170,7 +170,7 @@
 							{/if}
 							{#if q.mine || data.user.role === 'admin'}
 								<hr />
-								<form method="POST" action="?/delete" use:enhance={send({ confirm: () => t.list.confirmDelete(q.title) })}>
+								<form method="POST" action="?/delete" use:enhance={send({ confirm: () => ({ message: t.list.confirmDelete(q.title), confirmLabel: t.common.remove, icon: 'trash' }) })}>
 									<input type="hidden" name="id" value={q.id} /><button class="danger"><Icon name="trash" weight={2} />{t.common.remove}</button>
 								</form>
 							{/if}
