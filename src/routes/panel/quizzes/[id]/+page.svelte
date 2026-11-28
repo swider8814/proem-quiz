@@ -2,7 +2,7 @@
 	import Icon from '#lib/Icon.svelte';
 	import RowMenu from '#lib/RowMenu.svelte';
 	import HelpTip from '#lib/help/HelpTip.svelte';
-	import { beforeNavigate } from '$app/navigation';
+	import { beforeNavigate, goto } from '$app/navigation';
 	import AudioClipEditor from '#lib/editor/AudioClipEditor.svelte';
 	import { BUILTIN_MUSIC, Music, playPodium, type MusicKind, type PodiumSound } from '#lib/game/sounds.js';
 	import {
@@ -42,9 +42,41 @@
 	const dirty = $derived(snapshot !== savedSnapshot);
 	const ro = $derived(!data.canEdit);
 
-	beforeNavigate(({ cancel, type }) => {
-		if (dirty && type !== 'leave' && !confirm(E.leaveConfirm)) cancel();
+	// Wyjście z niezapisanymi zmianami: własne okno z trzema wyborami (zapisz i wyjdź / wyjdź bez zapisu /
+	// zostań). Nawigację wstrzymujemy i powtarzamy po decyzji. Zamknięcie karty ('leave') obsługuje
+	// przeglądarka (beforeunload), a wysłania formularza (np. „Wyloguj”) nie da się powtórzyć jako GET,
+	// więc tam zostaje zwykłe pytanie tak/nie.
+	let leaveDialog: HTMLDialogElement | undefined = $state();
+	let leaveTo: URL | null = null;
+	let leaving = false;
+	let leaveError = $state('');
+	beforeNavigate(({ cancel, type, to }) => {
+		if (leaving || !dirty || type === 'leave') return;
+		if (type === 'form' || !to) {
+			if (!confirm(E.leaveConfirm)) cancel();
+			return;
+		}
+		cancel();
+		leaveTo = to.url;
+		leaveError = '';
+		leaveDialog?.showModal();
 	});
+	function leaveNow() {
+		const url = leaveTo;
+		leaveDialog?.close();
+		if (!url) return;
+		leaving = true;
+		if (url.origin !== location.origin) location.href = url.href;
+		else goto(url).finally(() => (leaving = false));
+	}
+	async function saveAndLeave() {
+		await save();
+		if (saveError || dirty) {
+			leaveError = saveError || E.saveFailed;
+			return;
+		}
+		leaveNow();
+	}
 	$effect(() => {
 		const handler = (e: BeforeUnloadEvent) => {
 			if (dirty) e.preventDefault();
@@ -159,9 +191,11 @@
 		listOpen = false;
 	}
 	function remove(i: number) {
-		if (!confirm(E.removeConfirm)) return;
+		if (!confirm(E.removeConfirmN(i + 1, questions[i].prompt.trim().slice(0, 60)))) return;
 		questions.splice(i, 1);
-		selected = Math.min(selected, questions.length - 1);
+		// Usunięcie pytania przed zaznaczonym przesuwa zaznaczenie, żeby edytor został przy tym samym pytaniu.
+		if (i < selected) selected--;
+		selected = Math.max(0, Math.min(selected, questions.length - 1));
 	}
 	function duplicate(i: number) {
 		const copy = { ...structuredClone($state.snapshot(questions[i])), key: newKey(), id: undefined };
@@ -255,6 +289,17 @@
 
 <svelte:window onkeydown={onKey} />
 <svelte:head><title>{quiz.title} · {E.title} · Proem Quiz</title></svelte:head>
+
+<dialog class="leave" bind:this={leaveDialog} aria-labelledby="leave-title" aria-describedby="leave-text">
+	<h2 id="leave-title">{E.leaveTitle}</h2>
+	<p id="leave-text">{E.leaveText}</p>
+	{#if leaveError}<p class="error" role="alert">{leaveError}</p>{/if}
+	<div class="leave-actions">
+		<button type="button" onclick={saveAndLeave} disabled={saving}><Icon name="save" weight={2} />{saving ? E.saving : E.saveAndLeave}</button>
+		<button type="button" class="danger" onclick={leaveNow} disabled={saving}>{E.leaveDiscard}</button>
+		<button type="button" class="secondary" onclick={() => leaveDialog?.close()} disabled={saving}>{E.leaveStay}</button>
+	</div>
+</dialog>
 
 <div class="ed">
 <header class="bar">
@@ -502,6 +547,17 @@
 						<span class="type">{E.typesShort[q.type]}</span>
 						{#if problems(q).length}<span class="warn" title={problemText(q)} aria-label={E.toFill}>!</span>{/if}
 					</button>
+					{#if !ro}
+						<div class="item-menu">
+							<RowMenu label={E.questionMenu(i + 1)}>
+								<button type="button" onclick={() => duplicate(i)}><Icon name="copy" weight={2} />{E.duplicate}</button>
+								<button type="button" onclick={() => move(i, -1)} disabled={i === 0}><Icon name="up" weight={2} />{E.moveUp}</button>
+								<button type="button" onclick={() => move(i, 1)} disabled={i === questions.length - 1}><Icon name="down" weight={2} />{E.moveDown}</button>
+								<hr />
+								<button type="button" class="danger" onclick={() => remove(i)}><Icon name="trash" weight={2} />{E.remove}</button>
+							</RowMenu>
+						</div>
+					{/if}
 				</li>
 			{/each}
 		</ol>
@@ -788,6 +844,21 @@
 	.item:hover:not(:disabled) { filter: none; background: var(--bg); }
 	.item.todo { border-color: #e0a23a; background: #fff7e3; }
 	.item.active { border: 2px solid var(--accent); background: var(--soft); padding: calc(0.5rem - 1px) calc(0.6rem - 1px); }
+	/* Wiersz listy: pytanie + menu ⋯ (duplikuj, przesuń, usuń) – na telefonie lista to jedyne miejsce
+	   pod ręką, bo panel z przyciskami pytania jest na samym dole edytora. */
+	.list li { display: flex; align-items: center; gap: 0.25rem; min-width: 0; }
+	.list li .item { flex: 1; }
+	.item-menu { flex: none; display: flex; }
+	.item-menu :global(.trigger:not(.on)) { background: transparent; border-color: transparent; color: var(--muted); }
+	.item-menu :global(.trigger:not(.on):hover:not(:disabled)) { background: var(--bg); color: var(--text); }
+	/* Okno „Niezapisane zmiany”. */
+	.leave { box-sizing: border-box; width: min(26rem, calc(100vw - 2rem)); padding: 1.4rem; border: 1px solid var(--line-strong); border-radius: var(--radius); background: #fff; color: var(--text); box-shadow: 0 24px 60px rgba(27, 31, 59, 0.25); }
+	.leave::backdrop { background: rgba(27, 31, 59, 0.45); }
+	.leave h2 { margin: 0 0 0.5rem; font-size: 1.2rem; }
+	.leave p { margin: 0 0 1rem; color: var(--muted); }
+	.leave .error { color: var(--danger); margin: 0 0 1rem; }
+	.leave-actions { display: flex; flex-direction: column; gap: 0.5rem; }
+	.leave-actions button { width: 100%; justify-content: center; min-height: 2.75rem; }
 	.n { width: 1.4rem; flex: none; font-weight: 700; }
 	.t { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 	.type { flex: none; font-size: 0.68rem; font-weight: 700; color: #4b5064; background: #fff; border: 1px solid var(--line-strong); padding: 0.1rem 0.35rem; border-radius: 0.3rem; }

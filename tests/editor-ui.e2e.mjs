@@ -141,7 +141,7 @@ try {
 	// Błąd walidacji jest czytelny
 	await p.locator('.list .item').nth(2).click();
 	await p.fill('input[placeholder^="np. Jaka jest stolica"]', '');
-	await p.click('button:has-text("Zapisz")');
+	await p.click('button.save');
 	await p.waitForSelector('.status .err');
 	ok(/Pytanie 3/.test(await p.textContent('.status .err')), `czytelny błąd zapisu: ${await p.textContent('.status .err')}`);
 
