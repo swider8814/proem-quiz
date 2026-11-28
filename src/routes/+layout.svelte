@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import type { LayoutProps } from './$types';
+	import ConfirmDialog from '#lib/ConfirmDialog.svelte';
 
 	let { children }: LayoutProps = $props();
 
@@ -12,3 +13,4 @@
 </script>
 
 {@render children()}
+<ConfirmDialog />

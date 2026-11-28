@@ -26,7 +26,7 @@
 			{#each data.shares as s (s.userId)}
 				<li>
 					<div class="who"><strong>{s.name}</strong> <span class="muted">{s.email}</span></div>
-					<form method="POST" action="?/set" use:enhance={send({ reset: true, confirm: (b) => (b?.getAttribute('name') === 'remove' ? S.removeAccessConfirm(s.name) : null) })} class="row">
+					<form method="POST" action="?/set" use:enhance={send({ reset: true, confirm: (b) => (b?.getAttribute('name') === 'remove' ? { message: S.removeAccessConfirm(s.name), confirmLabel: S.removeAccess } : null) })} class="row">
 						<input type="hidden" name="userId" value={s.userId} />
 						<select name="permission" aria-label={S.permissionFor(s.name)} value={s.permission}
 							onchange={(e) => e.currentTarget.form?.requestSubmit()}>

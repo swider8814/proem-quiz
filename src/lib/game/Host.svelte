@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { ask as askDialog, dialogState } from '#lib/dialog.svelte.js';
 	import { page } from '$app/state';
 	import { panelDict } from '#lib/i18n/panel.js';
 	const PH = $derived(panelDict(page.data.lang).host);
@@ -236,12 +237,12 @@
 		stopPodium = playPodium(set?.podiumSound ?? 'fanfare', { firstAt: PODIUM_DELAY[0], url: set?.podiumUrl });
 	}
 
-	function kickPlayer(p: { id: string; nick: string }) {
-		if (confirm(PH.kickConfirm(p.nick))) cmd('host:kick', { playerId: p.id });
+	async function kickPlayer(p: { id: string; nick: string }) {
+		if (await askDialog({ message: PH.kickConfirm(p.nick), confirmLabel: L.removePlayer, danger: true })) cmd('host:kick', { playerId: p.id });
 	}
 
-	function endGame() {
-		if (confirm(PH.endConfirm)) cmd('host:end');
+	async function endGame() {
+		if (await askDialog({ message: PH.endConfirm, confirmLabel: L.endGame })) cmd('host:end');
 	}
 
 	// ── Okno dla widzów ────────────────────────────────────────────────
@@ -407,7 +408,7 @@
 	}
 
 	async function closeGame() {
-		if (!confirm(PH.closeConfirm)) return;
+		if (!(await askDialog({ message: PH.closeConfirm, confirmLabel: L.endGame, danger: true }))) return;
 		await cmd('host:close');
 		post({ t: 'closed' });
 		onClosed();
@@ -436,6 +437,9 @@
 	function onKey(e: KeyboardEvent) {
 		if (!isScreen) music.resume();
 		if ((e.target as HTMLElement)?.closest('input, textarea, select')) return;
+		// Otwarte okno z pytaniem (np. „Usunąć gracza?”): skróty gry nie działają – Spacja ma kliknąć
+		// zaznaczony przycisk okna, a nie przejść do następnego pytania (review Codexa).
+		if (dialogState.current || (e.target as HTMLElement)?.closest?.('dialog')) return;
 		if (e.key === ' ' || e.key === 'ArrowRight' || e.key === 'PageDown') {
 			e.preventDefault();
 			// Pilot/klawiatura działa też, gdy aktywne jest okno widzów – polecenie idzie do prowadzącego.

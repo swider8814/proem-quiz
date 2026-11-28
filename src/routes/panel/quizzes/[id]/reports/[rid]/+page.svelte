@@ -31,7 +31,7 @@
 <div class="actions">
 	<a class="btn" href="/panel/quizzes/{data.quizId}/reports/{data.report.id}/csv" download><Icon name="download" weight={2} />{R.download}</a>
 	{#if data.canDelete}
-		<form method="POST" action="?/delete" use:enhance={send({ confirm: () => R.removeConfirm })}>
+		<form method="POST" action="?/delete" use:enhance={send({ confirm: () => ({ message: R.removeConfirm, confirmLabel: R.remove, icon: 'trash' }) })}>
 			<button class="danger"><Icon name="trash" weight={2} />{R.remove}</button>
 		</form>
 	{/if}

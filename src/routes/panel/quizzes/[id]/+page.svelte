@@ -2,7 +2,7 @@
 	import Icon from '#lib/Icon.svelte';
 	import RowMenu from '#lib/RowMenu.svelte';
 	import HelpTip from '#lib/help/HelpTip.svelte';
-	import { beforeNavigate } from '$app/navigation';
+	import { beforeNavigate, goto } from '$app/navigation';
 	import AudioClipEditor from '#lib/editor/AudioClipEditor.svelte';
 	import { BUILTIN_MUSIC, Music, playPodium, type MusicKind, type PodiumSound } from '#lib/game/sounds.js';
 	import {
@@ -10,6 +10,7 @@
 		type EditorQuestion, type QType
 	} from '#lib/editor/model.js';
 	import { panelDict } from '#lib/i18n/panel.js';
+	import { ask, choose } from '#lib/dialog.svelte.js';
 
 	let { data } = $props();
 	const t = $derived(panelDict(data.lang));
@@ -42,9 +43,38 @@
 	const dirty = $derived(snapshot !== savedSnapshot);
 	const ro = $derived(!data.canEdit);
 
-	beforeNavigate(({ cancel, type }) => {
-		if (dirty && type !== 'leave' && !confirm(E.leaveConfirm)) cancel();
+	// Wyjście z niezapisanymi zmianami: okno z trzema wyborami (zapisz i wyjdź / wyjdź bez zapisu /
+	// zostań). Nawigację wstrzymujemy i powtarzamy po decyzji. Zamknięcie karty ('leave') obsługuje
+	// przeglądarka (beforeunload) – tam własnego okna pokazać się nie da.
+	let leaving = false;
+	beforeNavigate((nav) => {
+		const { cancel, type, to } = nav;
+		if (leaving || !dirty || type === 'leave' || !to) return;
+		cancel();
+		// Wstecz/Dalej: po decyzji powtarzamy to samo przejście w historii (history.go), a nie goto() –
+		// inaczej powstałby nowy wpis „lista → edytor → lista” i kolejne Wstecz wracałoby do edytora.
+		void askLeave(to.url, type === 'popstate' ? (nav.delta ?? 0) : 0);
 	});
+	async function askLeave(url: URL, delta: number) {
+		const c = await choose({
+			title: E.leaveTitle,
+			message: E.leaveText,
+			actions: [
+				{ id: 'save', label: E.saveAndLeave, kind: 'primary', icon: 'save' },
+				{ id: 'discard', label: E.leaveDiscard, kind: 'danger' },
+				{ id: 'stay', label: E.leaveStay, kind: 'secondary' }
+			]
+		});
+		if (c === 'save') {
+			await save();
+			// Zapis się nie udał (np. niekompletne pytanie) – zostajemy, błąd widać przy przycisku „Zapisz”.
+			if (saveError || dirty) return;
+		} else if (c !== 'discard') return;
+		leaving = true;
+		if (delta) history.go(delta);
+		else if (url.origin !== location.origin) location.href = url.href;
+		else goto(url).finally(() => (leaving = false));
+	}
 	$effect(() => {
 		const handler = (e: BeforeUnloadEvent) => {
 			if (dirty) e.preventDefault();
@@ -102,7 +132,7 @@
 			const conflict = await putOnce(false);
 			if (conflict) {
 				// Ktoś zapisał quiz w międzyczasie: zmiany w edytorze zostają; nadpisanie tylko po potwierdzeniu.
-				if (confirm(E.saveConflictAsk)) {
+				if (await ask({ message: E.saveConflictAsk, confirmLabel: E.save, danger: true })) {
 					const again = await putOnce(true);
 					if (again) saveError = again;
 				} else saveError = conflict;
@@ -158,10 +188,16 @@
 		selected = questions.length - 1;
 		listOpen = false;
 	}
-	function remove(i: number) {
-		if (!confirm(E.removeConfirm)) return;
+	async function remove(i: number) {
+		const key = questions[i].key;
+		if (!(await ask({ message: E.removeConfirmN(i + 1, questions[i].prompt.trim().slice(0, 60)), confirmLabel: E.remove, danger: true, icon: 'trash' }))) return;
+		// Indeks mógł się zmienić, gdy okno było otwarte (np. przeciąganie) – szukamy po kluczu.
+		i = questions.findIndex((q) => q.key === key);
+		if (i < 0) return;
 		questions.splice(i, 1);
-		selected = Math.min(selected, questions.length - 1);
+		// Usunięcie pytania przed zaznaczonym przesuwa zaznaczenie, żeby edytor został przy tym samym pytaniu.
+		if (i < selected) selected--;
+		selected = Math.max(0, Math.min(selected, questions.length - 1));
 	}
 	function duplicate(i: number) {
 		const copy = { ...structuredClone($state.snapshot(questions[i])), key: newKey(), id: undefined };
@@ -255,6 +291,7 @@
 
 <svelte:window onkeydown={onKey} />
 <svelte:head><title>{quiz.title} · {E.title} · Proem Quiz</title></svelte:head>
+
 
 <div class="ed">
 <header class="bar">
@@ -502,6 +539,17 @@
 						<span class="type">{E.typesShort[q.type]}</span>
 						{#if problems(q).length}<span class="warn" title={problemText(q)} aria-label={E.toFill}>!</span>{/if}
 					</button>
+					{#if !ro}
+						<div class="item-menu">
+							<RowMenu label={E.questionMenu(i + 1)}>
+								<button type="button" onclick={() => duplicate(i)}><Icon name="copy" weight={2} />{E.duplicate}</button>
+								<button type="button" onclick={() => move(i, -1)} disabled={i === 0}><Icon name="up" weight={2} />{E.moveUp}</button>
+								<button type="button" onclick={() => move(i, 1)} disabled={i === questions.length - 1}><Icon name="down" weight={2} />{E.moveDown}</button>
+								<hr />
+								<button type="button" class="danger" onclick={() => remove(i)}><Icon name="trash" weight={2} />{E.remove}</button>
+							</RowMenu>
+						</div>
+					{/if}
 				</li>
 			{/each}
 		</ol>
@@ -788,6 +836,13 @@
 	.item:hover:not(:disabled) { filter: none; background: var(--bg); }
 	.item.todo { border-color: #e0a23a; background: #fff7e3; }
 	.item.active { border: 2px solid var(--accent); background: var(--soft); padding: calc(0.5rem - 1px) calc(0.6rem - 1px); }
+	/* Wiersz listy: pytanie + menu ⋯ (duplikuj, przesuń, usuń) – na telefonie lista to jedyne miejsce
+	   pod ręką, bo panel z przyciskami pytania jest na samym dole edytora. */
+	.list li { display: flex; align-items: center; gap: 0.25rem; min-width: 0; }
+	.list li .item { flex: 1; }
+	.item-menu { flex: none; display: flex; }
+	.item-menu :global(.trigger:not(.on)) { background: transparent; border-color: transparent; color: var(--muted); }
+	.item-menu :global(.trigger:not(.on):hover:not(:disabled)) { background: var(--bg); color: var(--text); }
 	.n { width: 1.4rem; flex: none; font-weight: 700; }
 	.t { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 	.type { flex: none; font-size: 0.68rem; font-weight: 700; color: #4b5064; background: #fff; border: 1px solid var(--line-strong); padding: 0.1rem 0.35rem; border-radius: 0.3rem; }

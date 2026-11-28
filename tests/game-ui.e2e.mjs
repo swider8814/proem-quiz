@@ -2,7 +2,7 @@
 // Wymaga: npm run build oraz Chrome/Chromium (CHROME_PATH lub /usr/bin/google-chrome).
 import fs from 'node:fs';
 import { chromium, devices } from 'playwright-core';
-import { finish, makeAdmin, makeMp3, ok, sleep, startServer, upload } from './_helpers.mjs';
+import { finish, makeAdmin, makeMp3, ok, sleep, startServer, upload, appDialogs } from './_helpers.mjs';
 
 const shots = process.argv[2];
 if (shots) fs.mkdirSync(shots, { recursive: true });
@@ -46,6 +46,7 @@ try {
 		};
 	});
 	const host = await hostCtx.newPage();
+	const hostDlg = await appDialogs(host);
 	const hostErrors = [];
 	host.on('pageerror', (e) => hostErrors.push(String(e)));
 	host.on('console', (m) => m.type() === 'error' && hostErrors.push(m.text()));
@@ -268,12 +269,20 @@ try {
 	// ── Koniec ────────────────────────────────────────────────────────────
 	await host.keyboard.press('Space'); // ranking
 	await host.waitForSelector('.board');
+	// Spacja przy otwartym oknie „Usunąć gracza?” klika zaznaczone „Anuluj”, a nie przechodzi dalej (review Codexa)
+	await host.click('.side li:has-text("Ola") .mini');
+	await host.waitForSelector('dialog.pq-dialog[open]');
+	await host.keyboard.press('Space');
+	await host.waitForSelector('dialog.pq-dialog[open]', { state: 'detached' }).catch(() => {});
+	await sleep(400);
+	ok(!(await host.isVisible('dialog.pq-dialog[open]')) && (await host.isVisible('.board')) && !(await host.isVisible('.podium')) && (await host.$$('.side li')).length === 3,
+		'Spacja w oknie z pytaniem: zamyka je (Anuluj), gra nie przechodzi dalej, gracz zostaje');
 	// Wyrzucenie gracza w trakcie gry – z potwierdzeniem
-	host.once('dialog', (d) => d.dismiss());
+	hostDlg.once('dialog', (d) => d.dismiss());
 	await host.click('.side li:has-text("Ola") .mini');
 	await sleep(300);
 	ok((await host.$$('.side li')).length === 3, 'anulowane potwierdzenie → gracz zostaje');
-	host.once('dialog', (d) => d.accept());
+	hostDlg.once('dialog', (d) => d.accept());
 	await host.click('.side li:has-text("Ola") .mini');
 	await phones[2].waitForSelector('text=Prowadzący usunął Cię z gry.');
 	await host.waitForFunction(() => document.querySelectorAll('.side li').length === 2);
@@ -310,7 +319,7 @@ try {
 	ok(true, 'po odświeżeniu telefon wraca do gry');
 
 	// Prowadzący zamyka zakończoną grę: telefony zostają na wynikach, bez paska „Łączenie…”
-	host.once('dialog', (d) => d.accept());
+	hostDlg.once('dialog', (d) => d.accept());
 	await host.click('.game button.g-btn:has-text("Zakończ grę")');
 	await sleep(2500);
 	ok((await phones[1].$$('.offline')).length === 0 && (await phones[1].isVisible('text=Koniec gry!')), 'po zamknięciu gry telefon zostaje na wynikach bez paska „Łączenie…”');

@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { chromium } from 'playwright-core';
-import { finish, makeAdmin, makeMp3, ok, sleep, startServer, waitForHydration } from './_helpers.mjs';
+import { finish, makeAdmin, makeMp3, ok, sleep, startServer, waitForHydration, appDialogs } from './_helpers.mjs';
 
 const shots = process.argv[2];
 if (shots) fs.mkdirSync(shots, { recursive: true });
@@ -24,7 +24,7 @@ try {
 	const errors = [];
 	p.on('pageerror', (e) => errors.push(String(e)));
 	p.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
-	p.on('dialog', (d) => d.accept());
+	(await appDialogs(p)).on('dialog', (d) => d.accept());
 
 	// Nowy quiz z listy
 	await p.goto(`${srv.base}/panel`);
@@ -141,7 +141,7 @@ try {
 	// Błąd walidacji jest czytelny
 	await p.locator('.list .item').nth(2).click();
 	await p.fill('input[placeholder^="np. Jaka jest stolica"]', '');
-	await p.click('button:has-text("Zapisz")');
+	await p.click('button.save');
 	await p.waitForSelector('.status .err');
 	ok(/Pytanie 3/.test(await p.textContent('.status .err')), `czytelny błąd zapisu: ${await p.textContent('.status .err')}`);
 

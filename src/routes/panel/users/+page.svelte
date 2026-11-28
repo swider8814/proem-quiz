@@ -250,19 +250,19 @@
 										</form>
 									{/if}
 									{#if u.totpEnabled}
-										<form method="POST" action={act('reset2fa')} use:enhance={send({ confirm: () => U.reset2faConfirm(u.name) })}>
+										<form method="POST" action={act('reset2fa')} use:enhance={send({ confirm: () => ({ message: U.reset2faConfirm(u.name), confirmLabel: U.reset2fa }) })}>
 											<input type="hidden" name="id" value={u.id} /><button><Icon name="key" weight={2} />{U.reset2fa}</button>
 										</form>
 									{/if}
 									{#if u.activated && !u.disabled}
-										<form method="POST" action={act('toggle')} use:enhance={send({ confirm: () => U.blockConfirm(u.name) })}>
+										<form method="POST" action={act('toggle')} use:enhance={send({ confirm: () => ({ message: U.blockConfirm(u.name), confirmLabel: U.block }) })}>
 											<input type="hidden" name="id" value={u.id} /><button><Icon name="lock" weight={2} />{U.block}</button>
 										</form>
 									{/if}
 									{#if !u.activated}
 										<!-- Nieaktywowane konto nie ma quizów ani plików – można je usunąć (zamiast blokować). -->
 										<hr />
-										<form method="POST" action={act('delete')} use:enhance={send({ confirm: () => U.deleteConfirm(u.name, u.email) })}>
+										<form method="POST" action={act('delete')} use:enhance={send({ confirm: () => ({ message: U.deleteConfirm(u.name, u.email), confirmLabel: U.delete, icon: 'trash' }) })}>
 											<input type="hidden" name="id" value={u.id} /><button class="danger"><Icon name="trash" weight={2} />{U.delete}</button>
 										</form>
 									{/if}
