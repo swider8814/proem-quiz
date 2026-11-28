@@ -35,6 +35,8 @@
 	function onClose() {
 		if (dialogState.current) answer(null);
 	}
+	// Klawisze w oknie nie docierają do skrótów strony (Spacja = dalej w grze, Ctrl+S w edytorze) –
+	// Spacja/Enter mają tylko kliknąć zaznaczony przycisk. Esc zamyka okno niezależnie (zdarzenie cancel).
 	// Kliknięcie w przyciemnione tło (poza okienkiem) = anuluj.
 	function onBackdrop(e: MouseEvent) {
 		if (e.target === el) answer(null);
@@ -42,7 +44,7 @@
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
-<dialog class="pq-dialog" bind:this={el} onclose={onClose} onclick={onBackdrop} aria-labelledby={req?.title ? `${id}-t` : undefined} aria-describedby="{id}-m">
+<dialog class="pq-dialog" bind:this={el} onclose={onClose} onclick={onBackdrop} onkeydown={(e) => e.stopPropagation()} aria-labelledby={req?.title ? `${id}-t` : undefined} aria-describedby="{id}-m">
 	{#if req}
 		<div class="box">
 			{#if req.title}<h2 id="{id}-t">{req.title}</h2>{/if}

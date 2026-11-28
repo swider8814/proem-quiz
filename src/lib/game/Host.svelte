@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ask as askDialog } from '#lib/dialog.svelte.js';
+	import { ask as askDialog, dialogState } from '#lib/dialog.svelte.js';
 	import { page } from '$app/state';
 	import { panelDict } from '#lib/i18n/panel.js';
 	const PH = $derived(panelDict(page.data.lang).host);
@@ -437,6 +437,9 @@
 	function onKey(e: KeyboardEvent) {
 		if (!isScreen) music.resume();
 		if ((e.target as HTMLElement)?.closest('input, textarea, select')) return;
+		// Otwarte okno z pytaniem (np. „Usunąć gracza?”): skróty gry nie działają – Spacja ma kliknąć
+		// zaznaczony przycisk okna, a nie przejść do następnego pytania (review Codexa).
+		if (dialogState.current || (e.target as HTMLElement)?.closest?.('dialog')) return;
 		if (e.key === ' ' || e.key === 'ArrowRight' || e.key === 'PageDown') {
 			e.preventDefault();
 			// Pilot/klawiatura działa też, gdy aktywne jest okno widzów – polecenie idzie do prowadzącego.

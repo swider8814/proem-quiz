@@ -269,6 +269,14 @@ try {
 	// ── Koniec ────────────────────────────────────────────────────────────
 	await host.keyboard.press('Space'); // ranking
 	await host.waitForSelector('.board');
+	// Spacja przy otwartym oknie „Usunąć gracza?” klika zaznaczone „Anuluj”, a nie przechodzi dalej (review Codexa)
+	await host.click('.side li:has-text("Ola") .mini');
+	await host.waitForSelector('dialog.pq-dialog[open]');
+	await host.keyboard.press('Space');
+	await host.waitForSelector('dialog.pq-dialog[open]', { state: 'detached' }).catch(() => {});
+	await sleep(400);
+	ok(!(await host.isVisible('dialog.pq-dialog[open]')) && (await host.isVisible('.board')) && !(await host.isVisible('.podium')) && (await host.$$('.side li')).length === 3,
+		'Spacja w oknie z pytaniem: zamyka je (Anuluj), gra nie przechodzi dalej, gracz zostaje');
 	// Wyrzucenie gracza w trakcie gry – z potwierdzeniem
 	hostDlg.once('dialog', (d) => d.dismiss());
 	await host.click('.side li:has-text("Ola") .mini');
